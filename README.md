@@ -64,6 +64,16 @@ gh api --method PUT repos/{owner}/{repo}/environments/release
 
 On [RubyGems.org](https://rubygems.org), open your gem's **Trusted publishers** page and create a [trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows). Set the repository fields to your gem's repository, the workflow filename to `release.yml`, and the environment to `release`. Set the separate workflow repository fields to `dblock` and `ruby-gem-release`; these identify the reusable workflow RubyGems verifies in the OIDC token. For a new gem, use the [pending trusted publishers page](https://rubygems.org/profile/oidc/pending_trusted_publishers) instead.
 
+### 4. Make a Release
+
+From your default branch, review the changes and dispatch the workflow with the version to publish:
+
+```sh
+gh workflow run release.yml --ref master -f version=0.1.0
+```
+
+Replace `master` with your default branch and `0.1.0` with the desired version. Approve the `release` environment if required. The workflow validates and publishes the gem, pushes the release commit and tag, creates a GitHub Release, and prepares the next development version. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions.
+
 ## GitHub Branch Protection and Rulesets
 
 In **Settings → Environments → release**, restrict deployment branches to your default branch and add required reviewers if available. The workflow also rejects non-default-branch releases.
