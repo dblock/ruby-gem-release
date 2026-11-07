@@ -6,9 +6,14 @@ LCOV
 md
 OIDC
 PRs
+Rakefile
+README
 rebase
 reviewable
+ruleset
+rulesets
 RSpec
 RuboCop
 RubyGems
+untrusted
 worktree

@@ -1,0 +1,19 @@
+name: Release integration
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  consumer:
+    uses: ./.github/workflows/release.yml
+    with:
+      version: '9000.0.1'
+      gemspec: spec/fixtures/release_consumer/fixture.gemspec
+      ruby-version: '3.3'
+      prepare: bundle exec rake -f spec/fixtures/release_consumer/Rakefile 'ruby_gem_release:version:set[9000.0.1]'
+      validate: bundle exec rake
+      bump: bundle exec rake -f spec/fixtures/release_consumer/Rakefile ruby_gem_release:version:bump
+      dry-run: true

@@ -1,0 +1,158 @@
+name: Release gem
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version in MAJOR.MINOR.PATCH form
+        type: string
+        required: true
+      gemspec:
+        description: Path to the gemspec
+        type: string
+        required: true
+      ruby-version:
+        description: Ruby version used to validate and build
+        type: string
+        required: true
+      prepare:
+        description: Command to prepare release files; RELEASE_VERSION is available
+        type: string
+        required: true
+      validate:
+        description: Command to validate the prepared release
+        type: string
+        required: true
+      bump:
+        description: Command to prepare the next development version
+        type: string
+        required: true
+      dry-run:
+        description: Validate and build without publishing or pushing
+        type: boolean
+        default: false
+
+concurrency:
+  group: ruby-gem-release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      GEMSPEC: ${{ inputs.gemspec }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      DRY_RUN: ${{ inputs.dry-run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check release inputs and branch
+        id: initial
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Version must be MAJOR.MINOR.PATCH without leading zeros."
+            exit 1
+          fi
+          if [[ "$DRY_RUN" != true && "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo "::error::Releases must run from the default branch."
+            exit 1
+          fi
+          test -f "$GEMSPEC"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$DEFAULT_BRANCH" --tags
+          if [[ "$DRY_RUN" != true && "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$DEFAULT_BRANCH")" ]]; then
+            echo "::error::Default branch advanced; start a new release."
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/v$RELEASE_VERSION"; then
+            echo "::error::Release tag already exists."
+            exit 1
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ inputs.ruby-version }}
+          bundler-cache: true
+      - name: Prepare release
+        env:
+          COMMAND: ${{ inputs.prepare }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Validate release
+        env:
+          COMMAND: ${{ inputs.validate }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Commit and build release
+        id: build
+        env:
+          INITIAL_COMMIT: ${{ steps.initial.outputs.commit }}
+        run: |
+          set -euo pipefail
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Prepare release $RELEASE_VERSION"
+          fi
+          gem build "$GEMSPEC" --output "$RUNNER_TEMP/release.gem"
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo "::error::Gem build changed the working tree after the release commit."
+            exit 1
+          fi
+          ruby -rrubygems/package -e '
+            spec = Gem::Package.new(ARGV.fetch(0)).spec
+            abort "Built version #{spec.version} does not match #{ENV.fetch("RELEASE_VERSION")}" unless spec.version.to_s == ENV.fetch("RELEASE_VERSION")
+            File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |f| f.puts "name=#{spec.name}" }
+          ' "$RUNNER_TEMP/release.gem"
+          git tag "v$RELEASE_VERSION"
+          git bundle create "$RUNNER_TEMP/release.bundle" HEAD "refs/tags/v$RELEASE_VERSION"
+          if [[ "$DRY_RUN" != true ]]; then
+            git fetch origin "$DEFAULT_BRANCH" --tags
+            if [[ "$INITIAL_COMMIT" != "$(git rev-parse "origin/$DEFAULT_BRANCH")" ]]; then
+              echo "::error::Default branch advanced before publication."
+              exit 1
+            fi
+          fi
+      - name: Preserve built gem
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-gem-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/release.gem
+            ${{ runner.temp }}/release.bundle
+          if-no-files-found: error
+          retention-days: 30
+      - name: Authenticate to RubyGems
+        if: ${{ !inputs.dry-run }}
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - name: Publish gem
+        if: ${{ !inputs.dry-run }}
+        run: gem push "$RUNNER_TEMP/release.gem"
+      - name: Push release commit and tag atomically
+        if: ${{ !inputs.dry-run }}
+        run: git push --atomic origin "HEAD:refs/heads/$DEFAULT_BRANCH" "refs/tags/v$RELEASE_VERSION"
+      - name: Create GitHub release
+        if: ${{ !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GEM_NAME: ${{ steps.build.outputs.name }}
+        run: |
+          cp "$RUNNER_TEMP/release.gem" "$RUNNER_TEMP/$GEM_NAME-$RELEASE_VERSION.gem"
+          gh release create "v$RELEASE_VERSION" --verify-tag --title "v$RELEASE_VERSION" --generate-notes "$RUNNER_TEMP/$GEM_NAME-$RELEASE_VERSION.gem"
+      - name: Prepare next development version
+        env:
+          COMMAND: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          bash -euo pipefail -c "$COMMAND"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "::error::The bump command did not change any files."
+            exit 1
+          fi
+          git commit -m "Prepare next development version after $RELEASE_VERSION"
+          if [[ "$DRY_RUN" != true ]]; then
+            git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"
+          fi
