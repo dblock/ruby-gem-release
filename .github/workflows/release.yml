@@ -4,13 +4,11 @@ on:
   workflow_call:
     inputs:
       version:
-        description: Release version in MAJOR.MINOR.PATCH form
+        description: Optional release version; defaults to the configured version task
         type: string
-        required: true
       gemspec:
-        description: Path to the gemspec
+        description: Optional gemspec path; defaults to the only root gemspec
         type: string
-        required: true
       ruby-version:
         description: Ruby version used to validate and build
         type: string
@@ -41,8 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     env:
-      RELEASE_VERSION: ${{ inputs.version }}
-      GEMSPEC: ${{ inputs.gemspec }}
+      INPUT_VERSION: ${{ inputs.version }}
+      INPUT_GEMSPEC: ${{ inputs.gemspec }}
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       DRY_RUN: ${{ inputs.dry-run }}
     steps:
@@ -53,15 +51,25 @@ jobs:
         id: initial
         run: |
           set -euo pipefail
-          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Version must be MAJOR.MINOR.PATCH without leading zeros."
-            exit 1
-          fi
           if [[ "$DRY_RUN" != true && "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
             echo "::error::Releases must run from the default branch."
             exit 1
           fi
-          test -f "$GEMSPEC"
+          gemspec="$INPUT_GEMSPEC"
+          if [[ -z "$gemspec" ]]; then
+            shopt -s nullglob
+            gemspecs=(*.gemspec)
+            if [[ "${#gemspecs[@]}" != 1 ]]; then
+              echo "::error::Expected exactly one root gemspec; specify the gemspec input."
+              exit 1
+            fi
+            gemspec="${gemspecs[0]}"
+          fi
+          if [[ ! -f "$gemspec" || "$gemspec" == *$'\n'* || "$gemspec" == *$'\r'* ]]; then
+            echo "::error::The gemspec input must name an existing file without line breaks."
+            exit 1
+          fi
+          echo "GEMSPEC=$gemspec" >> "$GITHUB_ENV"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin "$DEFAULT_BRANCH" --tags
@@ -69,15 +77,28 @@ jobs:
             echo "::error::Default branch advanced; start a new release."
             exit 1
           fi
-          if git show-ref --verify --quiet "refs/tags/v$RELEASE_VERSION"; then
-            echo "::error::Release tag already exists."
-            exit 1
-          fi
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ inputs.ruby-version }}
           bundler-cache: true
+      - name: Resolve release version
+        run: |
+          set -euo pipefail
+          version="$INPUT_VERSION"
+          if [[ -z "$version" ]]; then
+            version="$(bundle exec rake ruby_gem_release:version:read)"
+          fi
+          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Version must be MAJOR.MINOR.PATCH without leading zeros."
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/v$version"; then
+            echo "::error::Release tag already exists."
+            exit 1
+          fi
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "Releasing version $version"
       - name: Prepare release
         env:
           COMMAND: ${{ inputs.prepare }}
@@ -118,7 +139,7 @@ jobs:
       - name: Preserve built gem
         uses: actions/upload-artifact@v7
         with:
-          name: release-gem-${{ github.run_id }}-${{ github.run_attempt }}
+          name: release-gem-${{ env.RELEASE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/release.gem
             ${{ runner.temp }}/release.bundle

@@ -28,7 +28,7 @@ RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_co
 
 ### 2. Add the Release Workflow
 
-Add `.github/workflows/release.yml` using the [sample workflow](examples/.github/workflows/release.yml), replacing the gem specification path and Ruby version with your project's values:
+Add `.github/workflows/release.yml` using the [sample workflow](examples/.github/workflows/release.yml), replacing the Ruby version with your project's value:
 
 ```yaml
 name: Release
@@ -37,8 +37,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version
-        required: true
+        description: Optional release version (defaults to the current version)
+        required: false
         type: string
 
 permissions:
@@ -50,7 +50,6 @@ jobs:
     uses: dblock/ruby-gem-release/.github/workflows/release.yml@master
     with:
       version: ${{ inputs.version }}
-      gemspec: example.gemspec
       ruby-version: '3.3'
 ```
 
@@ -66,13 +65,13 @@ On [RubyGems.org](https://rubygems.org), open your gem's **Trusted publishers** 
 
 ### 4. Make a Release
 
-From your default branch, review the changes and dispatch the workflow with the version to publish:
+From your default branch, review the changes and dispatch the workflow:
 
 ```sh
-gh workflow run release.yml --ref master -f version=0.1.0
+gh workflow run release.yml
 ```
 
-Replace `master` with your default branch and `0.1.0` with the desired version. Approve the `release` environment if required. The workflow validates and publishes the gem, pushes the release commit and tag, creates a GitHub Release, and prepares the next development version. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions.
+The workflow runs on the default branch and uses the current version from your configured version file; pass `-f version=0.1.0` to release a different version. Approve the `release` environment if required. The workflow validates and publishes the gem, pushes the release commit and tag, creates a GitHub Release, and prepares the next development version. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions.
 
 ## GitHub Branch Protection and Rulesets
 
@@ -82,7 +81,7 @@ Check **Settings → Branches** for branch protection rules and **Settings → R
 
 ## Workflow Commands
 
-By default, the workflow sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, and bumps the patch version after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed; for example, `prepare` can also update the changelog. Pin the workflow to a reviewed release or commit instead of `master` when available. See [RELEASING.md](RELEASING.md) for required permissions, trusted-publisher configuration, failure recovery, and a dry run.
+The workflow uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple. By default, it sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, and bumps the patch version after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed; for example, `prepare` can also update the changelog. Pin the workflow to a reviewed release or commit instead of `master` when available. See [RELEASING.md](RELEASING.md) for required permissions, trusted-publisher configuration, failure recovery, and a dry run.
 
 ## Version Tasks
 

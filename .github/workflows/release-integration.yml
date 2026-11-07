@@ -7,6 +7,11 @@ permissions:
   contents: read
 
 jobs:
+  current-version:
+    uses: ./.github/workflows/release.yml
+    with:
+      ruby-version: '3.3'
+      dry-run: true
   consumer:
     uses: ./.github/workflows/release.yml
     with:
