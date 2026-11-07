@@ -12,7 +12,7 @@ require 'ruby-gem-release/tasks'
 RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_constant: 'VERSION')
 ```
 
-Call the reusable workflow from a `workflow_dispatch` workflow in the publishing repository:
+Add `.github/workflows/release.yml` to the publishing repository to call the reusable workflow:
 
 ```yaml
 name: Release
