@@ -1,0 +1,27 @@
+# `RubyGemRelease::Release`
+
+An immutable context passed to [release callbacks](tasks.md). Strings and the date are copied and frozen along with the object.
+
+## Version
+
+`release.version` is the current gemspec version before preparation and the prepared version after publication. The required constructor argument `version:` is a string.
+
+## Previous Version
+
+`release.previous_version` retains the initial gemspec version across both phases. It can equal the released version. The required constructor argument `previous_version:` is a string.
+
+## Next Version
+
+`release.next_version` starts as `nil`. The optional constructor argument `next_version:` accepts a string.
+
+## Date
+
+`release.date` is a Ruby `Date`. The workflow captures it once in UTC and retains it across both phases. The constructor requires `date:`.
+
+## With Version
+
+`release.with_version(version.read)` returns a new context containing the supplied version string, preserving every other field and leaving the original unchanged.
+
+## With Next Version
+
+`release.with_next_version(version.increment!)` returns a new context containing the supplied next-version string, preserving every other field and leaving the original unchanged.

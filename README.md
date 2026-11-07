@@ -20,12 +20,24 @@ module Example
 end
 ```
 
+And a changelog such as [this Keep a Changelog example](examples/keep_a_changelog/CHANGELOG.md).
+
 Add `ruby-gem-release` to the development dependencies and install its tasks in the project's Rakefile, replacing `lib/example/version.rb` with the path to your version file:
 
 ```ruby
 require 'ruby-gem-release/tasks'
+require 'ruby-gem-release/changelog'
 
-RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_constant: 'VERSION')
+RubyGemRelease::Tasks.install do |tasks|
+  version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
+  changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
+  tasks.before_release do |release|
+    changelog.release!(release.with_version(version.read))
+  end
+  tasks.after_release do |release|
+    changelog.prepare_next!(release.with_next_version(version.increment!))
+  end
+end
 ```
 
 ### 2. Add the Release Workflow
@@ -39,7 +51,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Optional release version (defaults to the current version)
+        description: Optional expected version (must match the prepared gemspec)
         required: false
         type: string
 
@@ -85,36 +97,21 @@ Check **Settings → Branches** for branch protection rules and **Settings → R
 
 ## Workflow Commands
 
-The workflow runs on the default branch and uses the current version from your configured version file; pass `-f version=0.1.0` to `gh workflow run` to release a different version. It uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple.
+The workflow runs on the default branch and reads the current version from the gemspec before preparation, then resolves the version to publish from the prepared gemspec. Pass `-f version=0.1.0` to `gh workflow run` to require that prepared version; the input does not set the version, and a mismatch fails before publication. It uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple.
 
-By default, it runs the before-release callback, sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, then bumps the patch version and runs the after-bump callback after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed. It publishes the gem, pushes the release commit and tag, and creates a GitHub Release. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
+By default, it runs the before-release callback, runs `bundle exec rake`, then runs the next-version preparation callback after publication. Version setting and incrementing are explicit operations in your callbacks, not implicit workflow steps. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed. It publishes the gem, pushes the release commit and tag, and creates a GitHub Release. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
+
+## Version Objects
+
+[`RubyConstant`](docs/ruby_constant.md) reads and updates numeric versions without evaluating the version file. Version objects are local to your callbacks; use your own objects for other file formats.
 
 ## Release Callbacks
 
-Optional callbacks let the calling project update its own changelog or other files in Ruby. Register them in the Rakefile:
+[`Tasks`](docs/tasks.md) registers `before_release` and `after_release` callbacks receiving an immutable [`Release`](docs/release.md) context. Version changes are explicit callback operations. Unregistered callbacks do nothing; exceptions fail the task. Callbacks also run in dry-run mode and must be safe and trusted.
 
-```ruby
-RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_constant: 'VERSION') do |release|
-  release.before_release do |version:, date:|
-    # Update release files using version and the Ruby Date.
-  end
-  release.after_bump do |version:, released_version:|
-    # Prepare files for the next version.
-  end
-end
-```
+## Changelog Objects
 
-For complete examples, see this project's [Rakefile](Rakefile) for its `Next` changelog format and the [Keep a Changelog example](examples/keep_a_changelog/Rakefile). Adjust the paths, headings, placeholders, and reference links for your project; the example rejects reference links rather than leaving them stale. The gem does not detect or modify the changelog itself. An unregistered callback does nothing, and exceptions fail the task.
-
-The default workflow invokes `release:before_release[VERSION]` before setting the version and `release:after_bump[RELEASED_VERSION]` after the bump. A custom `prepare` or `bump` input replaces the corresponding default and must invoke the callback task explicitly if needed. The callbacks also run in dry-run mode, so they must be safe and trusted.
-
-## Version Tasks
-
-The version file must contain exactly one assignment to the named constant. Versions must be numeric `MAJOR.MINOR.PATCH`.
-
-- `bundle exec rake release:version:read` prints the current version.
-- `bundle exec rake 'release:version:set[1.2.3]'` sets the version.
-- `bundle exec rake 'release:version:bump[minor]'` increments `major`, `minor`, or `patch`, resetting lower components. The default is `patch`.
+[`KeepAChangelog`](docs/keep_a_changelog.md) updates Unreleased sections and comparison references. [`Intridea`](docs/intridea.md) updates Next sections with a configured contribution placeholder. Both inherit source-preserving behavior from [`Base`](docs/changelog_base.md) and own their file updates. Use custom callbacks for other formats.
 
 ## Contributing
 

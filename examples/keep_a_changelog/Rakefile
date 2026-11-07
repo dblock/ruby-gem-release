@@ -1,28 +1,15 @@
 # frozen_string_literal: true
 
 require 'ruby-gem-release/tasks'
+require 'ruby-gem-release/changelog'
 
-RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_constant: 'VERSION') do |release|
-  release.before_release do |version:, date:|
-    path = 'CHANGELOG.md'
-    content = File.read(path)
-    raise 'Reference links need updating' if content.match?(/^\[[^\]]+\]:\s*\S/)
-
-    pattern = /^## \[Unreleased\]$/
-    raise 'Expected exactly one unreleased heading' unless content.scan(pattern).one?
-
-    heading = "## [#{version}] - #{date.strftime('%Y-%m-%d')}"
-    File.write(path, content.sub(pattern, heading))
+RubyGemRelease::Tasks.install do |tasks|
+  version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
+  changelog = RubyGemRelease::Changelog::KeepAChangelog.new
+  tasks.before_release do |release|
+    changelog.release!(release.with_version(version.read))
   end
-
-  release.after_bump do |released_version:, **|
-    path = 'CHANGELOG.md'
-    content = File.read(path)
-    pattern = /^## \[#{Regexp.escape(released_version)}\] - \d{4}-\d{2}-\d{2}$/
-    matches = content.to_enum(:scan, pattern).map { Regexp.last_match }
-    raise 'Expected exactly one released heading' unless matches.one?
-    raise 'Unreleased section already exists' if content.match?(/^## \[Unreleased\]$/)
-
-    File.write(path, content.insert(matches.first.begin(0), "## [Unreleased]\n\n"))
+  tasks.after_release do |release|
+    changelog.prepare_next!(release.with_next_version(version.increment!))
   end
 end

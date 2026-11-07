@@ -23,5 +23,6 @@ Gem::Specification.new do |s|
     'source_code_uri' => 'https://github.com/dblock/ruby-gem-release'
   }
 
+  s.add_dependency 'commonmarker', '~> 2.10'
   s.add_dependency 'rake', '>= 13'
 end

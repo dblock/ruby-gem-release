@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       version:
-        description: Optional release version; defaults to the configured version task
+        description: Optional expected version; must match the prepared gemspec
         type: string
       gemspec:
         description: Optional gemspec path; defaults to the only root gemspec
@@ -14,11 +14,10 @@ on:
         type: string
         required: true
       prepare:
-        description: Command to prepare release files; RELEASE_VERSION is available
+        description: Command to prepare release files; INPUT_VERSION is the expected version
         type: string
         default: |
-          bundle exec rake "release:before_release[$RELEASE_VERSION]"
-          bundle exec rake "release:version:set[$RELEASE_VERSION]"
+          bundle exec rake "release:before_release[$RELEASE_PREVIOUS_VERSION,$RELEASE_PREVIOUS_VERSION,$RELEASE_DATE]"
       validate:
         description: Command to validate the prepared release
         type: string
@@ -27,7 +26,7 @@ on:
         description: Command to prepare the next development version
         type: string
         default: |
-          bundle exec rake release:version:bump "release:after_bump[$RELEASE_VERSION]"
+          bundle exec rake "release:after_release[$RELEASE_VERSION,$RELEASE_PREVIOUS_VERSION,$RELEASE_DATE]"
       dry-run:
         description: Validate and build without publishing or pushing
         type: boolean
@@ -85,15 +84,36 @@ jobs:
         with:
           ruby-version: ${{ inputs.ruby-version }}
           bundler-cache: true
-      - name: Resolve Release Version
+      - name: Capture Release Context
         run: |
           set -euo pipefail
-          version="$INPUT_VERSION"
-          if [[ -z "$version" ]]; then
-            version="$(bundle exec rake release:version:read)"
+          previous_version="$(bundle exec ruby -rrubygems -e 'spec = Gem::Specification.load(ENV.fetch("GEMSPEC")); abort "Cannot load gemspec" unless spec; puts spec.version')"
+          if [[ ! "$previous_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Previous version must be MAJOR.MINOR.PATCH without leading zeros."
+            exit 1
           fi
+          if [[ -n "$INPUT_VERSION" && ! "$INPUT_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Expected version must be MAJOR.MINOR.PATCH without leading zeros."
+            exit 1
+          fi
+          {
+            echo "RELEASE_PREVIOUS_VERSION=$previous_version"
+            echo "RELEASE_DATE=$(date -u +%F)"
+          } >> "$GITHUB_ENV"
+      - name: Prepare Release
+        env:
+          COMMAND: ${{ inputs.prepare }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Resolve Prepared Version
+        run: |
+          set -euo pipefail
+          version="$(bundle exec ruby -rrubygems -e 'spec = Gem::Specification.load(ENV.fetch("GEMSPEC")); abort "Cannot load gemspec" unless spec; puts spec.version')"
           if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Version must be MAJOR.MINOR.PATCH without leading zeros."
+            echo "::error::Prepared version must be MAJOR.MINOR.PATCH without leading zeros."
+            exit 1
+          fi
+          if [[ -n "$INPUT_VERSION" && "$version" != "$INPUT_VERSION" ]]; then
+            echo "::error::Prepared version $version does not match expected version $INPUT_VERSION."
             exit 1
           fi
           if git show-ref --verify --quiet "refs/tags/v$version"; then
@@ -102,10 +122,6 @@ jobs:
           fi
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
           echo "Releasing version $version"
-      - name: Prepare Release
-        env:
-          COMMAND: ${{ inputs.prepare }}
-        run: bash -euo pipefail -c "$COMMAND"
       - name: Validate Release
         env:
           COMMAND: ${{ inputs.validate }}

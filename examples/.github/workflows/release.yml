@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Optional release version (defaults to the current version)
+        description: Optional expected version (must match the prepared gemspec)
         required: false
         type: string
 

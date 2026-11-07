@@ -2,8 +2,10 @@ Bundler
 changelog
 Coveralls
 dblock
+gemspec
 GitHub
 LCOV
+lifecycle
 md
 OIDC
 PRs

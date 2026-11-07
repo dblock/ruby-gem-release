@@ -1,0 +1,19 @@
+# `RubyGemRelease::Changelog::Base`
+
+Shared implementation for [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_a_changelog.md). Use those concrete classes rather than constructing Base directly.
+
+## Path
+
+`path:` defaults to `'CHANGELOG.md'`.
+
+## Release
+
+`release!(release)` delegates the release version and date to the concrete format implementation.
+
+## Prepare Next
+
+`prepare_next!(release)` delegates the released and next versions to the concrete format implementation.
+
+## Source Preservation
+
+Uses `Commonmarker` to identify top-level headings and exclude code, HTML, and quoted blocks. Updates edit the original source rather than rendering the parsed document again, preserving unrelated formatting. Unix and Windows line endings are supported; mixed line endings or standalone carriage returns are rejected.
