@@ -17,6 +17,7 @@ on:
         description: Command to prepare release files; RELEASE_VERSION is available
         type: string
         default: |
+          bundle exec rake "release:before_release[$RELEASE_VERSION]"
           bundle exec rake "release:version:set[$RELEASE_VERSION]"
       validate:
         description: Command to validate the prepared release
@@ -25,7 +26,8 @@ on:
       bump:
         description: Command to prepare the next development version
         type: string
-        default: bundle exec rake release:version:bump
+        default: |
+          bundle exec rake release:version:bump "release:after_bump[$RELEASE_VERSION]"
       dry-run:
         description: Validate and build without publishing or pushing
         type: boolean

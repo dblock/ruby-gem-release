@@ -19,9 +19,14 @@ jobs:
       gemspec: spec/fixtures/release_consumer/fixture.gemspec
       ruby-version: '3.3'
       prepare: |
-        cat >> Rakefile <<'RUBY'
-
-        load 'spec/fixtures/release_consumer/Rakefile'
+        bundle exec rake "release:before_release[$RELEASE_VERSION]" "release:version:set[$RELEASE_VERSION]"
+        ruby - <<'RUBY'
+        path = 'spec/fixtures/release_consumer/version.rb'
+        content = File.read(path)
+        File.write(path, content.sub('9000.0.0', ENV.fetch('RELEASE_VERSION')))
         RUBY
-        bundle exec rake "release:version:set[$RELEASE_VERSION]"
+        grep -q '^## 9000.0.1 (' CHANGELOG.md
+      bump: |
+        bundle exec rake release:version:bump "release:after_bump[$RELEASE_VERSION]"
+        grep -q '^## 9000.0.2 (Next)$' CHANGELOG.md
       dry-run: true

@@ -6,6 +6,8 @@ The shared workflow will orchestrate an end-to-end release: authorize the releas
 
 The Rake tasks update exactly one constant assignment without evaluating the version file. The reusable workflow is the primary GitHub interface; it is not a composite or JavaScript action. Caller-provided shell commands run with the workflow's privileges and must be trusted.
 
+Optional Ruby callbacks run before setting the release version and after bumping the next version. The caller owns changelog formats, file detection, and link updates; callback failures stop the workflow.
+
 The workflow builds once and publishes before atomically pushing its commit and tag. This leaves an unavoidable recovery window if the push fails after publication; see [RELEASING.md](RELEASING.md). The pull-request integration workflow invokes the actual reusable workflow with a consumer fixture and dry-run mode, without publishing or pushing.
 
 ## Logo

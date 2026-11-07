@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rake'
+require 'date'
 
 module RubyGemRelease
   class Tasks
@@ -9,7 +10,9 @@ module RubyGemRelease
     VERSION_PATTERN = /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z/
 
     def self.install(version_file:, version_constant:)
-      new(version_file, version_constant).install
+      instance = new(version_file, version_constant)
+      yield instance if block_given?
+      instance.install
     end
 
     def initialize(version_file, version_constant)
@@ -26,10 +29,38 @@ module RubyGemRelease
           install_set_task
           install_bump_task
         end
+        install_callback_tasks
       end
     end
 
+    def before_release(&block)
+      raise ArgumentError, 'before_release requires a block' unless block
+      raise ArgumentError, 'before_release already configured' if @before_release
+
+      @before_release = block
+    end
+
+    def after_bump(&block)
+      raise ArgumentError, 'after_bump requires a block' unless block
+      raise ArgumentError, 'after_bump already configured' if @after_bump
+
+      @after_bump = block
+    end
+
     private
+
+    def install_callback_tasks
+      desc 'Run the before-release callback'
+      task(:before_release, [:version]) do |_task, args|
+        parse_version(args[:version])
+        @before_release&.call(version: args[:version], date: Date.today)
+      end
+      desc 'Run the after-bump callback'
+      task(:after_bump, [:released_version]) do |_task, args|
+        parse_version(args[:released_version])
+        @after_bump&.call(version: read, released_version: args[:released_version])
+      end
+    end
 
     def install_read_task
       desc 'Print the current version'

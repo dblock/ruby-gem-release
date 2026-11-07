@@ -87,7 +87,26 @@ Check **Settings → Branches** for branch protection rules and **Settings → R
 
 The workflow runs on the default branch and uses the current version from your configured version file; pass `-f version=0.1.0` to `gh workflow run` to release a different version. It uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple.
 
-By default, it sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, and bumps the patch version after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed; for example, `prepare` can also update the changelog. It publishes the gem, pushes the release commit and tag, and creates a GitHub Release. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
+By default, it runs the before-release callback, sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, then bumps the patch version and runs the after-bump callback after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed. It publishes the gem, pushes the release commit and tag, and creates a GitHub Release. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
+
+## Release Callbacks
+
+Optional callbacks let the calling project update its own changelog or other files in Ruby. Register them in the Rakefile:
+
+```ruby
+RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_constant: 'VERSION') do |release|
+  release.before_release do |version:, date:|
+    # Update release files using version and the Ruby Date.
+  end
+  release.after_bump do |version:, released_version:|
+    # Prepare files for the next version.
+  end
+end
+```
+
+For complete examples, see this project's [Rakefile](Rakefile) for its `Next` changelog format and the [Keep a Changelog example](examples/keep_a_changelog/Rakefile). Adjust the paths, headings, placeholders, and reference links for your project; the example rejects reference links rather than leaving them stale. The gem does not detect or modify the changelog itself. An unregistered callback does nothing, and exceptions fail the task.
+
+The default workflow invokes `release:before_release[VERSION]` before setting the version and `release:after_bump[RELEASED_VERSION]` after the bump. A custom `prepare` or `bump` input replaces the corresponding default and must invoke the callback task explicitly if needed. The callbacks also run in dry-run mode, so they must be safe and trusted.
 
 ## Version Tasks
 
