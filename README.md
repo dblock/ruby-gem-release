@@ -48,7 +48,7 @@ jobs:
       ruby-version: '3.3'
 ```
 
-In your GitHub repository, open **Settings → Environments** and create an environment named `release`. Alternatively, from your repository directory, create it with `gh` (check existing environment settings before running this create-or-update command):
+In your GitHub repository, open **Settings → Environments** and create an environment named `release`. Alternatively, from your repository directory, use `gh`:
 
 ```sh
 gh api --method PUT repos/{owner}/{repo}/environments/release
