@@ -3,6 +3,7 @@
 require 'rake'
 require_relative 'release'
 require_relative 'version/ruby_constant'
+require_relative 'workflow'
 
 module RubyGemRelease
   class Tasks
@@ -18,6 +19,7 @@ module RubyGemRelease
       namespace :release do
         install_callback_tasks
         install_publish_task
+        install_workflow_tasks
       end
     end
 
@@ -44,8 +46,15 @@ module RubyGemRelease
 
     private
 
+    def install_workflow_tasks
+      namespace :workflow do
+        task(:capture) { Workflow.new.capture! }
+        task(:resolve) { Workflow.new.resolve! }
+      end
+    end
+
     def install_publish_task
-      desc 'Run the remote publication callback after the tag push'
+      desc 'Run the release publication callback'
       task :publish do
         @publish&.call(context)
       end
@@ -71,7 +80,7 @@ module RubyGemRelease
       validate_context_versions(version, previous_version)
       raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date))
+      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), dry_run: ENV.fetch('DRY_RUN', 'false') == 'true')
     end
 
     def validate_context_versions(*versions)

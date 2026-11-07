@@ -1,55 +1,58 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'yaml'
-require 'open3'
+require 'ruby-gem-release/workflow'
 require 'tmpdir'
 
-RSpec.describe 'Workflow version resolution' do # rubocop:disable RSpec/DescribeClass -- Test executable workflow steps rather than a Ruby class.
+RSpec.describe RubyGemRelease::Workflow do
   let(:directory) { Dir.mktmpdir }
   let(:environment_file) { File.join(directory, 'environment') }
-  let(:workflow) { YAML.load_file('.github/workflows/release.yml') }
-  let(:environment) do
-    {
-      'BUNDLE_GEMFILE' => File.expand_path('Gemfile'),
-      'GEMSPEC' => File.join(directory, 'fixture.gemspec'),
-      'GITHUB_ENV' => environment_file,
-      'INPUT_VERSION' => ''
-    }
+  let(:git) { instance_double(RubyGemRelease::Git, configure!: nil, check_current!: nil, check_tag!: nil, head: 'initial-commit') }
+
+  around do |example|
+    original = ENV.to_h
+    ENV.update('GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'DRY_RUN' => 'true')
+    ENV.delete('GEMSPEC')
+    ENV.delete('INPUT_GEMSPEC')
+    Dir.chdir(directory) { example.run }
+  ensure
+    ENV.replace(original)
+    FileUtils.remove_entry(directory)
   end
 
   before do
-    File.write(File.join(directory, 'fixture.gemspec'), "require_relative 'version'\nGem::Specification.new { |spec| spec.version = VERSION }\n")
-    File.write(File.join(directory, 'version.rb'), "VERSION = '1.2.3'\n")
+    File.write('fixture.gemspec', "require_relative 'version'\nGem::Specification.new { |spec| spec.version = VERSION }\n")
+    File.write('version.rb', "VERSION = '1.2.3'\n")
     File.write(environment_file, '')
-    system('git', 'init', '--quiet', directory, exception: true)
+    allow(RubyGemRelease::Git).to receive(:new).and_return(git)
   end
 
-  after { FileUtils.remove_entry(directory) }
-
-  def run_step(name, overrides = {})
-    script = workflow.fetch('jobs').fetch('release').fetch('steps').find { |step| step['name'] == name }.fetch('run')
-    Open3.capture3(environment.merge(overrides), 'bash', '-c', script, chdir: directory)
-  end
-
-  it 'retains the initial version while resolving the prepared version', :aggregate_failures do
-    expect(run_step('Capture Release Context').last).to be_success
-    File.write(File.join(directory, 'version.rb'), "VERSION = '2.0.0'\n")
-    expect(run_step('Resolve Prepared Version').last).to be_success
-    expect(File.read(environment_file)).to include("RELEASE_PREVIOUS_VERSION=1.2.3\n", "RELEASE_VERSION=2.0.0\n")
+  it 'retains the initial version while resolving callback edits', :aggregate_failures do
+    described_class.new.capture!
+    File.write('version.rb', "VERSION = '2.0.0'\n")
+    described_class.new.resolve!
+    expect(File.read(environment_file)).to include("RELEASE_PREVIOUS_VERSION=1.2.3\n", "RELEASE_VERSION=2.0.0\n", "RELEASE_INITIAL_COMMIT=initial-commit\n")
   end
 
   it 'rejects an expected-version mismatch before recording a release', :aggregate_failures do
-    output, _error, status = run_step('Resolve Prepared Version', 'INPUT_VERSION' => '2.0.0')
-    expect(status).not_to be_success
-    expect(output).to include('does not match expected version')
+    ENV['INPUT_VERSION'] = '2.0.0'
+    expect { described_class.new.resolve! }.to raise_error(/does not match expected version/)
     expect(File.read(environment_file)).to eq('')
   end
 
-  it 'rejects a gemspec that cannot be loaded', :aggregate_failures do
-    _output, error, status = run_step('Resolve Prepared Version', 'GEMSPEC' => File.join(directory, 'missing.gemspec'))
-    expect(status).not_to be_success
-    expect(error).to include('Cannot load gemspec')
+  it 'rejects a missing specification before recording a release', :aggregate_failures do
+    ENV['GEMSPEC'] = 'missing.gemspec'
+    expect { described_class.new.resolve! }.to raise_error(ArgumentError, /existing file/)
     expect(File.read(environment_file)).to eq('')
+  end
+
+  it 'rejects non-default-branch publication before configuring Git' do
+    ENV.update('DRY_RUN' => 'false', 'GITHUB_REF' => 'refs/heads/topic', 'DEFAULT_BRANCH' => 'master')
+    expect { described_class.new.capture! }.to raise_error(/default branch/)
+  end
+
+  it 'rejects an existing tag before recording the prepared version' do
+    allow(git).to receive(:check_tag!).and_raise('Release tag already exists')
+    expect { described_class.new.resolve! }.to raise_error(/tag already exists/)
   end
 end

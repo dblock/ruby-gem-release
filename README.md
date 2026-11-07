@@ -28,23 +28,30 @@ Add `ruby-gem-release` to the development dependencies and install its tasks in 
 require 'ruby-gem-release/tasks'
 require 'ruby-gem-release/changelog'
 require 'ruby-gem-release/github_release'
-require 'fileutils'
+require 'ruby-gem-release/package'
+require 'ruby-gem-release/git'
 
 RubyGemRelease::Tasks.install do |tasks|
   version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
   changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
+  package = RubyGemRelease::Package.new(gemspec: 'example.gemspec')
+  git = RubyGemRelease::Git.new
+  github = RubyGemRelease::GitHubRelease.new
   tasks.before_release do |release|
     changelog.release!(release.with_version(version.read))
   end
   tasks.publish do |release|
-    directory = ENV.fetch('RUNNER_TEMP')
-    artifact = File.join(directory, "#{ENV.fetch('GEM_NAME')}-#{release.version}.gem")
-    FileUtils.cp(File.join(directory, 'release.gem'), artifact)
-    github_release = RubyGemRelease::GitHubRelease.new(repository: ENV.fetch('GITHUB_REPOSITORY'))
-    puts github_release.publish!(release, artifacts: [artifact])
+    git.commit!(release)
+    package.build!(release)
+    git.tag!(release)
+    package.publish!(release)
+    git.push!(release)
+    github.publish!(release, package: package)
   end
   tasks.after_release do |release|
     changelog.prepare_next!(release.with_next_version(version.increment!))
+    git.commit_next!(release)
+    git.push!
   end
 end
 ```
@@ -106,9 +113,9 @@ Check **Settings → Branches** for branch protection rules and **Settings → R
 
 ## Workflow Commands
 
-The workflow runs on the default branch and reads the current version from the gemspec before preparation, then resolves the version to publish from the prepared gemspec. Pass `-f version=0.1.0` to `gh workflow run` to require that prepared version; the input does not set the version, and a mismatch fails before publication. It uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple.
+The workflow runs on the default branch; [`Workflow`](docs/workflow.md) reads the current version from the gemspec before preparation, then resolves the version to publish from the prepared gemspec. Pass `-f version=0.1.0` to `gh workflow run` to require that prepared version; the input does not set the version, and a mismatch fails before publication. It uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple.
 
-By default, it runs the before-release callback, runs `bundle exec rake`, then runs the next-version preparation callback after publication. Version setting and incrementing are explicit operations in your callbacks, not implicit workflow steps. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed. It publishes the gem, pushes the release commit and tag, and creates a GitHub Release. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
+By default, it runs the before-release callback, `bundle exec rake`, the publication callback, and the next-version callback. Version changes, commits, tags, builds, and publication are explicit callback operations. Override the `prepare`, `validate`, `publish`, or `bump` inputs with trusted shell commands when needed. The `publish` input replaces the former `github-release` input because this callback now owns the entire publication sequence. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
 
 ## Version Objects
 
@@ -116,7 +123,7 @@ By default, it runs the before-release callback, runs `bundle exec rake`, then r
 
 ## Release Callbacks
 
-[`Tasks`](docs/tasks.md) registers `before_release`, `publish`, and `after_release` callbacks receiving an immutable [`Release`](docs/release.md) context. Version changes are explicit callback operations. Unregistered callbacks do nothing; exceptions fail the task. Preparation and next-version callbacks also run in dry-run mode and must be safe and trusted; publication is skipped.
+[`Tasks`](docs/tasks.md) registers `before_release`, `publish`, and `after_release` callbacks receiving an immutable [`Release`](docs/release.md) context. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
 
 ## Changelog Objects
 
@@ -124,7 +131,11 @@ By default, it runs the before-release callback, runs `bundle exec rake`, then r
 
 ## GitHub Releases
 
-[`GitHubRelease`](docs/github_release.md) creates a release with generated notes and the exact published gem attached. Configure it in `tasks.publish`, invoked after the tag push and skipped by the workflow in dry-run mode. Omit the callback to disable creation, or override the `github-release` command to customize this phase.
+[`GitHubRelease`](docs/github_release.md) creates a release with generated notes and the exact published gem attached. Invoke it after `git.push!` in `tasks.publish`; omit only `github.publish!` to disable GitHub Release creation without disabling package publication.
+
+## Packages and Git
+
+[`Package`](docs/package.md) builds once, verifies the exact artifact, and publishes it to RubyGems. [`Git`](docs/git.md) commits release files, tags the release, preserves a recovery bundle, checks branch concurrency, and pushes atomically. Both perform local work in dry runs without publishing or pushing.
 
 ## Git Commit Identity
 

@@ -1,0 +1,87 @@
+# frozen_string_literal: true
+
+require 'spec_helper'
+require 'ruby-gem-release/package'
+require 'tmpdir'
+
+RSpec.describe RubyGemRelease::Package do
+  let(:directory) { Dir.mktmpdir }
+  let(:artifacts) { File.join(directory, 'artifacts') }
+  let(:package) { described_class.new(gemspec: 'fixture.gemspec', directory: artifacts) }
+  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today) }
+
+  around do |example|
+    original = ENV.delete('GEMSPEC')
+    Dir.chdir(directory) { example.run }
+  ensure
+    ENV['GEMSPEC'] = original if original
+    FileUtils.remove_entry(directory)
+  end
+
+  before do
+    File.write('fixture.gemspec', <<~RUBY)
+      require_relative 'version'
+      Gem::Specification.new do |spec|
+        spec.name = 'release-fixture'
+        spec.version = VERSION
+        spec.summary = 'Release fixture'
+        spec.authors = ['Fixture']
+        spec.files = ['version.rb']
+      end
+    RUBY
+    File.write('version.rb', "VERSION = '1.2.3'\n")
+  end
+
+  it 'builds a real archive and reopens the same verified artifact', :aggregate_failures do
+    path = package.build!(release)
+    reopened = described_class.new(gemspec: 'fixture.gemspec', directory: artifacts)
+    expect(reopened.artifact(release)).to eq(path)
+    expect(Gem::Package.new(path).spec.version.to_s).to eq('1.2.3')
+    expect(File.binread(path)).to eq(File.binread(File.join(artifacts, 'release.gem')))
+  end
+
+  it 'publishes exactly the built archive without rebuilding', :aggregate_failures do
+    path = package.build!(release)
+    status = instance_double(Process::Status, success?: true)
+    allow(Open3).to receive(:capture3).with(Gem.ruby, '-S', 'gem', 'push', path).and_return(['published', '', status])
+    expect(package.publish!(release)).to eq('published')
+    expect(Open3).to have_received(:capture3).once
+  end
+
+  it 'verifies the archive but does not run an uploader in dry-run mode', :aggregate_failures do
+    package.build!(release)
+    dry = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today, dry_run: true)
+    allow(Open3).to receive(:capture3).and_raise('Unexpected uploader')
+    expect(package.publish!(dry)).to end_with('release-fixture-1.2.3.gem')
+  end
+
+  it 'rejects an archive whose version differs from the release' do
+    expect { package.build!(release.with_version('2.0.0')) }.to raise_error(/Built version 1.2.3 does not match 2.0.0/)
+  end
+
+  it 'rejects changed artifacts before invoking an uploader', :aggregate_failures do
+    package.build!(release)
+    File.write(File.join(artifacts, 'release.gem'), 'changed')
+    allow(Open3).to receive(:capture3).and_raise('Unexpected uploader')
+    expect { package.publish!(release) }.to raise_error(/artifact changed/)
+  end
+
+  it 'propagates an upload failure without retrying', :aggregate_failures do
+    path = package.build!(release)
+    status = instance_double(Process::Status, success?: false)
+    allow(Open3).to receive(:capture3).with(Gem.ruby, '-S', 'gem', 'push', path).and_return(['', 'upload failed', status])
+    expect { package.publish!(release) }.to raise_error(/upload failed/)
+    expect(Open3).to have_received(:capture3).once
+  end
+
+  it 'reads a newly edited version without reusing loaded constants', :aggregate_failures do
+    expect(package.version).to eq('1.2.3')
+    File.write('version.rb', "VERSION = '2.0.0'\n")
+    expect(package.version).to eq('2.0.0')
+  end
+
+  it 'rejects ambiguous specifications' do
+    File.write('other.gemspec', '')
+    expect { described_class.new(directory: artifacts) }.to raise_error(ArgumentError, /exactly one root gemspec/)
+  end
+end

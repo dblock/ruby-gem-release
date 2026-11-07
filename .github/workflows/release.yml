@@ -29,14 +29,14 @@ on:
         description: Command to validate the prepared release
         type: string
         default: bundle exec rake
-      bump:
-        description: Command to prepare the next development version
-        type: string
-        default: bundle exec rake release:after_release
-      github-release:
-        description: Command to create the GitHub Release after publication and the tag push
+      publish:
+        description: Command to commit, build, tag, and publish the release
         type: string
         default: bundle exec rake release:publish
+      bump:
+        description: Command to prepare, commit, and push the next development version
+        type: string
+        default: bundle exec rake release:after_release
       dry-run:
         description: Validate and build without publishing or pushing
         type: boolean
@@ -61,156 +61,42 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Check Release Inputs and Branch
-        id: initial
-        run: |
-          set -euo pipefail
-          if [[ "$DRY_RUN" != true && "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
-            echo "::error::Releases must run from the default branch."
-            exit 1
-          fi
-          gemspec="$INPUT_GEMSPEC"
-          if [[ -z "$gemspec" ]]; then
-            shopt -s nullglob
-            gemspecs=(*.gemspec)
-            if [[ "${#gemspecs[@]}" != 1 ]]; then
-              echo "::error::Expected exactly one root gemspec; specify the gemspec input."
-              exit 1
-            fi
-            gemspec="${gemspecs[0]}"
-          fi
-          if [[ ! -f "$gemspec" || "$gemspec" == *$'\n'* || "$gemspec" == *$'\r'* ]]; then
-            echo "::error::The gemspec input must name an existing file without line breaks."
-            exit 1
-          fi
-          echo "GEMSPEC=$gemspec" >> "$GITHUB_ENV"
-          for value in "$GIT_USER_NAME" "$GIT_USER_EMAIL"; do
-            if [[ -z "${value//[[:space:]]/}" || "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
-              echo "::error::Git identity must be nonempty and contain no line breaks."
-              exit 1
-            fi
-          done
-          git config --local user.name "$GIT_USER_NAME"
-          git config --local user.email "$GIT_USER_EMAIL"
-          git fetch origin "$DEFAULT_BRANCH" --tags
-          if [[ "$DRY_RUN" != true && "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$DEFAULT_BRANCH")" ]]; then
-            echo "::error::Default branch advanced; start a new release."
-            exit 1
-          fi
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ inputs.ruby-version }}
           bundler-cache: true
       - name: Capture Release Context
-        run: |
-          set -euo pipefail
-          previous_version="$(bundle exec ruby -rrubygems -e 'spec = Gem::Specification.load(ENV.fetch("GEMSPEC")); abort "Cannot load gemspec" unless spec; puts spec.version')"
-          if [[ ! "$previous_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Previous version must be MAJOR.MINOR.PATCH without leading zeros."
-            exit 1
-          fi
-          if [[ -n "$INPUT_VERSION" && ! "$INPUT_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Expected version must be MAJOR.MINOR.PATCH without leading zeros."
-            exit 1
-          fi
-          {
-            echo "RELEASE_PREVIOUS_VERSION=$previous_version"
-            echo "RELEASE_DATE=$(date -u +%F)"
-          } >> "$GITHUB_ENV"
+        run: bundle exec rake release:workflow:capture
       - name: Prepare Release
         env:
           COMMAND: ${{ inputs.prepare }}
         run: bash -euo pipefail -c "$COMMAND"
       - name: Resolve Prepared Version
-        run: |
-          set -euo pipefail
-          version="$(bundle exec ruby -rrubygems -e 'spec = Gem::Specification.load(ENV.fetch("GEMSPEC")); abort "Cannot load gemspec" unless spec; puts spec.version')"
-          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Prepared version must be MAJOR.MINOR.PATCH without leading zeros."
-            exit 1
-          fi
-          if [[ -n "$INPUT_VERSION" && "$version" != "$INPUT_VERSION" ]]; then
-            echo "::error::Prepared version $version does not match expected version $INPUT_VERSION."
-            exit 1
-          fi
-          if git show-ref --verify --quiet "refs/tags/v$version"; then
-            echo "::error::Release tag already exists."
-            exit 1
-          fi
-          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
-          echo "Releasing version $version"
+        run: bundle exec rake release:workflow:resolve
       - name: Validate Release
         env:
           COMMAND: ${{ inputs.validate }}
         run: bash -euo pipefail -c "$COMMAND"
-      - name: Commit and Build Release
-        id: build
+      - name: Authenticate to RubyGems
+        if: ${{ !inputs.dry-run }}
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - name: Publish Release
         env:
-          INITIAL_COMMIT: ${{ steps.initial.outputs.commit }}
-        run: |
-          set -euo pipefail
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "Prepare release $RELEASE_VERSION"
-          fi
-          gem build "$GEMSPEC" --output "$RUNNER_TEMP/release.gem"
-          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
-            echo "::error::Gem build changed the working tree after the release commit."
-            exit 1
-          fi
-          ruby -rrubygems/package - "$RUNNER_TEMP/release.gem" <<'RUBY'
-          spec = Gem::Package.new(ARGV.fetch(0)).spec
-          version = ENV.fetch('RELEASE_VERSION')
-          abort "Built version #{spec.version} does not match #{version}" unless spec.version.to_s == version
-          File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') { |f| f.puts "name=#{spec.name}" }
-          RUBY
-          git tag "v$RELEASE_VERSION"
-          git bundle create "$RUNNER_TEMP/release.bundle" HEAD "refs/tags/v$RELEASE_VERSION"
-          if [[ "$DRY_RUN" != true ]]; then
-            git fetch origin "$DEFAULT_BRANCH" --tags
-            if [[ "$INITIAL_COMMIT" != "$(git rev-parse "origin/$DEFAULT_BRANCH")" ]]; then
-              echo "::error::Default branch advanced before publication."
-              exit 1
-            fi
-          fi
-      - name: Preserve Built Gem
+          GH_TOKEN: ${{ github.token }}
+          COMMAND: ${{ inputs.publish }}
+        run: bash -euo pipefail -c "$COMMAND"
+      - name: Preserve Release Artifacts
+        if: ${{ always() && env.RELEASE_VERSION != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: release-gem-${{ env.RELEASE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/release.gem
+            ${{ runner.temp }}/release.json
             ${{ runner.temp }}/release.bundle
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
-      - name: Authenticate to RubyGems
-        if: ${{ !inputs.dry-run }}
-        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
-      - name: Publish Gem
-        if: ${{ !inputs.dry-run }}
-        run: gem push "$RUNNER_TEMP/release.gem"
-      - name: Push Release Commit and Tag Atomically
-        if: ${{ !inputs.dry-run }}
-        run: git push --atomic origin "HEAD:refs/heads/$DEFAULT_BRANCH" "refs/tags/v$RELEASE_VERSION"
-      - name: Create GitHub Release
-        if: ${{ !inputs.dry-run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GEM_NAME: ${{ steps.build.outputs.name }}
-          COMMAND: ${{ inputs.github-release }}
-        run: bash -euo pipefail -c "$COMMAND"
       - name: Prepare Next Development Version
         env:
           COMMAND: ${{ inputs.bump }}
-        run: |
-          set -euo pipefail
-          bash -euo pipefail -c "$COMMAND"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "::error::The bump command did not change any files."
-            exit 1
-          fi
-          git commit -m "Prepare next development version after $RELEASE_VERSION"
-          if [[ "$DRY_RUN" != true ]]; then
-            git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"
-          fi
+        run: bash -euo pipefail -c "$COMMAND"

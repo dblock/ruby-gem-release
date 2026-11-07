@@ -25,3 +25,7 @@ An immutable context passed to [release callbacks](tasks.md). Strings and the da
 ## With Next Version
 
 `release.with_next_version(version.increment!)` returns a new context containing the supplied next-version string, preserving every other field and leaving the original unchanged.
+
+## Dry Run
+
+The optional constructor argument `dry_run:` defaults to `false`. `release.dry_run?` tells publishers and Git pushes to skip remote writes. Lifecycle tasks set it from `DRY_RUN`; both copy methods preserve it.

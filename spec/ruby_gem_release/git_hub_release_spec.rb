@@ -46,6 +46,27 @@ RSpec.describe RubyGemRelease::GitHubRelease do
     expect { described_class.new(repository: '--repo') }.to raise_error(ArgumentError, %r{OWNER/REPO})
   end
 
+  it 'uses gh checkout inference when no repository is configured' do
+    original = ENV.delete('GITHUB_REPOSITORY')
+    described_class.new.publish!(release)
+    expect(Open3).to have_received(:capture3).with('gh', 'release', 'create', 'v1.2.3', '--verify-tag', '--title', 'v1.2.3', '--generate-notes')
+  ensure
+    ENV['GITHUB_REPOSITORY'] = original if original
+  end
+
+  it 'does not invoke gh for a dry-run release', :aggregate_failures do
+    dry = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today, dry_run: true)
+    publisher.publish!(dry, artifacts: [artifact])
+    expect(Open3).not_to have_received(:capture3)
+    expect(dry.with_version('2.0.0').with_next_version('2.0.1')).to be_dry_run
+  end
+
+  it 'attaches the package-owned exact artifact' do
+    package = instance_double(RubyGemRelease::Package, artifact: artifact)
+    publisher.publish!(release, package: package)
+    expect(package).to have_received(:artifact).with(release)
+  end
+
   it 'rejects invalid versions before invoking gh', :aggregate_failures do
     invalid = release.with_version('1.2.03')
     expect { publisher.publish!(invalid) }.to raise_error(ArgumentError, /MAJOR.MINOR.PATCH/)

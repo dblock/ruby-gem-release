@@ -4,58 +4,112 @@ require 'spec_helper'
 require 'yaml'
 require 'open3'
 require 'tmpdir'
-require 'json'
+require 'rubygems/package'
 
-RSpec.describe 'Workflow GitHub Release creation' do # rubocop:disable RSpec/DescribeClass -- Execute a workflow command rather than a Ruby class.
+RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeClass -- Exercise the documented consumer through workflow commands.
   let(:directory) { Dir.mktmpdir }
+  let(:checkout) { File.join(directory, 'checkout') }
+  let(:remote) { File.join(directory, 'remote.git') }
   let(:workflow) { YAML.load_file('.github/workflows/release.yml') }
-  let(:command) { workflow.fetch(true).fetch('workflow_call').fetch('inputs').fetch('github-release').fetch('default') }
   let(:environment) do
     {
       'BUNDLE_GEMFILE' => File.expand_path('Gemfile'),
-      'PATH' => "#{directory}#{File::PATH_SEPARATOR}#{ENV.fetch('PATH')}",
+      'RUBYLIB' => File.expand_path('lib'),
       'RUNNER_TEMP' => directory,
-      'GITHUB_REPOSITORY' => 'example/gem',
-      'GEM_NAME' => 'example',
-      'RELEASE_VERSION' => '1.2.3',
-      'RELEASE_PREVIOUS_VERSION' => '1.2.0',
-      'RELEASE_DATE' => '2026-11-07',
-      'GH_TOKEN' => 'test-only-token'
+      'GITHUB_ENV' => File.join(directory, 'environment'),
+      'GITHUB_REPOSITORY' => 'owner/example',
+      'DEFAULT_BRANCH' => 'master',
+      'INPUT_VERSION' => '',
+      'INPUT_GEMSPEC' => '',
+      'DRY_RUN' => 'true'
     }
   end
 
   before do
-    File.write(File.join(directory, 'release.gem'), 'exact published artifact')
-    File.write(File.join(directory, 'gh'), <<~RUBY)
-      #!#{Gem.ruby}
-      require 'json'
-      File.write(File.join(ENV.fetch('RUNNER_TEMP'), 'arguments.json'), JSON.generate(ARGV))
-      puts 'https://github.com/example/gem/releases/tag/v1.2.3'
+    FileUtils.mkdir_p(File.join(checkout, 'lib/example'))
+    File.write(File.join(checkout, 'lib/example/version.rb'), "module Example\n  VERSION = '0.1.0'\nend\n")
+    File.write(File.join(checkout, 'example.gemspec'), <<~RUBY)
+      require_relative 'lib/example/version'
+      Gem::Specification.new do |spec|
+        spec.name = 'example'
+        spec.version = Example::VERSION
+        spec.authors = ['Fixture']
+        spec.summary = 'Release fixture'
+        spec.files = ['lib/example/version.rb']
+      end
     RUBY
-    File.chmod(0o755, File.join(directory, 'gh'))
+    FileUtils.cp('examples/keep_a_changelog/CHANGELOG.md', checkout)
+    File.write(File.join(checkout, 'Rakefile'), "#{File.read('examples/keep_a_changelog/Rakefile')}\n#{remote_write_guard}")
+    run_git('init', '--bare', '--quiet', '-b', 'master', remote)
+    run_git('init', '--quiet', '-b', 'master', checkout)
+    run_git('-C', checkout, 'add', '.')
+    run_git('-C', checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--quiet', '-m', 'Initial')
+    run_git('-C', checkout, 'remote', 'add', 'origin', remote)
+    run_git('-C', checkout, 'push', '--quiet', '-u', 'origin', 'master')
   end
 
   after { FileUtils.remove_entry(directory) }
 
-  it 'runs the default command with the exact artifact and verified tag', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify the full command boundary and artifact.
-    output, error, status = Open3.capture3(environment, 'bash', '-euo', 'pipefail', '-c', command)
-    artifact = File.join(directory, 'example-1.2.3.gem')
-    expect(status.success?).to be(true), error
-    expect(output).to include('https://github.com/example/gem/releases/tag/v1.2.3')
-    expect(File.read(artifact)).to eq(File.read(File.join(directory, 'release.gem')))
-    expect(JSON.parse(File.read(File.join(directory, 'arguments.json'))))
-      .to eq(['release', 'create', 'v1.2.3', '--repo', 'example/gem', '--verify-tag', '--title', 'v1.2.3', '--generate-notes', artifact])
+  def remote_write_guard
+    <<~RUBY
+      module RejectRemoteWrites
+        def capture3(*command)
+          raise 'Unexpected remote write in dry run' if command.include?('push') || command.first == 'gh'
+          super
+        end
+      end
+      Open3.singleton_class.prepend(RejectRemoteWrites)
+    RUBY
   end
 
-  it 'keeps creation after the tag push and before next-version preparation', :aggregate_failures do
-    names = workflow.fetch('jobs').fetch('release').fetch('steps').map { |step| step['name'] }
-    expect(names.index('Create GitHub Release')).to be > names.index('Push Release Commit and Tag Atomically')
-    expect(names.index('Create GitHub Release')).to be < names.index('Prepare Next Development Version')
+  def run_git(*arguments)
+    output, error, status = Open3.capture3('git', *arguments)
+    raise error unless status.success?
+
+    output.strip
   end
 
-  it 'gates the entire configurable command in dry-run mode', :aggregate_failures do
-    step = workflow.fetch('jobs').fetch('release').fetch('steps').find { |item| item['name'] == 'Create GitHub Release' }
-    expect(step.fetch('if')).to eq('${{ !inputs.dry-run }}')
-    expect(step.fetch('env').fetch('COMMAND')).to eq('${{ inputs.github-release }}')
+  def phase_command(name)
+    step = workflow.fetch('jobs').fetch('release').fetch('steps').find { |item| item['name'] == name }
+    inputs = workflow.fetch(true).fetch('workflow_call').fetch('inputs')
+    command_input = step.dig('env', 'COMMAND')
+    command_input ? inputs.fetch(command_input[/inputs\.(\w+)/, 1]).fetch('default') : step.fetch('run')
+  end
+
+  def run_phase(name)
+    output, error, status = Open3.capture3(environment, 'bash', '-euo', 'pipefail', '-c', phase_command(name), chdir: checkout)
+    raise "#{output}\n#{error}" unless status.success?
+
+    File.readlines(environment.fetch('GITHUB_ENV'), chomp: true).each do |line|
+      key, value = line.split('=', 2)
+      environment[key] = value
+    end
+  end
+
+  it 'runs the documented callbacks, preserving the exact artifact without remote writes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
+    initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+    run_phase('Capture Release Context')
+    run_phase('Prepare Release')
+    run_phase('Resolve Prepared Version')
+    run_phase('Publish Release')
+    release_commit = run_git('-C', checkout, 'rev-parse', 'HEAD')
+    expect(run_git('-C', checkout, 'rev-parse', 'v0.1.0')).to eq(release_commit)
+    expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
+    expect(File).to exist(File.join(directory, 'release.bundle'))
+    run_phase('Prepare Next Development Version')
+    expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
+    expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
+    expect(run_git('--git-dir', remote, 'tag')).to eq('')
+    expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+  end
+
+  it 'invokes publication in dry runs and preserves artifacts after a failed callback', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify failure-aware artifact preservation and the authentication gate.
+    steps = workflow.fetch('jobs').fetch('release').fetch('steps')
+    publish = steps.find { |item| item['name'] == 'Publish Release' }
+    artifacts = steps.find { |item| item['name'] == 'Preserve Release Artifacts' }
+    expect(publish).not_to have_key('if')
+    expect(artifacts.fetch('if')).to include('always()')
+    expect(steps.index(artifacts)).to be > steps.index(publish)
+    expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq('${{ !inputs.dry-run }}')
   end
 end

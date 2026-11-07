@@ -4,7 +4,7 @@ Registers optional preparation, publication, and next-version callbacks in the R
 
 ## Install
 
-Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all three callback tasks are registered and do nothing.
+Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all three callback tasks are registered and do nothing. It also registers `release:workflow:capture` and `release:workflow:resolve` for [Workflow](workflow.md) context checks.
 
 ## Before Release
 
@@ -16,14 +16,14 @@ The default `prepare` command invokes `bundle exec rake release:before_release`.
 
 `tasks.after_release` prepares the next development version after publication. `version` contains the published version, `previous_version` retains the initial version, and `next_version` starts as `nil`. Explicitly increment the version and attach the result with `release.with_next_version(version.increment!)` before preparing the next changelog section.
 
-The default `bump` command invokes `bundle exec rake release:after_release`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly.
+The default `bump` command invokes `bundle exec rake release:after_release`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(release)` and `git.push!` after your version and changelog edits.
 
 ## Errors and Dry Runs
 
-Each callback requires a block and can be registered only once. Exceptions fail the task. Preparation and next-version callbacks run in dry-run mode, so they must be safe and trusted; the workflow skips publication. Required environment values must contain numeric versions and a date in `YYYY-MM-DD` format; missing values fail rather than guessing a version or date.
+Each callback requires a block and can be registered only once. Exceptions fail the task. All callbacks run in dry-run mode. `DRY_RUN=true` marks their context; the supplied classes suppress remote writes while performing local operations. Custom code remains trusted and must honor dry runs. Required environment values must contain numeric versions and a date in `YYYY-MM-DD` format; missing values fail rather than guessing a version or date.
 
 ## Publish
 
-`tasks.publish` registers remote publication work after RubyGems publication and the remote tag push, before `after_release`. The default `github-release` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE`.
+`tasks.publish` registers the complete release sequence before `after_release`. The default `publish` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `DRY_RUN`.
 
-The [Usage example](../README.md#usage) copies the exact preserved gem to its package filename and invokes [`GitHubRelease`](github_release.md). Without a callback, the task does nothing. The workflow skips this entire step in dry-run mode; calling the task directly executes the callback and is not dry-run-aware. RubyGems publication and artifact building remain workflow operations.
+The [Usage example](../README.md#usage) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.

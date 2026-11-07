@@ -1,32 +1,40 @@
 # `RubyGemRelease::GitHubRelease`
 
-Creates a GitHub Release using the installed `gh` command. The workflow invokes this class after publishing the gem and pushing the release commit and tag, before next-version preparation.
+Creates a GitHub Release using the installed `gh` command after the gem is published and its commit and tag are pushed.
 
 ```ruby
 require 'ruby-gem-release/github_release'
 
-github_release = RubyGemRelease::GitHubRelease.new(repository: 'owner/example')
-github_release.publish!(release, artifacts: ['pkg/example-1.0.0.gem'])
+github = RubyGemRelease::GitHubRelease.new
+github.publish!(release, package: package)
 ```
 
 ## Repository
 
-The required `repository:` argument identifies the target as `'OWNER/REPO'`. The class does not infer the repository from the working directory.
+The optional `repository:` argument identifies the target as `'OWNER/REPO'`. It defaults to `GITHUB_REPOSITORY`; outside Actions, `gh` infers the repository from the checkout.
 
 ## Publish
 
-`publish!(release, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](release.md) context. It generates release notes and requires the tag to exist remotely; it never creates a tag automatically. It returns the release URL printed by `gh`.
+`publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](release.md) context. It generates release notes and verifies that the tag exists remotely; it never creates a tag automatically. It returns the release URL printed by `gh`.
+
+## Package
+
+`package:` attaches the exact archive returned by [`Package#artifact`](package.md#artifact), with its package filename and verified digest, without rebuilding or manual copying.
 
 ## Artifacts
 
-`artifacts:` is an array of existing file paths, defaulting to no attachments. The workflow passes a renamed copy of the exact published gem without rebuilding it. Paths containing spaces are supported; paths containing line breaks or `#` are rejected because `gh` interprets `#` as an asset label.
+Without `package:`, `artifacts:` accepts existing file paths, defaulting to no attachments. Paths containing spaces are supported; line breaks and `#` are rejected because `gh` interprets `#` as an asset label.
+
+## Dry Run
+
+`publish!` validates artifacts but skips `gh` when `release.dry_run?` is true. The publication callback still runs so local builds and tags are exercised.
 
 ## Authentication and Errors
 
 Install `gh` and authenticate using `GH_TOKEN` or its existing credentials. The workflow supplies the GitHub Actions token and requires the caller's `contents: write` permission.
 
-Failed commands raise an error without retries. Existing releases are not overwritten. If publication and the tag push succeeded but creation failed, verify the remote release first; recover by creating only the missing release and attaching the preserved artifact, not by rerunning publication. See [RELEASING.md](../RELEASING.md).
+Failed commands raise without retries or overwriting existing releases. If package publication and the tag push succeeded, recover only the missing GitHub Release with the preserved artifact; see [RELEASING.md](../RELEASING.md).
 
 ## Workflow Command
 
-The default `github-release` command is `bundle exec rake release:publish`, registered by [Tasks](tasks.md). Configure `tasks.publish` to invoke this class, or leave the callback unregistered to disable creation. Override the input to customize the command. It receives `GH_TOKEN`, `GITHUB_REPOSITORY`, `GEM_NAME`, `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `RUNNER_TEMP`; the exact gem is at `$RUNNER_TEMP/release.gem`. The entire step is skipped in dry-run mode. Direct class or task calls are not dry-run-aware.
+The `publish` workflow input defaults to `bundle exec rake release:publish`. Configure that callback to invoke this class after `git.push!`. Omit only `github.publish!` to disable GitHub Release creation; omitting the whole callback disables package publication too.
