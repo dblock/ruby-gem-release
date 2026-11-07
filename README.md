@@ -4,6 +4,10 @@
 
 Reusable GitHub Actions workflow and Ruby Rake tasks for releasing Ruby gems.
 
+## Usage
+
+### 1. Install the Tasks
+
 For a version file such as `lib/example/version.rb`:
 
 ```ruby
@@ -21,6 +25,8 @@ require 'ruby-gem-release/tasks'
 
 RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_constant: 'VERSION')
 ```
+
+### 2. Add the Release Workflow
 
 Add `.github/workflows/release.yml` using the [sample workflow](examples/.github/workflows/release.yml), replacing the gem specification path and Ruby version with your project's values:
 
@@ -47,6 +53,8 @@ jobs:
       gemspec: example.gemspec
       ruby-version: '3.3'
 ```
+
+### 3. Configure Trusted Publishing
 
 In your GitHub repository, open **Settings → Environments** and create an environment named `release`. Alternatively, from your repository directory, use `gh`:
 
