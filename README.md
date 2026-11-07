@@ -71,7 +71,7 @@ From your default branch, review the changes and dispatch the workflow:
 gh workflow run release.yml
 ```
 
-The workflow runs on the default branch and uses the current version from your configured version file; pass `-f version=0.1.0` to release a different version. Approve the `release` environment if required. The workflow validates and publishes the gem, pushes the release commit and tag, creates a GitHub Release, and prepares the next development version. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions.
+The workflow runs on the default branch and uses the current version from your configured version file; pass `-f version=0.1.0` to release a different version. If the `release` environment requires approval, a designated reviewer must open the run under **Actions** in GitHub and select **Review deployments**. The workflow validates and publishes the gem, pushes the release commit and tag, creates a GitHub Release, and prepares the next development version. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions.
 
 ## GitHub Branch Protection and Rulesets
 
