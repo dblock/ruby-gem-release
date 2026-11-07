@@ -25,7 +25,7 @@ The `publish` input replaces the former `github-release` input and controls the 
 
 ## Permissions and Authentication
 
-The caller needs `contents: write` for Git pushes and GitHub Releases, and `id-token: write` for RubyGems Trusted Publishing. Configure the `release` environment and RubyGems trusted publisher as described in [Configuration](../../README.md#trusted-publishing). No stored RubyGems API key is required.
+The caller needs `contents: write` for Git pushes and GitHub Releases, and `id-token: write` for RubyGems Trusted Publishing. Configure the `release` environment and RubyGems trusted publisher as described in [Usage](../../README.md#3-enable-trusted-publishing). No stored RubyGems API key is required.
 
 The workflow uses the GitHub Actions token as `GH_TOKEN` during publication. Branch rules must permit its fast-forward pushes while retaining force-push and deletion restrictions.
 

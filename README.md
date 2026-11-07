@@ -83,17 +83,7 @@ jobs:
       ruby-version: '3.3'
 ```
 
-### 3. Make a Release
-
-Complete the [Trusted Publishing setup](#trusted-publishing) and [branch permissions](#github-branch-protection-and-rulesets) first. From your default branch, review the changes and dispatch the workflow:
-
-```sh
-gh workflow run release.yml
-```
-
-## Configuration
-
-### Trusted Publishing
+### 3. Enable Trusted Publishing
 
 In your GitHub repository, open **Settings → Environments** and create an environment named `release`. Alternatively, from your repository directory, use `gh`:
 
@@ -104,6 +94,16 @@ gh api --method PUT repos/{owner}/{repo}/environments/release
 On [RubyGems.org](https://rubygems.org), open your gem's **Trusted publishers** page and create a [trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows). Set the repository fields to your gem's repository, the workflow filename to `release.yml`, and the environment to `release`. Set the separate workflow repository fields to `dblock` and `ruby-gem-release`; these identify the reusable workflow RubyGems verifies in the OIDC token. For a new gem, use the [pending trusted publishers page](https://rubygems.org/profile/oidc/pending_trusted_publishers) instead.
 
 For example, the trusted publishers page for a gem named `example` is `https://rubygems.org/gems/example/trusted_publishers`.
+
+### 4. Make a Release
+
+Check [branch permissions](#github-branch-protection-and-rulesets), then review the changes and dispatch the workflow from your default branch:
+
+```sh
+gh workflow run release.yml
+```
+
+## Configuration
 
 ### GitHub Branch Protection and Rulesets
 
