@@ -3,7 +3,7 @@
 require 'rake'
 require_relative 'release'
 require_relative 'version/ruby_constant'
-require_relative 'workflow'
+require_relative 'workflow/context'
 
 module RubyGemRelease
   class Tasks
@@ -48,8 +48,8 @@ module RubyGemRelease
 
     def install_workflow_tasks
       namespace :workflow do
-        task(:capture) { Workflow.new.capture! }
-        task(:resolve) { Workflow.new.resolve! }
+        task(:capture) { Workflow::Context.new.capture! }
+        task(:resolve) { Workflow::Context.new.resolve! }
       end
     end
 

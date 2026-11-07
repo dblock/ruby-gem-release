@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'ruby-gem-release/workflow'
+require 'ruby-gem-release/workflow/context'
 require 'tmpdir'
 
-RSpec.describe RubyGemRelease::Workflow do
+RSpec.describe RubyGemRelease::Workflow::Context do
   let(:directory) { Dir.mktmpdir }
   let(:environment_file) { File.join(directory, 'environment') }
   let(:git) { instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_current!: nil, check_tag!: nil, head: 'initial-commit') }

@@ -37,4 +37,4 @@ Failed commands raise without retries or overwriting existing releases. If packa
 
 ## Workflow Command
 
-The `publish` workflow input defaults to `bundle exec rake release:publish`. Configure that callback to invoke this class after `git.push!`. Omit only `github.publish!` to disable GitHub Release creation; omitting the whole callback disables package publication too.
+The `publish` workflow input defaults to `bundle exec rake release:publish`. Configure that callback to invoke this class after `git.push!`. Set `hosting: nil` in [`Workflow::RubyGem`](../workflow/ruby_gem.md) or omit only `github.publish!` from manual callbacks to disable GitHub Release creation; omitting the whole callback disables package publication too.

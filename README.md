@@ -10,51 +10,19 @@ Reusable GitHub Actions workflow and Ruby Rake tasks for releasing Ruby gems.
 
 ### 1. Install the Tasks
 
-For a version file such as `lib/example/version.rb`:
+Add `ruby-gem-release` to the development dependencies and install the standard workflow in your Rakefile. Choose your version file and changelog format explicitly:
 
 ```ruby
-# frozen_string_literal: true
-
-module Example
-  VERSION = '0.1.0'
-end
-```
-
-And a changelog such as [this Keep a Changelog example](examples/keep_a_changelog/CHANGELOG.md).
-
-Add `ruby-gem-release` to the development dependencies and install its tasks in the project's Rakefile, replacing `lib/example/version.rb` with the path to your version file:
-
-```ruby
-require 'ruby-gem-release/tasks'
+require 'ruby-gem-release/workflow/ruby_gem'
 require 'ruby-gem-release/changelog'
-require 'ruby-gem-release/hosting/github_release'
-require 'ruby-gem-release/package/ruby_gem'
-require 'ruby-gem-release/source_control/git'
 
-RubyGemRelease::Tasks.install do |tasks|
-  version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
-  changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
-  package = RubyGemRelease::Package::RubyGem.new(gemspec: 'example.gemspec')
-  git = RubyGemRelease::SourceControl::Git.new
-  github = RubyGemRelease::Hosting::GitHubRelease.new
-  tasks.before_release do |release|
-    changelog.release!(release.with_version(version.read))
-  end
-  tasks.publish do |release|
-    git.commit!(release)
-    package.build!(release)
-    git.tag!(release)
-    package.publish!(release)
-    git.push!(release)
-    github.publish!(release, package: package)
-  end
-  tasks.after_release do |release|
-    changelog.prepare_next!(release.with_next_version(version.increment!))
-    git.commit_next!(release)
-    git.push!
-  end
-end
+RubyGemRelease::Workflow::RubyGem.new(
+  version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
+  changelog: RubyGemRelease::Changelog::KeepAChangelog.new
+).install_tasks
 ```
+
+The workflow selects the gemspec and repository using unambiguous defaults and wires preparation, publication, and next-version callbacks. See [Detailed Usage](docs/usage.md) for file examples and the full callback configuration.
 
 ### 2. Add the Release Workflow
 
@@ -118,7 +86,13 @@ Check **Settings → Branches** for branch protection rules and **Settings → R
 The reusable workflow provides the GitHub Actions environment for release callbacks, including setup, validation, authentication, and artifact preservation. Use its `with:` inputs to choose the gemspec, expected version, Ruby version, commands, and commit identity. Pin the workflow to a reviewed release or commit instead of `master` when available.
 
 - [Release Workflow](docs/actions/release.md): All inputs, defaults, permissions, commands, dry runs, and recovery artifacts.
-- [`Workflow`](docs/workflow.md): Ruby context capture and prepared-version checks used by the action workflow.
+- [`Workflow::Context`](docs/workflow/context.md): Ruby context capture and prepared-version checks used by the action workflow.
+
+### Standard Workflows
+
+Standard workflows wire the usual release sequence using your explicitly chosen version and changelog objects. Override package, Git, or hosting objects when needed; use custom callbacks for a different sequence.
+
+- [`Workflow::RubyGem`](docs/workflow/ruby_gem.md): Gem release preparation, publication, and next-version callbacks with conservative defaults.
 
 ### Version Objects
 
@@ -128,7 +102,7 @@ Version objects read, set, and increment the version stored in project files. Co
 
 ### Release Callbacks
 
-Callbacks define project-specific preparation, publication, and next-version work. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
+Callbacks define project-specific preparation, publication, and next-version work. The standard workflow installs them for you; [Detailed Usage](docs/usage.md#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
 
 - [`Tasks`](docs/tasks.md): Registers `before_release`, `publish`, and `after_release` callbacks and their Rake tasks.
 - [`Release`](docs/release.md): Immutable version, date, and dry-run context passed to callbacks.
@@ -155,7 +129,7 @@ Source control objects manage release history independently of the repository's 
 
 ### Hosting Objects
 
-Hosting objects publish release notes and attach package artifacts after the release tag is pushed. Omit the hosting publication call to disable hosted releases without disabling package publication.
+Hosting objects publish release notes and attach package artifacts after the release tag is pushed. Set `hosting: nil` in the standard workflow, or omit the hosting publication call in custom callbacks, to disable hosted releases without disabling package publication.
 
 - [`Hosting::GitHubRelease`](docs/hosting/github_release.md): GitHub Releases with generated notes and the exact gem attached.
 

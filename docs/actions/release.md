@@ -1,6 +1,6 @@
 # GitHub Actions Release Workflow
 
-Reference for [`.github/workflows/release.yml`](../../.github/workflows/release.yml), invoked with `workflow_call`. See [Usage](../../README.md#usage) for a caller example and [Configuration](../../README.md#configuration) for Trusted Publishing and branch permissions.
+Reference for [`.github/workflows/release.yml`](../../.github/workflows/release.yml), invoked with `workflow_call`. See [Usage](../../README.md#usage) for a caller example and [Configuration](../../README.md#configuration) for customization and branch permissions. Trusted Publishing is required setup in [Usage](../../README.md#3-enable-trusted-publishing).
 
 ## Inputs
 
@@ -21,7 +21,7 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 
 Identity values must be nonempty and contain no line breaks. They change commit attribution, not authentication or push permissions.
 
-The `publish` input replaces the former `github-release` input and controls the whole publication sequence. To disable only GitHub Release creation, omit `github.publish!` from the callback rather than disabling `publish`.
+The `publish` input replaces the former `github-release` input and controls the whole publication sequence. To disable only GitHub Release creation, set `hosting: nil` in the standard workflow or omit `github.publish!` from manual callbacks rather than disabling `publish`.
 
 ## Permissions and Authentication
 
@@ -53,7 +53,7 @@ Commands run through `bash -euo pipefail`. Overrides replace the corresponding p
 | `GIT_USER_NAME`, `GIT_USER_EMAIL` | All phases       | Configured checkout-local commit identity.                              |
 | `GH_TOKEN`                        | Publication      | GitHub Actions token for GitHub Release creation.                       |
 
-GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_TEMP`. See [`Tasks`](../tasks.md) for callback context semantics and [`Workflow`](../workflow.md) for capture and resolution methods.
+GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_TEMP`. See [`Tasks`](../tasks.md) for callback context semantics and [`Workflow::Context`](../workflow/context.md) for capture and resolution methods.
 
 ## Dry Runs
 

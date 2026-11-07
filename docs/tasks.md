@@ -1,10 +1,10 @@
 # `RubyGemRelease::Tasks`
 
-Registers optional preparation, publication, and next-version callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See the [Usage example](../README.md#usage).
+Registers optional preparation, publication, and next-version callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
 
 ## Install
 
-Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all three callback tasks are registered and do nothing. It also registers `release:workflow:capture` and `release:workflow:resolve` for [Workflow](workflow.md) context checks.
+Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all three callback tasks are registered and do nothing. It also registers `release:workflow:capture` and `release:workflow:resolve` for [Workflow::Context](workflow/context.md) context checks.
 
 ## Before Release
 
@@ -26,4 +26,4 @@ Each callback requires a block and can be registered only once. Exceptions fail 
 
 `tasks.publish` registers the complete release sequence before `after_release`. The default `publish` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `DRY_RUN`.
 
-The [Usage example](../README.md#usage) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.
+The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.

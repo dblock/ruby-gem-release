@@ -1,31 +1,9 @@
 # frozen_string_literal: true
 
-require 'ruby-gem-release/tasks'
+require 'ruby-gem-release/workflow/ruby_gem'
 require 'ruby-gem-release/changelog'
-require 'ruby-gem-release/hosting/github_release'
-require 'ruby-gem-release/package/ruby_gem'
-require 'ruby-gem-release/source_control/git'
 
-RubyGemRelease::Tasks.install do |tasks|
-  version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
-  changelog = RubyGemRelease::Changelog::KeepAChangelog.new
-  package = RubyGemRelease::Package::RubyGem.new(gemspec: 'example.gemspec')
-  git = RubyGemRelease::SourceControl::Git.new
-  github = RubyGemRelease::Hosting::GitHubRelease.new
-  tasks.before_release do |release|
-    changelog.release!(release.with_version(version.read))
-  end
-  tasks.publish do |release|
-    git.commit!(release)
-    package.build!(release)
-    git.tag!(release)
-    package.publish!(release)
-    git.push!(release)
-    github.publish!(release, package: package)
-  end
-  tasks.after_release do |release|
-    changelog.prepare_next!(release.with_next_version(version.increment!))
-    git.commit_next!(release)
-    git.push!
-  end
-end
+RubyGemRelease::Workflow::RubyGem.new(
+  version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
+  changelog: RubyGemRelease::Changelog::KeepAChangelog.new
+).install_tasks

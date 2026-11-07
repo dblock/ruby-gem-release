@@ -25,6 +25,10 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     }
   end
 
+  def consumer_rakefile
+    File.read('examples/keep_a_changelog/Rakefile')
+  end
+
   before do
     FileUtils.mkdir_p(File.join(checkout, 'lib/example'))
     File.write(File.join(checkout, 'lib/example/version.rb'), "module Example\n  VERSION = '0.1.0'\nend\n")
@@ -39,7 +43,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       end
     RUBY
     FileUtils.cp('examples/keep_a_changelog/CHANGELOG.md', checkout)
-    File.write(File.join(checkout, 'Rakefile'), "#{File.read('examples/keep_a_changelog/Rakefile')}\n#{remote_write_guard}")
+    File.write(File.join(checkout, 'Rakefile'), "#{consumer_rakefile}\n#{remote_write_guard}")
     run_git('init', '--bare', '--quiet', '-b', 'master', remote)
     run_git('init', '--quiet', '-b', 'master', checkout)
     run_git('-C', checkout, 'add', '.')
@@ -86,21 +90,33 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
   end
 
-  it 'runs the documented callbacks, preserving the exact artifact without remote writes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
-    initial = run_git('--git-dir', remote, 'rev-parse', 'master')
-    run_phase('Capture Release Context')
-    run_phase('Prepare Release')
-    run_phase('Resolve Prepared Version')
-    run_phase('Publish Release')
-    release_commit = run_git('-C', checkout, 'rev-parse', 'HEAD')
-    expect(run_git('-C', checkout, 'rev-parse', 'v0.1.0')).to eq(release_commit)
-    expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
-    expect(File).to exist(File.join(directory, 'release.bundle'))
-    run_phase('Prepare Next Development Version')
-    expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
-    expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
-    expect(run_git('--git-dir', remote, 'tag')).to eq('')
-    expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+  shared_examples 'a local release lifecycle' do
+    it 'runs the documented callbacks, preserving the exact artifact without remote writes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
+      initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+      run_phase('Capture Release Context')
+      run_phase('Prepare Release')
+      run_phase('Resolve Prepared Version')
+      run_phase('Publish Release')
+      release_commit = run_git('-C', checkout, 'rev-parse', 'HEAD')
+      expect(run_git('-C', checkout, 'rev-parse', 'v0.1.0')).to eq(release_commit)
+      expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
+      expect(File).to exist(File.join(directory, 'release.bundle'))
+      run_phase('Prepare Next Development Version')
+      expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
+      expect(run_git('--git-dir', remote, 'tag')).to eq('')
+      expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+    end
+  end
+
+  it_behaves_like 'a local release lifecycle'
+
+  context 'with detailed manual callbacks' do
+    def consumer_rakefile
+      File.read('docs/usage.md').split('## Custom Callbacks').last[/```ruby\n(.*?)```/m, 1]
+    end
+
+    it_behaves_like 'a local release lifecycle'
   end
 
   it 'invokes publication in dry runs and preserves artifacts after a failed callback', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify failure-aware artifact preservation and the authentication gate.

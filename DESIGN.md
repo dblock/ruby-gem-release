@@ -16,9 +16,13 @@ The package builds once and publishes before atomically pushing its commit and t
 
 ## Class Areas
 
-Namespaces group implementations by responsibility: `Package::RubyGem` builds and publishes gems, `SourceControl::Git` manages commits and tags independently of hosting, and `Hosting::GitHubRelease` creates hosted releases. `Version` and `Changelog` retain their existing areas; `Release`, `Tasks`, and `Workflow` remain orchestration and shared context. Class, documentation, and spec paths mirror namespaces.
+Namespaces group implementations by responsibility: `Package::RubyGem` builds and publishes gems, `SourceControl::Git` manages commits and tags independently of hosting, and `Hosting::GitHubRelease` creates hosted releases. `Version` and `Changelog` retain their existing areas; `Release` and `Tasks` remain shared context and callback registration. `Workflow::Context` captures the Actions release context, while `Workflow::RubyGem` installs the standard sequence. Class, documentation, and spec paths mirror namespaces.
 
 Future hosting implementations can implement `publish!(release, package:)` without changing callbacks or Git operations. No shared hosting base or additional provider is implemented until real shared behavior requires one.
+
+## Standard Workflow
+
+`Workflow::RubyGem` installs the existing callback sequence using explicit version and changelog objects. Package, Git, and hosting objects use their established defaults and can be replaced without changing ordering. Only unambiguous gemspec, repository, branch, and artifact-directory defaults are used; version files and changelog formats are never guessed. An explicit `nil` disables changelog or hosted-release work, not package publication or version incrementing. Custom sequences continue to use `Tasks.install`; no workflow framework or speculative provider abstraction is introduced.
 
 ## Logo
 
