@@ -24,6 +24,10 @@ Future hosting implementations can implement `publish!(release, package:)` witho
 
 `Workflow::RubyGem` installs the existing callback sequence using explicit version and changelog objects. Package, Git, and hosting objects use their established defaults and can be replaced without changing ordering. Only unambiguous gemspec, repository, branch, and artifact-directory defaults are used; version files and changelog formats are never guessed. An explicit `nil` disables changelog or hosted-release work, not package publication or version incrementing. Custom sequences continue to use `Tasks.install`; no workflow framework or speculative provider abstraction is introduced.
 
+## Project Release Caller
+
+The project's `publish.yml` caller invokes the local reusable workflow through manual dispatch only, using the standard workflow configured in the root Rakefile and the Ruby 4.0 runtime already used by package CI. Dry runs are the caller's default; publishing requires an explicit `dry-run=false` selection and prior release authorization. The caller grants only contents-write and OIDC-token permissions needed for release operations. Trusted Publishing setup remains a separate prerequisite.
+
 ## Logo
 
 The logo in `assets/logo.png` is an original AI-generated image of a ruby gemstone launching like a rocket. This is the original generated asset; no editable source was provided. To create a replacement, generate a centered, text-free, red faceted ruby with an upward launch motif and a transparent background. Generation is not deterministic, so a replacement will differ. Preserve the original asset and inspect the full-size image and its 160-pixel README rendering for legibility and clipping when updating it.
