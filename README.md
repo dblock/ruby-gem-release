@@ -8,7 +8,7 @@
 
 Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development version with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
 
-- **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing.
+- **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
 - **Try it before publishing:** Dry runs exercise local commits, builds, and tags without uploading or pushing.
 - **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
 
@@ -41,11 +41,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Optional expected version (must match the prepared gemspec)
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -55,7 +50,6 @@ jobs:
   release:
     uses: dblock/ruby-gem-release/.github/workflows/release.yml@master
     with:
-      version: ${{ inputs.version }}
       ruby-version: '3.3'
 ```
 

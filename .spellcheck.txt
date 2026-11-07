@@ -9,6 +9,7 @@ lifecycle
 md
 namespaces
 OIDC
+OpenID
 PRs
 Rakefile
 README
