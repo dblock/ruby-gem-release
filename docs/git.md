@@ -1,4 +1,4 @@
-# `RubyGemRelease::Git`
+# `RubyGemRelease::SourceControl::Git`
 
 Owns local release commits and tags, branch checks, recovery bundles, and remote pushes.
 

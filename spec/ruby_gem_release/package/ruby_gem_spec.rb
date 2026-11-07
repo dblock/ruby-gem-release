@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'ruby-gem-release/package'
+require 'ruby-gem-release/package/ruby_gem'
 require 'tmpdir'
 
-RSpec.describe RubyGemRelease::Package do
+RSpec.describe RubyGemRelease::Package::RubyGem do
   let(:directory) { Dir.mktmpdir }
   let(:artifacts) { File.join(directory, 'artifacts') }
   let(:package) { described_class.new(gemspec: 'fixture.gemspec', directory: artifacts) }

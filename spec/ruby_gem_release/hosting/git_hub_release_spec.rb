@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'ruby-gem-release/github_release'
+require 'ruby-gem-release/hosting/github_release'
 require 'tmpdir'
 
-RSpec.describe RubyGemRelease::GitHubRelease do
+RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
   let(:publisher) { described_class.new(repository: 'example/gem') }
   let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.new(2026, 11, 7)) }
   let(:status) { instance_double(Process::Status, success?: true) }
@@ -62,7 +62,7 @@ RSpec.describe RubyGemRelease::GitHubRelease do
   end
 
   it 'attaches the package-owned exact artifact' do
-    package = instance_double(RubyGemRelease::Package, artifact: artifact)
+    package = instance_double(RubyGemRelease::Package::RubyGem, artifact: artifact)
     publisher.publish!(release, package: package)
     expect(package).to have_received(:artifact).with(release)
   end

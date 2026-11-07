@@ -1,6 +1,6 @@
 # Design
 
-`Package`, `Git`, and `GitHubRelease` own release operations through argument-based command invocation. The publication callback commits, builds once, tags, publishes to RubyGems, pushes the commit and tag atomically, and creates the GitHub Release with generated notes and the verified exact artifact. The workflow retains setup, context checks, validation, Trusted Publishing authentication, artifact uploading, and phase invocation. All callbacks run for dry runs; the immutable release context suppresses remote writes in the supplied classes.
+`Package::RubyGem`, `SourceControl::Git`, and `Hosting::GitHubRelease` own release operations through argument-based command invocation. The publication callback commits, builds once, tags, publishes to RubyGems, pushes the commit and tag atomically, and creates the GitHub Release with generated notes and the verified exact artifact. The workflow retains setup, context checks, validation, Trusted Publishing authentication, artifact uploading, and phase invocation. All callbacks run for dry runs; the immutable release context suppresses remote writes in the supplied classes.
 
 `ruby-gem-release` packages two related interfaces: a reusable GitHub Actions workflow invoked with `workflow_call`, and a Ruby gem that supplies lifecycle Rake tasks and objects for reading, setting, and incrementing numeric versions.
 
@@ -13,6 +13,12 @@ Optional Ruby callbacks receive an immutable release context during release prep
 Changelog updates use `Commonmarker` to identify top-level headings and exclude code, HTML, and quoted blocks. Updates edit the original source rather than rendering the parsed document again, preserving unrelated Markdown formatting. Reference definitions are not exposed as separate parser nodes, so comparison references use source-level matching outside those excluded blocks, with parser validation that each reference is defined.
 
 The package builds once and publishes before atomically pushing its commit and tag. Git checks concurrency before publication and again before pushing. This leaves an unavoidable recovery window if the push fails after publication; see [RELEASING.md](RELEASING.md). The artifact-upload step runs even when publication fails, preserving the gem, digest manifest, and recovery bundle where available. Because building and publication now share a callback, Actions uploads recovery artifacts afterward rather than beforehand; runner loss during that callback can still lose the local files. The pull-request integration workflow invokes the actual reusable workflow with a consumer fixture and dry-run mode, without publishing or pushing.
+
+## Class Areas
+
+Namespaces group implementations by responsibility: `Package::RubyGem` builds and publishes gems, `SourceControl::Git` manages commits and tags independently of hosting, and `Hosting::GitHubRelease` creates hosted releases. `Version` and `Changelog` retain their existing areas; `Release`, `Tasks`, and `Workflow` remain orchestration and shared context. File paths mirror namespaces.
+
+Future hosting implementations can implement `publish!(release, package:)` without changing callbacks or Git operations. No shared hosting base or additional provider is implemented until real shared behavior requires one.
 
 ## Logo
 

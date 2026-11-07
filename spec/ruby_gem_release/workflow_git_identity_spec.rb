@@ -4,7 +4,7 @@ require 'spec_helper'
 require 'yaml'
 require 'open3'
 require 'tmpdir'
-require 'ruby-gem-release/git'
+require 'ruby-gem-release/source_control/git'
 
 RSpec.describe 'Workflow Git identity' do # rubocop:disable RSpec/DescribeClass -- Execute workflow configuration.
   let(:directory) { Dir.mktmpdir }
@@ -19,7 +19,7 @@ RSpec.describe 'Workflow Git identity' do # rubocop:disable RSpec/DescribeClass 
   after { FileUtils.remove_entry(directory) }
 
   def configure_identity(**arguments)
-    Dir.chdir(directory) { RubyGemRelease::Git.new(directory: directory).configure!(**arguments) }
+    Dir.chdir(directory) { RubyGemRelease::SourceControl::Git.new(directory: directory).configure!(**arguments) }
   end
 
   it 'configures the custom identity locally', :aggregate_failures do

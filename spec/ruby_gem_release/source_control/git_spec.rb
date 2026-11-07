@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'ruby-gem-release/git'
+require 'ruby-gem-release/source_control/git'
 require 'tmpdir'
 
-RSpec.describe RubyGemRelease::Git do
+RSpec.describe RubyGemRelease::SourceControl::Git do
   let(:directory) { Dir.mktmpdir }
   let(:remote) { File.join(directory, 'remote.git') }
   let(:git) { described_class.new(branch: 'master', directory: directory) }

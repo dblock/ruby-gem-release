@@ -1,10 +1,10 @@
-# `RubyGemRelease::Package`
+# `RubyGemRelease::Package::RubyGem`
 
 Owns gem building and RubyGems publication. Commands use argument arrays rather than shell interpolation.
 
 ## Gemspec
 
-`Package.new(gemspec: 'example.gemspec')` selects the specification. Without an argument, it uses `GEMSPEC` or the only root gemspec; missing or ambiguous specifications fail. Use the same specification as the workflow, or omit the argument to honor its `gemspec` input. `gemspec` returns the selected absolute path.
+`RubyGem.new(gemspec: 'example.gemspec')` selects the specification. Without an argument, it uses `GEMSPEC` or the only root gemspec; missing or ambiguous specifications fail. Use the same specification as the workflow, or omit the argument to honor its `gemspec` input. `gemspec` returns the selected absolute path.
 
 ## Directory
 

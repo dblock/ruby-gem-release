@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative 'package'
-require_relative 'git'
+require_relative 'package/ruby_gem'
+require_relative 'source_control/git'
 require_relative 'release'
 require_relative 'version/ruby_constant'
 
@@ -10,7 +10,7 @@ module RubyGemRelease
     def capture!
       dry_run = ENV.fetch('DRY_RUN', 'false') == 'true'
       check_branch(dry_run)
-      package = Package.new(gemspec: ENV.fetch('INPUT_GEMSPEC', nil))
+      package = Package::RubyGem.new(gemspec: ENV.fetch('INPUT_GEMSPEC', nil))
       release = initial_release(package, dry_run: dry_run)
       git = configured_git
       git.check_current!(release)
@@ -19,12 +19,12 @@ module RubyGemRelease
     end
 
     def resolve!
-      version = Package.new.version
+      version = Package::RubyGem.new.version
       validate_version(version)
       expected = ENV.fetch('INPUT_VERSION', '')
       raise "Prepared version #{version} does not match expected version #{expected}" unless expected.empty? || version == expected
 
-      Git.new.check_tag!(version)
+      SourceControl::Git.new.check_tag!(version)
       export('RELEASE_VERSION' => version)
     end
 
@@ -38,7 +38,7 @@ module RubyGemRelease
     end
 
     def configured_git
-      Git.new.tap do |git|
+      SourceControl::Git.new.tap do |git|
         git.configure!(name: ENV.fetch('GIT_USER_NAME', 'github-actions[bot]'),
                        email: ENV.fetch('GIT_USER_EMAIL', 'github-actions[bot]@users.noreply.github.com'))
       end

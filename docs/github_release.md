@@ -1,11 +1,11 @@
-# `RubyGemRelease::GitHubRelease`
+# `RubyGemRelease::Hosting::GitHubRelease`
 
 Creates a GitHub Release using the installed `gh` command after the gem is published and its commit and tag are pushed.
 
 ```ruby
-require 'ruby-gem-release/github_release'
+require 'ruby-gem-release/hosting/github_release'
 
-github = RubyGemRelease::GitHubRelease.new
+github = RubyGemRelease::Hosting::GitHubRelease.new
 github.publish!(release, package: package)
 ```
 
@@ -19,7 +19,7 @@ The optional `repository:` argument identifies the target as `'OWNER/REPO'`. It 
 
 ## Package
 
-`package:` attaches the exact archive returned by [`Package#artifact`](package.md#artifact), with its package filename and verified digest, without rebuilding or manual copying.
+`package:` attaches the exact archive returned by [`Package::RubyGem#artifact`](package.md#artifact), with its package filename and verified digest, without rebuilding or manual copying.
 
 ## Artifacts
 

@@ -7,7 +7,7 @@ require 'tmpdir'
 RSpec.describe RubyGemRelease::Workflow do
   let(:directory) { Dir.mktmpdir }
   let(:environment_file) { File.join(directory, 'environment') }
-  let(:git) { instance_double(RubyGemRelease::Git, configure!: nil, check_current!: nil, check_tag!: nil, head: 'initial-commit') }
+  let(:git) { instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_current!: nil, check_tag!: nil, head: 'initial-commit') }
 
   around do |example|
     original = ENV.to_h
@@ -24,7 +24,7 @@ RSpec.describe RubyGemRelease::Workflow do
     File.write('fixture.gemspec', "require_relative 'version'\nGem::Specification.new { |spec| spec.version = VERSION }\n")
     File.write('version.rb', "VERSION = '1.2.3'\n")
     File.write(environment_file, '')
-    allow(RubyGemRelease::Git).to receive(:new).and_return(git)
+    allow(RubyGemRelease::SourceControl::Git).to receive(:new).and_return(git)
   end
 
   it 'retains the initial version while resolving callback edits', :aggregate_failures do

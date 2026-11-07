@@ -27,16 +27,16 @@ Add `ruby-gem-release` to the development dependencies and install its tasks in 
 ```ruby
 require 'ruby-gem-release/tasks'
 require 'ruby-gem-release/changelog'
-require 'ruby-gem-release/github_release'
-require 'ruby-gem-release/package'
-require 'ruby-gem-release/git'
+require 'ruby-gem-release/hosting/github_release'
+require 'ruby-gem-release/package/ruby_gem'
+require 'ruby-gem-release/source_control/git'
 
 RubyGemRelease::Tasks.install do |tasks|
   version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
   changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
-  package = RubyGemRelease::Package.new(gemspec: 'example.gemspec')
-  git = RubyGemRelease::Git.new
-  github = RubyGemRelease::GitHubRelease.new
+  package = RubyGemRelease::Package::RubyGem.new(gemspec: 'example.gemspec')
+  git = RubyGemRelease::SourceControl::Git.new
+  github = RubyGemRelease::Hosting::GitHubRelease.new
   tasks.before_release do |release|
     changelog.release!(release.with_version(version.read))
   end
@@ -135,7 +135,7 @@ By default, it runs the before-release callback, `bundle exec rake`, the publica
 
 ## Packages and Git
 
-[`Package`](docs/package.md) builds once, verifies the exact artifact, and publishes it to RubyGems. [`Git`](docs/git.md) commits release files, tags the release, preserves a recovery bundle, checks branch concurrency, and pushes atomically. Both perform local work in dry runs without publishing or pushing.
+[`Package::RubyGem`](docs/package.md) builds once, verifies the exact artifact, and publishes it to RubyGems. [`SourceControl::Git`](docs/git.md) commits release files, tags the release, preserves a recovery bundle, checks branch concurrency, and pushes atomically. [`Hosting::GitHubRelease`](docs/github_release.md) owns hosting-specific publication. File paths mirror these namespaces; operations and callback ordering are unchanged. Both package and Git objects perform local work in dry runs without publishing or pushing.
 
 ## Git Commit Identity
 
