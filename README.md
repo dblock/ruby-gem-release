@@ -2,13 +2,14 @@
 
 # Ruby Gem Release
 
-[![Test](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml/badge.svg)](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml) [![Coverage Status](https://coveralls.io/repos/github/dblock/ruby-gem-release/badge.svg?branch=master)](https://coveralls.io/github/dblock/ruby-gem-release?branch=master)
+[![Gem Version](https://img.shields.io/gem/v/ruby-gem-release.svg)](https://rubygems.org/gems/ruby-gem-release) [![Test](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml/badge.svg)](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml) [![Coverage Status](https://coveralls.io/repos/github/dblock/ruby-gem-release/badge.svg?branch=master)](https://coveralls.io/github/dblock/ruby-gem-release?branch=master)
 
 **Release your Ruby gem from GitHub Actions—without maintaining custom release scripts or storing a RubyGems API key.**
 
 Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development version with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
 
 - **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
+- **Let collaborators release:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials.
 - **Try it before publishing:** Dry runs exercise local commits, builds, and tags without uploading or pushing.
 - **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
 
@@ -86,6 +87,8 @@ gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID
 ```sh
 gh workflow run release.yml
 ```
+
+For a real-world example of adding release automation to an existing gem, see [ruby-link-checker #26](https://github.com/dblock/ruby-link-checker/pull/26). It adds the dependency, Rake tasks, reusable workflow, and release instructions while preserving the existing changelog format.
 
 ## Configuration
 

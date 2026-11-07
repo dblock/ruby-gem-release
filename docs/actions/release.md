@@ -28,6 +28,8 @@ The `publish` input replaces the former `github-release` input and controls the 
 
 ## Permissions and Authentication
 
+Once the repository and gem owners complete setup, collaborators with write access can [dispatch releases](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow), including in personal repositories. They do not need repository admin access, RubyGems ownership, or their own RubyGems API key. Any configured environment approval rules still apply.
+
 For a brand-new gem, register a pending trusted publisher and set `rubygems-owner` to the numeric account ID shown on that page. The [owner-aware helper](../workflow/ruby_gems_credentials.md) requests a GitHub OIDC token for audience `rubygems.org`, exchanges it with the owner assertion, masks both credentials, and exports the short-lived key for publication. The current credentials action lacks this owner input; existing-gem releases with no owner specified continue to use it. Both authentication paths are skipped in dry runs.
 
 The caller needs `contents: write` for Git pushes and GitHub Releases, and `id-token: write` for RubyGems Trusted Publishing. Configure the `release` environment and RubyGems trusted publisher as described in [Usage](../../README.md#3-enable-trusted-publishing). No stored RubyGems API key is required.

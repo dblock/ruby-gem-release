@@ -24,7 +24,7 @@ module RubyGemRelease
         check_release_absent(content, version)
         section_end = section_end_position(content, position, prefix.length)
         content[position...section_end] = "#{prefix} #{version} (#{date.strftime('%Y/%m/%d')})" +
-                                          remove_placeholder(content[line_end(content, position, separator)...section_end])
+                                          remove_placeholder(content[line_end(content, position, separator)...section_end], separator)
         File.write(@path, content)
       end
 
@@ -53,15 +53,21 @@ module RubyGemRelease
         heading_positions(content, /\A\#{1,6} /, max_level: level).find { |offset| offset > position } || content.length
       end
 
-      def remove_placeholder(section)
+      def remove_placeholder(section, separator)
         positions = []
         editable_lines(section) { |line, offset| positions << offset if line.chomp == @placeholder }
         raise ArgumentError, "expected exactly one placeholder in #{@path}" unless positions.one?
 
         position = positions.first
-        line_end = section.index("\n", position)
-        section.slice!(position, (line_end ? line_end + 1 : section.length) - position)
+        section.slice!(position, placeholder_length(section, position, separator))
         section
+      end
+
+      def placeholder_length(section, position, separator)
+        line_end = section.index("\n", position)
+        length = (line_end ? line_end + 1 : section.length) - position
+        length += separator.length if section[0...position].end_with?(separator * 2) && section[position + length, separator.length] == separator
+        length
       end
     end
   end

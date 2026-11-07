@@ -33,6 +33,15 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(File.read(path)).to eq("### 1.0.0 (2026/11/07)\n\n#### Added\n\n- Change.\n\n#{history}")
   end
 
+  ["\n", "\r\n"].each do |separator|
+    it "releases an empty section without extra blank lines using #{separator.inspect} endings" do
+      history = ['## 0.9.0 (2026/11/06)', '', '- Older change.', ''].join(separator)
+      File.write(path, ['## 1.0.0 (Next)', '', '- Your contribution here.', '', history].join(separator))
+      described_class.new(path: path).release!(release)
+      expect(File.binread(path)).to eq("## 1.0.0 (2026/11/07)#{separator}#{separator}#{history}")
+    end
+  end
+
   it 'releases an Intridea section and opens the next section', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check both phases.
     File.write(path, "# Changelog\n\n## 1.0.0 (Next)\n\n- Change.\n- Your contribution here.\n")
     updater = described_class.new(path: path)
