@@ -73,17 +73,19 @@ From your default branch, review the changes and dispatch the workflow:
 gh workflow run release.yml
 ```
 
-The workflow runs on the default branch and uses the current version from your configured version file; pass `-f version=0.1.0` to release a different version. If the `release` environment requires approval, a designated reviewer must open the run under **Actions** in GitHub and select **Review deployments**. The workflow validates and publishes the gem, pushes the release commit and tag, creates a GitHub Release, and prepares the next development version. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions.
-
 ## GitHub Branch Protection and Rulesets
 
 In **Settings → Environments → release**, restrict deployment branches to your default branch and add required reviewers if available. The workflow also rejects non-default-branch releases.
+
+If the environment requires approval, a designated reviewer must open the run under **Actions** in GitHub and select **Review deployments**.
 
 Check **Settings → Branches** for branch protection rules and **Settings → Rules → Rulesets** for rulesets affecting the default branch. The workflow must be able to push release commits and a tag: a rule requiring pull requests or restricting pushes can block the Actions token unless a suitable bypass is configured. Keep force-push and deletion restrictions in place. If you remove a pull-request requirement instead, direct pushes become possible for other permitted writers too. See [RELEASING.md](RELEASING.md) for details.
 
 ## Workflow Commands
 
-The workflow uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple. By default, it sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, and bumps the patch version after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed; for example, `prepare` can also update the changelog. Pin the workflow to a reviewed release or commit instead of `master` when available. See [RELEASING.md](RELEASING.md) for required permissions, trusted-publisher configuration, failure recovery, and a dry run.
+The workflow runs on the default branch and uses the current version from your configured version file; pass `-f version=0.1.0` to `gh workflow run` to release a different version. It uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple.
+
+By default, it sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, and bumps the patch version after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed; for example, `prepare` can also update the changelog. It publishes the gem, pushes the release commit and tag, and creates a GitHub Release. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
 
 ## Version Tasks
 
