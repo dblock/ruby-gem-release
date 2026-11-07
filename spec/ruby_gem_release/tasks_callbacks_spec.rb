@@ -37,7 +37,7 @@ RSpec.describe RubyGemRelease::Tasks do
     expect(updated).to be_frozen
   end
 
-  it 'attaches the incremented next version after publication' do # rubocop:disable RSpec/ExampleLength -- Exercise the post-release phase.
+  it 'attaches the version for the next development iteration after publication' do # rubocop:disable RSpec/ExampleLength -- Exercise the post-release phase.
     received = nil
     described_class.install do |tasks|
       tasks.after_release do |release|

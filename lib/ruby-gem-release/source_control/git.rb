@@ -45,9 +45,11 @@ module RubyGemRelease
       end
 
       def commit_next!(release)
+        raise ArgumentError, 'next development iteration version is required' if release.next_version.to_s.empty?
+
         @release = release
         @next_commit_parent = head
-        commit_changes("Prepare next development version after #{release.version}", required: true)
+        commit_changes("Prepare next development iteration, #{release.next_version}", required: true)
       end
 
       def tag!(release)
@@ -90,7 +92,7 @@ module RubyGemRelease
       def commit_changes(message, required:)
         run('add', '-A')
         output = run('diff', '--cached', '--name-only')
-        raise 'Next-version preparation did not change any files' if required && output.empty?
+        raise 'Preparing the next development iteration did not change any files' if required && output.empty?
         return head if output.empty?
 
         run('commit', '-m', message)

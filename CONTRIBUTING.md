@@ -2,7 +2,7 @@
 
 Create a topic branch from `master` and keep each pull request focused on one coherent change.
 
-Use a separate worktree for each PR with a `dblock/<topic>` branch, keeping the primary checkout on `master` when clean. Ordinary development changes go through PRs. Authorized release automation is an exception: release preparation and next-version commits may be pushed directly without PRs. The default-branch ruleset blocks force pushes and deletion but does not enforce PRs, allowing release automation and other writers to make fast-forward pushes.
+Use a separate worktree for each PR with a `dblock/<topic>` branch, keeping the primary checkout on `master` when clean. Ordinary development changes go through PRs. Authorized release automation is an exception: release preparation and next development iteration commits may be pushed directly without PRs. The default-branch ruleset blocks force pushes and deletion but does not enforce PRs, allowing release automation and other writers to make fast-forward pushes.
 
 After a PR merges, verify its merged state and check for uncommitted changes and dependent work before removing its clean, unneeded worktree and local branch. Do not discard work to clean up.
 

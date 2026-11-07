@@ -44,7 +44,7 @@ jobs:
           dry-run: ${{ inputs.dry-run }}
 ```
 
-The action checks out the calling repository with full history and sets up Ruby with Bundler caching. It exports and validates inputs, captures the initial version, invokes preparation, resolves the prepared version, validates, authenticates, publishes, preserves recovery artifacts, and prepares the next development version. Publication must run from the default branch at its current remote commit. Use a GitHub-hosted Ubuntu runner, matching the reusable workflow's supported execution environment.
+The action checks out the calling repository with full history and sets up Ruby with Bundler caching. It exports and validates inputs, captures the initial version, invokes preparation, resolves the prepared version, validates, authenticates, publishes, preserves recovery artifacts, and prepares the next development iteration. Publication must run from the default branch at its current remote commit. Use a GitHub-hosted Ubuntu runner, matching the reusable workflow's supported execution environment.
 
 ## Inputs and Environment
 
@@ -62,4 +62,4 @@ For first publication, register a pending trusted publisher and supply its numer
 
 With the sample, dispatch a first release using `gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID -f dry-run=false`, replacing `YOUR_ACCOUNT_ID` with your numeric account ID. For subsequent releases, omit `rubygems-owner`. Keep `dry-run=true` when exercising the workflow without remote writes.
 
-Recovery artifacts are preserved after the publication callback, even when it fails. Failed callbacks prevent the next-version phase. The exact-artifact guarantees and unavoidable publication-before-push recovery window are unchanged; follow [Verify and Recover](../../RELEASING.md#verify-and-recover) rather than blindly retrying a failed release.
+Recovery artifacts are preserved after the publication callback, even when it fails. Failed callbacks prevent the next development iteration phase. The exact-artifact guarantees and unavoidable publication-before-push recovery window are unchanged; follow [Verify and Recover](../../RELEASING.md#verify-and-recover) rather than blindly retrying a failed release.

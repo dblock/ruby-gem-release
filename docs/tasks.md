@@ -1,6 +1,6 @@
 # `RubyGemRelease::Tasks`
 
-Registers optional preparation, publication, and next-version callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
+Registers optional preparation, publication, and next development iteration callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
 
 ## Install
 
@@ -16,9 +16,9 @@ The default `prepare` command invokes `bundle exec rake release:before_release`.
 
 ## After Release
 
-`tasks.after_release` prepares the next development version after publication. `version` contains the published version, `previous_version` retains the initial version, and `next_version` starts as `nil`. Explicitly increment the version and attach the result with `release.with_next_version(version.increment!)` before preparing the next changelog section.
+`tasks.after_release` prepares the next development iteration after publication. `version` contains the published version, `previous_version` retains the initial version, and `next_version` starts as `nil`. Explicitly increment the version and retain the updated context with `next_release = release.with_next_version(version.increment!)` before preparing the next changelog section.
 
-The default `bump` command invokes `bundle exec rake release:after_release`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(release)` and `git.push!` after your version and changelog edits.
+The default `bump` command invokes `bundle exec rake release:after_release`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
 
 ## Errors and Dry Runs
 

@@ -12,7 +12,7 @@ Shared implementation for [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_
 
 ## Prepare Next
 
-`prepare_next!(release)` delegates the released and next versions to the concrete format implementation.
+`prepare_next!(release)` delegates the released version and the version for the next development iteration to the concrete format implementation.
 
 ## Source Preservation
 

@@ -42,7 +42,7 @@ module RubyGemRelease
       def prepare_next(release)
         next_release = release.with_next_version(@version.increment!)
         @changelog&.prepare_next!(next_release)
-        @git.commit_next!(release)
+        @git.commit_next!(next_release)
         @git.push!
       end
     end

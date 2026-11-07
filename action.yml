@@ -1,5 +1,5 @@
 name: Ruby Gem Release
-description: Validate and publish a Ruby gem with Trusted Publishing, then prepare its next development version.
+description: Validate and publish a Ruby gem with Trusted Publishing, then prepare its next development iteration.
 author: dblock
 branding:
   icon: package
@@ -16,10 +16,10 @@ inputs:
     description: Optional RubyGems account ID for first publication with a pending trusted publisher.
     default: ''
   git-user-name:
-    description: Author name for release and next-version commits.
+    description: Author name for release and next development iteration commits.
     default: github-actions[bot]
   git-user-email:
-    description: Author email for release and next-version commits.
+    description: Author email for release and next development iteration commits.
     default: github-actions[bot]@users.noreply.github.com
   ruby-version:
     description: Ruby version used to validate and build.

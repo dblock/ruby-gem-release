@@ -117,6 +117,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
       expect(File).to exist(File.join(directory, 'release.bundle'))
       run_phase('Prepare Next Development Iteration')
+      expect(run_git('-C', checkout, 'log', '-1', '--format=%s')).to eq('Prepare next development iteration, 0.1.1')
       expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
       expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include(next_heading)
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)

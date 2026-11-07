@@ -69,7 +69,7 @@ module RubyGemRelease
         release = context(before_release: true)
         @before_release&.call(release)
       end
-      desc 'Run the next-version preparation callback'
+      desc 'Run the next development iteration preparation callback'
       task(:after_release) do
         release = context
         @after_release&.call(release)

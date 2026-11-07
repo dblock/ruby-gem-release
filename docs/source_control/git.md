@@ -32,11 +32,11 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Commit Next
 
-`commit_next!(release)` commits next-version changes and fails if no files changed. It retains the published commit for the next push's concurrency check.
+`commit_next!(release)` commits next development iteration changes and fails if no files changed. The context must include a nonempty `next_version`, obtained with `release.with_next_version(version.increment!)`. For `next_version: '0.5.1'`, the commit message is `Prepare next development iteration, 0.5.1`. It retains the published commit for the next push's concurrency check.
 
 ## Push
 
-`push!(release)` checks the remote branch again, then atomically pushes the release commit and tag. After `commit_next!`, `push!` uses the retained release context and pushes only the next-version commit. Both skip remote writes when `release.dry_run?` is true. Pushes never force or move existing tags.
+`push!(release)` checks the remote branch again, then atomically pushes the release commit and tag. After `commit_next!`, `push!` uses the retained release context and pushes only the next development iteration commit. Both skip remote writes when `release.dry_run?` is true. Pushes never force or move existing tags.
 
 ## Errors
 

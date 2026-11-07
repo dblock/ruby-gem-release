@@ -4,7 +4,7 @@ Installs the standard Ruby gem release sequence through [`Tasks`](../tasks.md), 
 
 ## Version
 
-The required `version:` object implements `read` and `increment!`. Preparation reads its current version for the changelog; next-version preparation increments it. The default [`RubyConstant`](../version/ruby_constant.md) increment is a patch change. Version files are never guessed.
+The required `version:` object implements `read` and `increment!`. Preparation reads its current version for the changelog; next development iteration preparation increments it. The default [`RubyConstant`](../version/ruby_constant.md) increment is a patch change. Version files are never guessed.
 
 ## Changelog
 
@@ -24,9 +24,9 @@ The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github
 
 ## Install Tasks
 
-`install_tasks` registers preparation, publication, next-version, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
+`install_tasks` registers preparation, publication, next development iteration, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
 
-Preparation updates the changelog with the explicitly read version. Publication commits release changes, builds once, tags locally, publishes the package, pushes the release commit and tag atomically, then publishes the hosted release. Next-version preparation increments the version, updates the changelog, commits those changes, and pushes only the next-version commit.
+Preparation updates the changelog with the explicitly read version. Publication commits release changes, builds once, tags locally, publishes the package, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
 
 ## Errors and Dry Runs
 

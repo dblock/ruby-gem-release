@@ -70,7 +70,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
                          ])
   end
 
-  it 'preserves the initial context and dry-run state across version copies', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check preparation and next-version contexts.
+  it 'preserves the initial context and dry-run state across version copies', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check preparation and next development iteration contexts.
     received = []
     allow(objects.fetch(:changelog)).to receive(:release!) { |release| received << release }
     allow(objects.fetch(:changelog)).to receive(:prepare_next!) { |release| received << release }
@@ -80,6 +80,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
       .to eq([['2.0.0', '1.2.3', nil, true], ['2.0.0', '1.2.3', '2.0.1', true]])
     expect(received).to all(be_frozen)
     expect(objects.fetch(:git)).to have_received(:commit!).with(be_dry_run)
+    expect(objects.fetch(:git)).to have_received(:commit_next!).with(received.last)
     expect(objects.fetch(:hosting)).to have_received(:publish!).with(be_dry_run, package: objects.fetch(:package))
   end
 
@@ -99,7 +100,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(RubyGemRelease::Hosting::GitHubRelease).not_to have_received(:new)
   end
 
-  it 'disables changelog updates but still increments and commits the next version', :aggregate_failures do
+  it 'disables changelog updates but still increments and commits the next development iteration', :aggregate_failures do
     described_class.new(version: version, changelog: nil).install_tasks
     run_callbacks
     expect(events).to include(:increment, %i[git commit_next!])
@@ -113,7 +114,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(events).to eq([%i[git commit!]])
   end
 
-  it 'stops before committing when next-version changelog preparation fails', :aggregate_failures do
+  it 'stops before committing when next development iteration changelog preparation fails', :aggregate_failures do
     allow(objects.fetch(:changelog)).to receive(:prepare_next!).and_raise('changelog failed')
     install
     expect { Rake::Task['release:after_release'].invoke }.to raise_error('changelog failed')

@@ -13,11 +13,11 @@ on:
         description: Optional RubyGems account ID for first publication with a pending trusted publisher.
         type: string
       git-user-name:
-        description: Author name for release and next-version commits.
+        description: Author name for release and next development iteration commits.
         type: string
         default: github-actions[bot]
       git-user-email:
-        description: Author email for release and next-version commits.
+        description: Author email for release and next development iteration commits.
         type: string
         default: github-actions[bot]@users.noreply.github.com
       ruby-version:

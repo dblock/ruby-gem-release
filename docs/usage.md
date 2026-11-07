@@ -30,7 +30,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-This installs the before-release, publication, next-version, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development commit.
+This installs the before-release, publication, next development iteration, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development iteration commit.
 
 The default workflow releases the current version in your version file; it increments the patch version only afterward. An optional workflow `version` input asserts the prepared gemspec version rather than changing it. Use custom preparation callbacks when you need to set a different release version.
 
@@ -79,8 +79,9 @@ RubyGemRelease::Tasks.install do |tasks|
     github.publish!(release, package: package)
   end
   tasks.after_release do |release|
-    changelog.prepare_next!(release.with_next_version(version.increment!))
-    git.commit_next!(release)
+    next_release = release.with_next_version(version.increment!)
+    changelog.prepare_next!(next_release)
+    git.commit_next!(next_release)
     git.push!
   end
 end
@@ -108,7 +109,7 @@ The reusable workflow provides the GitHub Actions environment for release callba
 
 Standard workflows wire the usual release sequence using your explicitly chosen version and changelog objects. Override package, Git, or hosting objects when needed; use custom callbacks for a different sequence.
 
-- [`Workflow::RubyGem`](workflow/ruby_gem.md): Gem release preparation, publication, and next-version callbacks with conservative defaults.
+- [`Workflow::RubyGem`](workflow/ruby_gem.md): Gem release preparation, publication, and next development iteration callbacks with conservative defaults.
 
 ### Version Objects
 
@@ -118,7 +119,7 @@ Version objects read, set, and increment the version stored in project files. Co
 
 ### Release Callbacks
 
-Callbacks define project-specific preparation, publication, and next-version work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
+Callbacks define project-specific preparation, publication, and next development iteration work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
 
 - [`Tasks`](tasks.md): Registers `before_release`, `publish`, and `after_release` callbacks and their Rake tasks.
 - [`Release`](release.md): Immutable version, date, and dry-run context passed to callbacks.
@@ -141,7 +142,7 @@ Package objects build, verify, and publish the exact release artifact. They perf
 
 Source control objects manage release history independently of the repository's hosting provider. They perform local commits and tags in dry runs without pushing.
 
-- [`SourceControl::Git`](source_control/git.md): Release and next-version commits, tags, recovery bundles, branch checks, and atomic release pushes.
+- [`SourceControl::Git`](source_control/git.md): Release and next development iteration commits, tags, recovery bundles, branch checks, and atomic release pushes.
 
 ### Hosting Objects
 

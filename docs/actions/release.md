@@ -17,9 +17,9 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 | `prepare`        | String  | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                 |
 | `validate`       | String  | `bundle exec rake`                             | Validate prepared release files before publication.                                                                             |
 | `publish`        | String  | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.          |
-| `bump`           | String  | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development version through the configured callback.                                         |
-| `git-user-name`  | String  | `github-actions[bot]`                          | Checkout-local author name for release and next-version commits.                                                                |
-| `git-user-email` | String  | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next-version commits.                                                               |
+| `bump`           | String  | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development iteration through the configured callback.                                       |
+| `git-user-name`  | String  | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                  |
+| `git-user-email` | String  | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                 |
 | `dry-run`        | Boolean | `false`                                        | Exercise local release work without remote writes from the supplied classes.                                                    |
 
 Identity values must be nonempty and contain no line breaks. They change commit attribution, not authentication or push permissions.

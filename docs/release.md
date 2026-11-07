@@ -10,9 +10,9 @@ An immutable context passed to [release callbacks](tasks.md). Strings and the da
 
 `release.previous_version` retains the initial gemspec version across both phases. It can equal the released version. The required constructor argument `previous_version:` is a string.
 
-## Next Version
+## Next Development Iteration
 
-`release.next_version` starts as `nil`. The optional constructor argument `next_version:` accepts a string.
+`release.next_version` holds the version for the next development iteration and starts as `nil`. The optional constructor argument `next_version:` accepts a string.
 
 ## Date
 
@@ -22,9 +22,9 @@ An immutable context passed to [release callbacks](tasks.md). Strings and the da
 
 `release.with_version(version.read)` returns a new context containing the supplied version string, preserving every other field and leaving the original unchanged.
 
-## With Next Version
+## With Next Development Iteration
 
-`release.with_next_version(version.increment!)` returns a new context containing the supplied next-version string, preserving every other field and leaving the original unchanged.
+`release.with_next_version(version.increment!)` returns a new context containing the supplied version for the next development iteration, preserving every other field and leaving the original unchanged.
 
 ## Dry Run
 

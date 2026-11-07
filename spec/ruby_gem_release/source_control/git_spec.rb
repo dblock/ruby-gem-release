@@ -59,7 +59,8 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(command('--git-dir', remote, 'rev-parse', 'v1.2.3')).to eq(release_commit)
     expect(File).to exist(File.join(directory, 'release.bundle'))
     File.write('version', '1.2.4')
-    git.commit_next!(release)
+    git.commit_next!(release.with_next_version('1.2.4'))
+    expect(command('log', '-1', '--format=%s')).to eq('Prepare next development iteration, 1.2.4')
     git.push!
     expect(command('--git-dir', remote, 'rev-parse', 'master')).to eq(git.head)
     expect(command('--git-dir', remote, 'rev-parse', 'v1.2.3')).to eq(release_commit)
@@ -97,17 +98,24 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect { git.tag!(release) }.to raise_error(/tag already exists/)
   end
 
-  it 'rejects a concurrent update before pushing the next development commit' do # rubocop:disable RSpec/ExampleLength -- Publish locally before exercising the next-commit concurrency check.
+  it 'rejects a concurrent update before pushing the next development iteration commit' do # rubocop:disable RSpec/ExampleLength -- Publish locally before exercising the next-commit concurrency check.
     prepare_tag
     git.push!
     File.write('version', '1.2.4')
-    git.commit_next!(release)
+    git.commit_next!(release.with_next_version('1.2.4'))
     advance_remote
     expect { git.push! }.to raise_error(/branch advanced/)
   end
 
-  it 'rejects next-version callbacks with no changes' do
-    expect { git.commit_next!(release) }.to raise_error(/did not change any files/)
+  it 'rejects next development iteration callbacks with no changes' do
+    expect { git.commit_next!(release.with_next_version('1.2.4')) }.to raise_error(/did not change any files/)
+  end
+
+  it 'rejects a missing iteration version before staging or committing', :aggregate_failures do
+    File.write('version', '1.2.4')
+    expect { git.commit_next!(release) }.to raise_error(ArgumentError, /iteration version is required/)
+    expect(git.head).to eq(initial)
+    expect(command('diff', '--cached', '--name-only')).to eq('')
   end
 
   def advance_remote

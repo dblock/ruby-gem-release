@@ -6,7 +6,7 @@
 
 **Release your Ruby gem from GitHub Actions—without maintaining custom release scripts or storing a RubyGems API key.**
 
-Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development version with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
+Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development iteration with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
 
 - **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
 - **Let collaborators release:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials.
@@ -31,7 +31,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-The standard workflow handles changelog updates, publication, and the next development version, selecting the gemspec and repository using unambiguous defaults. See [Detailed Usage](docs/usage.md) for file examples and custom release callbacks.
+The standard workflow handles changelog updates, publication, and the next development iteration, selecting the gemspec and repository using unambiguous defaults. See [Detailed Usage](docs/usage.md) for file examples and custom release callbacks.
 
 ### 2. Add the Release Workflow
 
