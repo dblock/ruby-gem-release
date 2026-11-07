@@ -48,7 +48,7 @@ jobs:
       ruby-version: '3.3'
 ```
 
-Create a `release` environment in your repository and configure a [RubyGems trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows): set the repository fields to your gem's repository, the workflow filename to `release.yml`, the environment to `release`, and the separate workflow repository fields to `dblock` and `ruby-gem-release`. For a new gem, create a pending trusted publisher.
+Create a `release` environment in your repository and configure a [RubyGems trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows): set the repository fields to your gem's repository, the workflow filename to `release.yml`, the environment to `release`, and the separate workflow repository fields to `dblock` and `ruby-gem-release`. These fields identify where the reusable workflow runs from, so RubyGems can verify it in the OIDC token. For a new gem, create a pending trusted publisher.
 
 The permissions above allow OIDC and GitHub releases; branch rules must also allow the workflow to push. Restrict the environment to the default branch and require approval when available.
 
