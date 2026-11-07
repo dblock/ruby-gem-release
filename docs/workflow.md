@@ -1,6 +1,6 @@
 # `RubyGemRelease::Workflow`
 
-Supplies the reusable workflow's context checks, invoked through [Tasks](tasks.md). It leaves setup, validation, authentication, artifact uploading, and callback invocation to GitHub Actions.
+Supplies the reusable workflow's context checks, invoked through [Tasks](tasks.md). It leaves setup, validation, authentication, artifact uploading, and callback invocation to GitHub Actions. For action inputs and defaults, see the [GitHub Actions workflow reference](actions/release.md).
 
 ## Capture
 

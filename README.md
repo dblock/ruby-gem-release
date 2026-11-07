@@ -83,7 +83,17 @@ jobs:
       ruby-version: '3.3'
 ```
 
-### 3. Configure Trusted Publishing
+### 3. Make a Release
+
+Complete the [Trusted Publishing setup](#trusted-publishing) and [branch permissions](#github-branch-protection-and-rulesets) first. From your default branch, review the changes and dispatch the workflow:
+
+```sh
+gh workflow run release.yml
+```
+
+## Configuration
+
+### Trusted Publishing
 
 In your GitHub repository, open **Settings → Environments** and create an environment named `release`. Alternatively, from your repository directory, use `gh`:
 
@@ -95,15 +105,7 @@ On [RubyGems.org](https://rubygems.org), open your gem's **Trusted publishers** 
 
 For example, the trusted publishers page for a gem named `example` is `https://rubygems.org/gems/example/trusted_publishers`.
 
-### 4. Make a Release
-
-From your default branch, review the changes and dispatch the workflow:
-
-```sh
-gh workflow run release.yml
-```
-
-## GitHub Branch Protection and Rulesets
+### GitHub Branch Protection and Rulesets
 
 In **Settings → Environments → release**, restrict deployment branches to your default branch and add required reviewers if available. The workflow also rejects non-default-branch releases.
 
@@ -111,35 +113,51 @@ If the environment requires approval, a designated reviewer must open the run un
 
 Check **Settings → Branches** for branch protection rules and **Settings → Rules → Rulesets** for rulesets affecting the default branch. The workflow must be able to push release commits and a tag: a rule requiring pull requests or restricting pushes can block the Actions token unless a suitable bypass is configured. Keep force-push and deletion restrictions in place. If you remove a pull-request requirement instead, direct pushes become possible for other permitted writers too. See [RELEASING.md](RELEASING.md) for details.
 
-## Workflow Commands
+### GitHub Actions Workflow
 
-The workflow runs on the default branch; [`Workflow`](docs/workflow.md) reads the current version from the gemspec before preparation, then resolves the version to publish from the prepared gemspec. Pass `-f version=0.1.0` to `gh workflow run` to require that prepared version; the input does not set the version, and a mismatch fails before publication. It uses the only gem specification in the repository root; set the `gemspec` input to a path if there are none or multiple.
+The reusable workflow provides the GitHub Actions environment for release callbacks, including setup, validation, authentication, and artifact preservation. Use its `with:` inputs to choose the gemspec, expected version, Ruby version, commands, and commit identity. Pin the workflow to a reviewed release or commit instead of `master` when available.
 
-By default, it runs the before-release callback, `bundle exec rake`, the publication callback, and the next-version callback. Version changes, commits, tags, builds, and publication are explicit callback operations. Override the `prepare`, `validate`, `publish`, or `bump` inputs with trusted shell commands when needed. The `publish` input replaces the former `github-release` input because this callback now owns the entire publication sequence. Check the workflow run and verify the published gem and release; see [RELEASING.md](RELEASING.md) for recovery instructions. Pin the workflow to a reviewed release or commit instead of `master` when available.
+- [Release Workflow](docs/actions/release.md): All inputs, defaults, permissions, commands, dry runs, and recovery artifacts.
+- [`Workflow`](docs/workflow.md): Ruby context capture and prepared-version checks used by the action workflow.
 
-## Version Objects
+### Version Objects
 
-[`RubyConstant`](docs/version/ruby_constant.md) reads and updates numeric versions without evaluating the version file. Version objects are local to your callbacks; use your own objects for other file formats.
+Version objects read, set, and increment the version stored in project files. Construct them locally in your callbacks; use your own objects for other file formats.
 
-## Release Callbacks
+- [`Version::RubyConstant`](docs/version/ruby_constant.md): Numeric Ruby constant versions, updated without evaluating the file.
 
-[`Tasks`](docs/tasks.md) registers `before_release`, `publish`, and `after_release` callbacks receiving an immutable [`Release`](docs/release.md) context. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
+### Release Callbacks
 
-## Changelog Objects
+Callbacks define project-specific preparation, publication, and next-version work. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
 
-[`KeepAChangelog`](docs/changelog/keep_a_changelog.md) updates Unreleased sections and comparison references. [`Intridea`](docs/changelog/intridea.md) updates Next sections with a configured contribution placeholder. Both inherit source-preserving behavior from [`Base`](docs/changelog/base.md) and own their file updates. Use custom callbacks for other formats.
+- [`Tasks`](docs/tasks.md): Registers `before_release`, `publish`, and `after_release` callbacks and their Rake tasks.
+- [`Release`](docs/release.md): Immutable version, date, and dry-run context passed to callbacks.
 
-## GitHub Releases
+### Changelog Objects
 
-[`GitHubRelease`](docs/hosting/github_release.md) creates a release with generated notes and the exact published gem attached. Invoke it after `git.push!` in `tasks.publish`; omit only `github.publish!` to disable GitHub Release creation without disabling package publication.
+Changelog objects prepare release headings and open the next development section while preserving unrelated Markdown. Choose the strategy matching your changelog format or use custom callbacks for other formats.
 
-## Packages and Git
+- [`Changelog::KeepAChangelog`](docs/changelog/keep_a_changelog.md): Unreleased sections and version comparison references.
+- [`Changelog::Intridea`](docs/changelog/intridea.md): Next sections and a configured contribution placeholder.
+- [`Changelog::Base`](docs/changelog/base.md): Shared source-preserving implementation for concrete strategies.
 
-[`Package::RubyGem`](docs/package/ruby_gem.md) builds once, verifies the exact artifact, and publishes it to RubyGems. [`SourceControl::Git`](docs/source_control/git.md) commits release files, tags the release, preserves a recovery bundle, checks branch concurrency, and pushes atomically. [`Hosting::GitHubRelease`](docs/hosting/github_release.md) owns hosting-specific publication. File paths mirror these namespaces; operations and callback ordering are unchanged. Both package and Git objects perform local work in dry runs without publishing or pushing.
+### Package Objects
 
-## Git Commit Identity
+Package objects build, verify, and publish the exact release artifact. They perform local builds in dry runs without uploading.
 
-Set the reusable workflow's `git-user-name` and `git-user-email` inputs to customize both release and next-version commit attribution. Defaults are `github-actions[bot]` and `github-actions[bot]@users.noreply.github.com`. Values must be nonempty and contain no line breaks. Configuration applies only to the checkout and does not change authentication or push permissions.
+- [`Package::RubyGem`](docs/package/ruby_gem.md): Gem construction, artifact verification, and RubyGems publication.
+
+### Source Control Objects
+
+Source control objects manage release history independently of the repository's hosting provider. They perform local commits and tags in dry runs without pushing.
+
+- [`SourceControl::Git`](docs/source_control/git.md): Release and next-version commits, tags, recovery bundles, branch checks, and atomic release pushes.
+
+### Hosting Objects
+
+Hosting objects publish release notes and attach package artifacts after the release tag is pushed. Omit the hosting publication call to disable hosted releases without disabling package publication.
+
+- [`Hosting::GitHubRelease`](docs/hosting/github_release.md): GitHub Releases with generated notes and the exact gem attached.
 
 ## Contributing
 
