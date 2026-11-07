@@ -1,3 +1,5 @@
+<img src="assets/logo.png" alt="A ruby gemstone launching like a rocket" width="160">
+
 # Ruby Gem Release with OIDC
 
 [![Test](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml/badge.svg)](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml) [![Coverage Status](https://coveralls.io/repos/github/dblock/ruby-gem-release/badge.svg?branch=master)](https://coveralls.io/github/dblock/ruby-gem-release?branch=master)

@@ -7,3 +7,7 @@ The shared workflow will orchestrate an end-to-end release: authorize the releas
 The Rake tasks update exactly one constant assignment without evaluating the version file. The reusable workflow is the primary GitHub interface; it is not a composite or JavaScript action. Caller-provided shell commands run with the workflow's privileges and must be trusted.
 
 The workflow builds once and publishes before atomically pushing its commit and tag. This leaves an unavoidable recovery window if the push fails after publication; see [RELEASING.md](RELEASING.md). The pull-request integration workflow invokes the actual reusable workflow with a consumer fixture and dry-run mode, without publishing or pushing.
+
+## Logo
+
+The logo in `assets/logo.png` is an original AI-generated image of a ruby gemstone launching like a rocket. This is the original generated asset; no editable source was provided. To create a replacement, generate a centered, text-free, red faceted ruby with an upward launch motif and a transparent background. Generation is not deterministic, so a replacement will differ. Preserve the original asset and inspect the full-size image and its 160-pixel README rendering for legibility and clipping when updating it.
