@@ -18,3 +18,4 @@ RuboCop
 RubyGems
 untrusted
 worktree
+worktrees

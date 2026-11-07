@@ -28,6 +28,10 @@ Prose/MaxLength:
   Exclude:
     - LICENSE.txt
 
+Markdown/HeadingCapitalization:
+  Enabled: true
+  Style: title_case
+
 Style/Documentation:
   Enabled: false
 
