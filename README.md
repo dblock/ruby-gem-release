@@ -4,7 +4,7 @@
 
 Reusable GitHub Actions workflow and Ruby Rake tasks for releasing Ruby gems.
 
-Add `ruby-gem-release` to the development dependencies and install its tasks in the project's Rakefile:
+Add `ruby-gem-release` to the development dependencies and install its tasks in the project's Rakefile, replacing `lib/example/version.rb` with the path to your version file:
 
 ```ruby
 require 'ruby-gem-release/tasks'
