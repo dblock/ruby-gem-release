@@ -32,6 +32,8 @@ RubyGemRelease::Workflow::RubyGem.new(
 
 This installs the before-release, publication, next-version, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development commit.
 
+The default workflow releases the current version in your version file; it increments the patch version only afterward. An optional workflow `version` input asserts the prepared gemspec version rather than changing it. Use custom preparation callbacks when you need to set a different release version.
+
 The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
 ## Object Overrides

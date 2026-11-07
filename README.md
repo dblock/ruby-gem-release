@@ -1,14 +1,22 @@
 <img src="assets/logo.png" alt="A ruby gemstone launching like a rocket" width="160">
 
-# Ruby Gem Release with OIDC
+# Ruby Gem Release
 
 [![Test](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml/badge.svg)](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml) [![Coverage Status](https://coveralls.io/repos/github/dblock/ruby-gem-release/badge.svg?branch=master)](https://coveralls.io/github/dblock/ruby-gem-release?branch=master)
 
-Reusable GitHub Actions workflow and Ruby Rake tasks for releasing Ruby gems.
+**Release your Ruby gem from GitHub Actions—without maintaining custom release scripts or storing a RubyGems API key.**
+
+Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development version with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
+
+- **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing.
+- **Try it before publishing:** Dry runs exercise local commits, builds, and tags without uploading or pushing.
+- **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
+
+Requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
 
 ## Usage
 
-### 1. Install the Tasks
+### 1. Configure Your Gem
 
 Add `ruby-gem-release` to the development dependencies and install the standard workflow in your Rakefile. Choose your version file and changelog format explicitly:
 
@@ -22,7 +30,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-The workflow selects the gemspec and repository using unambiguous defaults and wires preparation, publication, and next-version callbacks. See [Detailed Usage](docs/usage.md) for file examples and the full callback configuration.
+The standard workflow handles changelog updates, publication, and the next development version, selecting the gemspec and repository using unambiguous defaults. See [Detailed Usage](docs/usage.md) for file examples and custom release callbacks.
 
 ### 2. Add the Release Workflow
 
