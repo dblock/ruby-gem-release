@@ -126,6 +126,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     expect(publish).not_to have_key('if')
     expect(artifacts.fetch('if')).to include('always()')
     expect(steps.index(artifacts)).to be > steps.index(publish)
-    expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq('${{ !inputs.dry-run }}')
+    expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ !inputs.dry-run && inputs.rubygems-owner == '' }}")
+    expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ !inputs.dry-run && inputs.rubygems-owner != '' }}")
   end
 end

@@ -2,6 +2,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      rubygems-owner:
+        description: RubyGems account ID for first publication; omit for an existing gem.
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -12,3 +17,4 @@ jobs:
     uses: dblock/ruby-gem-release/.github/workflows/release.yml@master
     with:
       ruby-version: '3.3'
+      rubygems-owner: ${{ inputs.rubygems-owner }}

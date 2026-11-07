@@ -14,7 +14,11 @@ The GitHub Actions token must be permitted to push fast-forward commits and tags
 
 The repository's **Release** workflow is manual only; merges and schedules do not publish. It uses the standard workflow configured in the root Rakefile with Ruby 4.0, releasing the current version and preparing the next patch version afterward. The `dry-run` input defaults to `true`.
 
-Before the first publication, configure RubyGems Trusted Publishing for owner `dblock`, repository `ruby-gem-release`, caller workflow `publish.yml`, and environment `release`. The existing GitHub environment is not proof that RubyGems trusts the caller. For an unpublished gem, use a pending trusted publisher. No registry credentials or trusted publisher are configured by adding this workflow.
+Before the first publication, configure RubyGems Trusted Publishing for owner `dblock`, repository `ruby-gem-release`, executing workflow `release.yml`, and environment `release`. Leave the optional Workflow Repository fields blank because both workflows live in this repository; `publish.yml` is the dispatch entry point, not the OIDC job workflow. The existing GitHub environment is not proof that RubyGems trusts the caller. For an unpublished gem, use a pending trusted publisher.
+
+Set the non-secret repository variable `RUBYGEMS_OWNER_ID` to the numeric RubyGems account ID shown on the Pending Trusted Publishers page. The caller passes it as `rubygems-owner`, binding the short-lived key to the account whose pending publisher will create the gem. This variable is not an API key and does not replace a pending trusted publisher.
+
+The first failed release authenticated but RubyGems rejected the upload because the owner assertion was absent. The current credentials action does not accept an owner input, so owner-bound exchanges use [`RubyGemsCredentials`](docs/workflow/ruby_gems_credentials.md). With no owner input, existing-gem releases retain the credentials action. No registry credentials or trusted publisher are configured by adding the workflow.
 
 Exercise the workflow from `master` without remote writes:
 

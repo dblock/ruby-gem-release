@@ -28,6 +28,10 @@ Future hosting implementations can implement `publish!(release, package:)` witho
 
 The project's `publish.yml` caller invokes the local reusable workflow through manual dispatch only, using the standard workflow configured in the root Rakefile and the Ruby 4.0 runtime already used by package CI. Dry runs are the caller's default; publishing requires an explicit `dry-run=false` selection and prior release authorization. The caller grants only contents-write and OIDC-token permissions needed for release operations. Trusted Publishing setup remains a separate prerequisite.
 
+### Owner-Bound Authentication
+
+First publication with a pending trusted publisher requires the RubyGems account ID in the OIDC exchange. `Workflow::RubyGemsCredentials` uses Ruby's standard HTTP and JSON libraries because the released credentials action does not yet support this owner assertion. It masks both tokens, exports the short-lived key through `GITHUB_ENV`, and makes no retry or persistent credential-file writes. The optional `rubygems-owner` input selects this helper; an empty input retains the pinned credentials action for existing gems. Both paths are skipped in dry runs. The project's caller reads the account ID from the non-secret `RUBYGEMS_OWNER_ID` repository variable.
+
 ## Logo
 
 The logo in `assets/logo.png` is an original AI-generated image of a ruby gemstone launching like a rocket. This is the original generated asset; no editable source was provided. To create a replacement, generate a centered, text-free, red faceted ruby with an upward launch motif and a transparent background. Generation is not deterministic, so a replacement will differ. Preserve the original asset and inspect the full-size image and its 160-pixel README rendering for legibility and clipping when updating it.

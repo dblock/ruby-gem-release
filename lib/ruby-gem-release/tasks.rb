@@ -4,6 +4,7 @@ require 'rake'
 require_relative 'release'
 require_relative 'version/ruby_constant'
 require_relative 'workflow/context'
+require_relative 'workflow/ruby_gems_credentials'
 
 module RubyGemRelease
   class Tasks
@@ -50,6 +51,7 @@ module RubyGemRelease
       namespace :workflow do
         task(:capture) { Workflow::Context.new.capture! }
         task(:resolve) { Workflow::Context.new.resolve! }
+        task(:credentials) { Workflow::RubyGemsCredentials.new(owner: ENV.fetch('RUBYGEMS_OWNER')).configure! }
       end
     end
 

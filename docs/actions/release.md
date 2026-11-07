@@ -11,6 +11,7 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 | `ruby-version`   | String  | Required                                       | Ruby version used for validation and building.                                                                                  |
 | `version`        | String  | Empty                                          | Expected numeric `MAJOR.MINOR.PATCH` version, without leading zeros. Must match the prepared gemspec; does not set the version. |
 | `gemspec`        | String  | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                              |
+| `rubygems-owner` | String  | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                    |
 | `prepare`        | String  | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                 |
 | `validate`       | String  | `bundle exec rake`                             | Validate prepared release files before publication.                                                                             |
 | `publish`        | String  | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.          |
@@ -24,6 +25,8 @@ Identity values must be nonempty and contain no line breaks. They change commit 
 The `publish` input replaces the former `github-release` input and controls the whole publication sequence. To disable only GitHub Release creation, set `hosting: nil` in the standard workflow or omit `github.publish!` from manual callbacks rather than disabling `publish`.
 
 ## Permissions and Authentication
+
+For a brand-new gem, register a pending trusted publisher and set `rubygems-owner` to the numeric account ID shown on that page. The [owner-aware helper](../workflow/ruby_gems_credentials.md) requests a GitHub OIDC token for audience `rubygems.org`, exchanges it with the owner assertion, masks both credentials, and exports the short-lived key for publication. The current credentials action lacks this owner input; existing-gem releases with no owner specified continue to use it. Both authentication paths are skipped in dry runs.
 
 The caller needs `contents: write` for Git pushes and GitHub Releases, and `id-token: write` for RubyGems Trusted Publishing. Configure the `release` environment and RubyGems trusted publisher as described in [Usage](../../README.md#3-enable-trusted-publishing). No stored RubyGems API key is required.
 
@@ -43,6 +46,7 @@ Commands run through `bash -euo pipefail`. Overrides replace the corresponding p
 | ---                               | ---              | ---                                                                     |
 | `INPUT_VERSION`                   | All phases       | Optional expected-version input.                                        |
 | `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                                 |
+| `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication.    |
 | `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                         |
 | `RELEASE_PREVIOUS_VERSION`        | After capture    | Initial gemspec version, retained across callbacks.                     |
 | `RELEASE_DATE`                    | After capture    | Date captured once in UTC, as `YYYY-MM-DD`.                             |

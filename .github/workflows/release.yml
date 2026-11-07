@@ -4,41 +4,44 @@ on:
   workflow_call:
     inputs:
       version:
-        description: Optional expected version; must match the prepared gemspec
+        description: Optional expected version; must match the prepared gemspec.
         type: string
       gemspec:
-        description: Optional gemspec path; defaults to the only root gemspec
+        description: Optional gemspec path; defaults to the only root gemspec.
+        type: string
+      rubygems-owner:
+        description: Optional RubyGems account ID for first publication with a pending trusted publisher.
         type: string
       git-user-name:
-        description: Author name for release and next-version commits
+        description: Author name for release and next-version commits.
         type: string
         default: github-actions[bot]
       git-user-email:
-        description: Author email for release and next-version commits
+        description: Author email for release and next-version commits.
         type: string
         default: github-actions[bot]@users.noreply.github.com
       ruby-version:
-        description: Ruby version used to validate and build
+        description: Ruby version used to validate and build.
         type: string
         required: true
       prepare:
-        description: Command to prepare release files; INPUT_VERSION is the expected version
+        description: Command to prepare release files; INPUT_VERSION is the expected version.
         type: string
         default: bundle exec rake release:before_release
       validate:
-        description: Command to validate the prepared release
+        description: Command to validate the prepared release.
         type: string
         default: bundle exec rake
       publish:
-        description: Command to commit, build, tag, and publish the release
+        description: Command to commit, build, tag, and publish the release.
         type: string
         default: bundle exec rake release:publish
       bump:
-        description: Command to prepare, commit, and push the next development version
+        description: Command to prepare, commit, and push the next development version.
         type: string
         default: bundle exec rake release:after_release
       dry-run:
-        description: Validate and build without publishing or pushing
+        description: Validate and build without publishing or pushing.
         type: boolean
         default: false
 
@@ -57,6 +60,7 @@ jobs:
       DRY_RUN: ${{ inputs.dry-run }}
       GIT_USER_NAME: ${{ inputs.git-user-name }}
       GIT_USER_EMAIL: ${{ inputs.git-user-email }}
+      RUBYGEMS_OWNER: ${{ inputs.rubygems-owner }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -78,8 +82,11 @@ jobs:
           COMMAND: ${{ inputs.validate }}
         run: bash -euo pipefail -c "$COMMAND"
       - name: Authenticate to RubyGems
-        if: ${{ !inputs.dry-run }}
+        if: ${{ !inputs.dry-run && inputs.rubygems-owner == '' }}
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - name: Authenticate Pending Publisher
+        if: ${{ !inputs.dry-run && inputs.rubygems-owner != '' }}
+        run: bundle exec rake release:workflow:credentials
       - name: Publish Release
         env:
           GH_TOKEN: ${{ github.token }}

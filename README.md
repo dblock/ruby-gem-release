@@ -41,6 +41,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      rubygems-owner:
+        description: RubyGems account ID for first publication; omit for an existing gem.
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -51,6 +56,7 @@ jobs:
     uses: dblock/ruby-gem-release/.github/workflows/release.yml@master
     with:
       ruby-version: '3.3'
+      rubygems-owner: ${{ inputs.rubygems-owner }}
 ```
 
 ### 3. Enable Trusted Publishing
@@ -68,6 +74,14 @@ For example, the trusted publishers page for a gem named `example` is `https://r
 ### 4. Make a Release
 
 Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Review the changes and dispatch the workflow from your default branch:
+
+**First release:** Pass the numeric RubyGems account ID shown on the Pending Trusted Publishers page as `rubygems-owner`. This declares the account that will own the gem on its first publication. Replace `YOUR_ACCOUNT_ID` below with that ID:
+
+```sh
+gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID
+```
+
+**Subsequent releases:** Omit `rubygems-owner` once the gem exists. Its trusted publisher is still required, but the account ID is no longer needed:
 
 ```sh
 gh workflow run release.yml

@@ -4,6 +4,8 @@ Coveralls
 dblock
 gemspec
 GitHub
+HTTPS
+JSON
 LCOV
 lifecycle
 md

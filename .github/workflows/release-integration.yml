@@ -17,6 +17,7 @@ jobs:
     with:
       version: '9000.0.1'
       gemspec: spec/fixtures/release_consumer/fixture.gemspec
+      rubygems-owner: '123'
       ruby-version: '3.3'
       prepare: |
         test "$RELEASE_PREVIOUS_VERSION" = '9000.0.0'

@@ -27,3 +27,7 @@ Each callback requires a block and can be registered only once. Exceptions fail 
 `tasks.publish` registers the complete release sequence before `after_release`. The default `publish` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `DRY_RUN`.
 
 The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.
+
+## Workflow Credentials
+
+`release:workflow:credentials` invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with `RUBYGEMS_OWNER`. The reusable workflow calls it only for owner-bound publishing runs, not dry runs.
