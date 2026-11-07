@@ -35,6 +35,8 @@ jobs:
       ruby-version: '3.3'
 ```
 
+Before publishing, create a `release` environment in the publishing repository and configure a [RubyGems trusted publisher](https://guides.rubygems.org/trusted-publishing/) for the publishing repository, environment `release`, workflow filename `release.yml`, and workflow repository `dblock/ruby-gem-release`. For a new gem, configure a pending trusted publisher. The caller must grant `id-token: write` for OIDC and `contents: write` for release commits, tags, and the GitHub Release, as shown above; branch rules must allow the workflow to push. Restrict the release environment to the default branch and require approval when available.
+
 ## Workflow Commands
 
 By default, the workflow sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, and bumps the patch version after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed; for example, `prepare` can also update the changelog. Pin the workflow to a reviewed release or commit instead of `master` when available. See [RELEASING.md](RELEASING.md) for required permissions, trusted-publisher configuration, failure recovery, and a dry run.
