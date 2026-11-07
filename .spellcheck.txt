@@ -19,3 +19,4 @@ RubyGems
 untrusted
 worktree
 worktrees
+YAML

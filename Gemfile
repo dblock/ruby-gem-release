@@ -17,5 +17,6 @@ gem 'rubocop-prose', require: false
 gem 'rubocop-rake'
 gem 'rubocop-rspec'
 gem 'rubocop-spellcheck', require: false
+gem 'rubocop-yaml', require: false
 gem 'simplecov', require: false
 gem 'simplecov-lcov', require: false

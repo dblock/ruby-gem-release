@@ -1,4 +1,4 @@
-name: Release gem
+name: Release Gem
 
 on:
   workflow_call:
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Check release inputs and branch
+      - name: Check Release Inputs and Branch
         id: initial
         run: |
           set -euo pipefail
@@ -82,7 +82,7 @@ jobs:
         with:
           ruby-version: ${{ inputs.ruby-version }}
           bundler-cache: true
-      - name: Resolve release version
+      - name: Resolve Release Version
         run: |
           set -euo pipefail
           version="$INPUT_VERSION"
@@ -99,15 +99,15 @@ jobs:
           fi
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
           echo "Releasing version $version"
-      - name: Prepare release
+      - name: Prepare Release
         env:
           COMMAND: ${{ inputs.prepare }}
         run: bash -euo pipefail -c "$COMMAND"
-      - name: Validate release
+      - name: Validate Release
         env:
           COMMAND: ${{ inputs.validate }}
         run: bash -euo pipefail -c "$COMMAND"
-      - name: Commit and build release
+      - name: Commit and Build Release
         id: build
         env:
           INITIAL_COMMIT: ${{ steps.initial.outputs.commit }}
@@ -136,7 +136,7 @@ jobs:
               exit 1
             fi
           fi
-      - name: Preserve built gem
+      - name: Preserve Built Gem
         uses: actions/upload-artifact@v7
         with:
           name: release-gem-${{ env.RELEASE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -148,13 +148,13 @@ jobs:
       - name: Authenticate to RubyGems
         if: ${{ !inputs.dry-run }}
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
-      - name: Publish gem
+      - name: Publish Gem
         if: ${{ !inputs.dry-run }}
         run: gem push "$RUNNER_TEMP/release.gem"
-      - name: Push release commit and tag atomically
+      - name: Push Release Commit and Tag Atomically
         if: ${{ !inputs.dry-run }}
         run: git push --atomic origin "HEAD:refs/heads/$DEFAULT_BRANCH" "refs/tags/v$RELEASE_VERSION"
-      - name: Create GitHub release
+      - name: Create GitHub Release
         if: ${{ !inputs.dry-run }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -162,7 +162,7 @@ jobs:
         run: |
           cp "$RUNNER_TEMP/release.gem" "$RUNNER_TEMP/$GEM_NAME-$RELEASE_VERSION.gem"
           gh release create "v$RELEASE_VERSION" --verify-tag --title "v$RELEASE_VERSION" --generate-notes "$RUNNER_TEMP/$GEM_NAME-$RELEASE_VERSION.gem"
-      - name: Prepare next development version
+      - name: Prepare Next Development Version
         env:
           COMMAND: ${{ inputs.bump }}
         run: |

@@ -8,7 +8,7 @@ Keep release orchestration reusable while leaving project-specific preparation a
 
 Run `bundle exec rake` locally for specs and RuboCop before every push, and `bundle exec rake build` for package construction when applicable. Danger checks the changelog in PR CI, not as a routine local command. Document user-visible changes in `CHANGELOG.md`, listing entries within each release chronologically and keeping `- Your contribution here.` as the last entry in the next-release section; keep Markdown paragraphs on one source line.
 
-The normal RuboCop command checks prose, Markdown Ruby examples, and spelling through `rubocop-prose`, `rubocop-md`, and `rubocop-spellcheck`. Fix typos rather than suppressing checks; keep reviewed project vocabulary in `.spellcheck.txt` alongside the bundled English dictionary.
+The normal RuboCop command checks prose, Markdown Ruby examples, spelling, and YAML through `rubocop-prose`, `rubocop-md`, `rubocop-spellcheck`, and `rubocop-yaml`. Fix typos rather than suppressing checks; keep reviewed project vocabulary in `.spellcheck.txt` alongside the bundled English dictionary.
 
 Preserve unrelated worktree changes. Use a separate worktree for each PR with a `dblock/<topic>` branch from `master`, keeping the primary checkout on `master` when clean. Keep one coherent commit per PR; amend it when making updates and use `git push --force-with-lease` for the topic branch when needed. Use squash or rebase merges, not merge commits. Ordinary development changes require PRs; explicitly authorized release automation may push release preparation and next-version commits directly without PRs. Never force-push to `master`. Do not merge, publish, or create release tags without authorization.
 

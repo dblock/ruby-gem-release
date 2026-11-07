@@ -10,7 +10,7 @@ After a PR merges, verify its merged state and check for uncommitted changes and
 
 Ruby 3.3 or newer is supported. Install dependencies with `bundle install`, run the specs and RuboCop locally with `bundle exec rake` before every push, and construct the gem with `bundle exec rake build` when applicable. Danger checks the changelog in PR CI rather than as a routine local command.
 
-RuboCop includes Markdown prose checks with `rubocop-prose`, Ruby code block checks with `rubocop-md`, and spelling checks with `rubocop-spellcheck`. Keep paragraphs on one source line, fix spelling mistakes, and add reviewed project vocabulary to `.spellcheck.txt`. Repository spelling checks cover comments and documentation, not Ruby strings; the standard license text is excluded from spelling and paragraph-length checks.
+RuboCop includes Markdown prose checks with `rubocop-prose`, Ruby code block checks with `rubocop-md`, spelling checks with `rubocop-spellcheck`, and YAML checks with `rubocop-yaml`. Keep paragraphs on one source line, fix spelling mistakes, and add reviewed project vocabulary to `.spellcheck.txt`. Repository spelling checks cover comments and documentation, not Ruby strings; the standard license text is excluded from spelling and paragraph-length checks.
 
 ## Tests
 

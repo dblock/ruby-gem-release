@@ -1,6 +1,18 @@
+inherit_mode:
+  merge:
+    - Include
+
 AllCops:
   TargetRubyVersion: 3.3
   NewCops: enable
+  Include:
+    - '**/*.yml'
+    - '**/*.yaml'
+    - '.github/**/*.yml'
+    - '.github/**/*.yaml'
+    - 'examples/.github/**/*.yml'
+    - 'examples/.github/**/*.yaml'
+    - '.rubocop.yml'
   Exclude:
     - 'vendor/**/*'
     - 'bin/**/*'
@@ -11,6 +23,28 @@ plugins:
   - rubocop-rake
   - rubocop-rspec
   - rubocop-spellcheck
+  - rubocop-yaml
+
+# The YAML cops otherwise run on Ruby files and skip hidden workflow paths.
+YAML/Lint/InvalidSyntax:
+  Include:
+    - '**/*.yml'
+    - '**/*.yaml'
+    - '.github/**/*.yml'
+    - '.github/**/*.yaml'
+    - 'examples/.github/**/*.yml'
+    - 'examples/.github/**/*.yaml'
+    - '.rubocop.yml'
+
+YAML/Lint/DuplicateKey:
+  Include:
+    - '**/*.yml'
+    - '**/*.yaml'
+    - '.github/**/*.yml'
+    - '.github/**/*.yaml'
+    - 'examples/.github/**/*.yml'
+    - 'examples/.github/**/*.yaml'
+    - '.rubocop.yml'
 
 Spellcheck:
   DictionaryFiles:
