@@ -13,7 +13,5 @@ jobs:
       version: '9000.0.1'
       gemspec: spec/fixtures/release_consumer/fixture.gemspec
       ruby-version: '3.3'
-      prepare: bundle exec rake -f spec/fixtures/release_consumer/Rakefile 'ruby_gem_release:version:set[9000.0.1]'
-      validate: bundle exec rake
-      bump: bundle exec rake -f spec/fixtures/release_consumer/Rakefile ruby_gem_release:version:bump
+      prepare: printf "\nload 'spec/fixtures/release_consumer/Rakefile'\n" >> Rakefile && bundle exec rake "ruby_gem_release:version:set[$RELEASE_VERSION]"
       dry-run: true

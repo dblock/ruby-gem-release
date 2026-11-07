@@ -12,8 +12,6 @@ require 'ruby-gem-release/tasks'
 RubyGemRelease::Tasks.install(version_file: 'lib/example/version.rb', version_constant: 'VERSION')
 ```
 
-Run `bundle exec rake ruby_gem_release:version:read`, `bundle exec rake 'ruby_gem_release:version:set[1.2.3]'`, or `bundle exec rake 'ruby_gem_release:version:bump[minor]'`. Bump accepts `major`, `minor`, and `patch` (the default); versions must be numeric `MAJOR.MINOR.PATCH`. The file must contain exactly one assignment to the named constant.
-
 Call the reusable workflow from a `workflow_dispatch` workflow in the publishing repository:
 
 ```yaml
@@ -35,11 +33,24 @@ jobs:
       version: ${{ inputs.version }}
       gemspec: example.gemspec
       ruby-version: '3.3'
-      prepare: bundle exec rake "ruby_gem_release:version:set[$RELEASE_VERSION]"
-      validate: bundle exec rake
-      bump: bundle exec rake ruby_gem_release:version:bump
 ```
 
-Replace the example commands with project-specific preparation and validation, including changelog updates where needed. Pin the workflow to a reviewed release or commit instead of `master` when available. See [RELEASING.md](RELEASING.md) for required permissions, trusted-publisher configuration, failure recovery, and a dry run.
+## Workflow Commands
+
+By default, the workflow sets the configured version to `RELEASE_VERSION`, runs `bundle exec rake`, and bumps the patch version after publication. Override the `prepare`, `validate`, or `bump` inputs with project-specific shell commands when needed; for example, `prepare` can also update the changelog. Pin the workflow to a reviewed release or commit instead of `master` when available. See [RELEASING.md](RELEASING.md) for required permissions, trusted-publisher configuration, failure recovery, and a dry run.
+
+## Version Tasks
+
+The version file must contain exactly one assignment to the named constant. Versions must be numeric `MAJOR.MINOR.PATCH`.
+
+- `bundle exec rake ruby_gem_release:version:read` prints the current version.
+- `bundle exec rake 'ruby_gem_release:version:set[1.2.3]'` sets the version.
+- `bundle exec rake 'ruby_gem_release:version:bump[minor]'` increments `major`, `minor`, or `patch`, resetting lower components. The default is `patch`.
+
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [DESIGN.md](DESIGN.md), [CHANGELOG.md](CHANGELOG.md), and [RELEASING.md](RELEASING.md).
+
+## License
+
+Distributed under the [MIT License](LICENSE.txt).

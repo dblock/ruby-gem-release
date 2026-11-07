@@ -18,15 +18,15 @@ on:
       prepare:
         description: Command to prepare release files; RELEASE_VERSION is available
         type: string
-        required: true
+        default: 'bundle exec rake "ruby_gem_release:version:set[$RELEASE_VERSION]"'
       validate:
         description: Command to validate the prepared release
         type: string
-        required: true
+        default: bundle exec rake
       bump:
         description: Command to prepare the next development version
         type: string
-        required: true
+        default: bundle exec rake ruby_gem_release:version:bump
       dry-run:
         description: Validate and build without publishing or pushing
         type: boolean
