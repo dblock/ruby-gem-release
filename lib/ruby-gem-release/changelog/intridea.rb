@@ -3,7 +3,7 @@
 module RubyGemRelease
   module Changelog
     class Intridea < Base
-      UNRELEASED = /\A## \d+\.\d+\.\d+ \(Next\)\z/
+      UNRELEASED = /\A\#{1,6} \d+\.\d+\.\d+ \(Next\)\z/
       PLACEHOLDER = '- Your contribution here.'
 
       def initialize(path: 'CHANGELOG.md', placeholder: PLACEHOLDER)
@@ -20,11 +20,11 @@ module RubyGemRelease
         content = File.read(@path)
         separator = newline(content)
         position = heading(content, UNRELEASED)
+        prefix = heading_prefix(content, position)
         check_release_absent(content, version)
-        line_end = line_end(content, position, separator)
-        section_end = heading_positions(content, /\A## /).find { |offset| offset > position } || content.length
-        content[position...section_end] = "## #{version} (#{date.strftime('%Y/%m/%d')})" +
-                                          remove_placeholder(content[line_end...section_end])
+        section_end = section_end_position(content, position, prefix.length)
+        content[position...section_end] = "#{prefix} #{version} (#{date.strftime('%Y/%m/%d')})" +
+                                          remove_placeholder(content[line_end(content, position, separator)...section_end])
         File.write(@path, content)
       end
 
@@ -33,19 +33,24 @@ module RubyGemRelease
         validate_version(released_version)
         content = File.read(@path)
         separator = newline(content)
-        pattern = %r{\A## #{Regexp.escape(released_version)} \(\d{4}/\d{2}/\d{2}\)\z}
+        pattern = %r{\A\#{1,6} #{Regexp.escape(released_version)} \(\d{4}/\d{2}/\d{2}\)\z}
         position = heading(content, pattern)
+        prefix = heading_prefix(content, position)
         check_absent(content, UNRELEASED, 'unreleased heading already exists')
 
-        File.write(@path, content.insert(position, ["## #{version} (Next)", '', @placeholder, '', ''].join(separator)))
+        File.write(@path, content.insert(position, ["#{prefix} #{version} (Next)", '', @placeholder, '', ''].join(separator)))
       end
 
       def check_release_absent(content, version)
-        check_absent(content, %r{\A## #{Regexp.escape(version)} \(\d{4}/\d{2}/\d{2}\)\z}, 'release heading already exists')
+        check_absent(content, %r{\A\#{1,6} #{Regexp.escape(version)} \(\d{4}/\d{2}/\d{2}\)\z}, 'release heading already exists')
       end
 
       def line_end(content, position, separator)
         content.index(separator, position) || raise(ArgumentError, "heading must end with a newline in #{@path}")
+      end
+
+      def section_end_position(content, position, level)
+        heading_positions(content, /\A\#{1,6} /, max_level: level).find { |offset| offset > position } || content.length
       end
 
       def remove_placeholder(section)

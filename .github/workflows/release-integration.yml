@@ -42,6 +42,9 @@ jobs:
             require_relative 'lib/ruby-gem-release/version/ruby_constant'
             version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION')
             version.set(ENV.fetch('INPUT_VERSION'))
+            path = 'CHANGELOG.md'
+            content = File.read(path).sub("# Changelog\n", "# Changelog\n\n## Releases\n")
+            File.write(path, content.gsub(/^## (?=\d)/, '### '))
             RUBY
             bundle exec rake release:before_release
             ruby - <<'RUBY'
@@ -76,6 +79,9 @@ jobs:
         require_relative 'lib/ruby-gem-release/version/ruby_constant'
         version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION')
         version.set(ENV.fetch('INPUT_VERSION'))
+        path = 'CHANGELOG.md'
+        content = File.read(path).sub("# Changelog\n", "# Changelog\n\n## Releases\n")
+        File.write(path, content.gsub(/^## (?=\d)/, '### '))
         RUBY
         bundle exec rake release:before_release
         ruby - <<'RUBY'
@@ -83,9 +89,9 @@ jobs:
         content = File.read(path)
         File.write(path, content.sub('9000.0.0', ENV.fetch('INPUT_VERSION')))
         RUBY
-        grep -q '^## 9000.0.1 (' CHANGELOG.md
+        grep -q '^### 9000.0.1 (' CHANGELOG.md
       bump: |
         printf '%s\n%s\n' "$RELEASE_PREVIOUS_VERSION" "$RELEASE_DATE" | cmp - "$RUNNER_TEMP/release-context"
         bundle exec rake release:after_release
-        grep -q '^## 9000.0.2 (Next)$' CHANGELOG.md
+        grep -q '^### 9000.0.2 (Next)$' CHANGELOG.md
       dry-run: true

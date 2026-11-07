@@ -2,6 +2,8 @@
 
 Updates changelog files with `## VERSION (Next)` and `## VERSION (YYYY/MM/DD)` headings, such as this project's [CHANGELOG.md](../../CHANGELOG.md). Inherits the shared source handling from [Base](base.md).
 
+Release headings can use any Markdown depth from `#` through `######`, including `### VERSION (Next)`. Both phases preserve the matched heading's depth; no configuration or changelog reformatting is required. Deeper subsection headings stay inside the release section, which ends at the next heading of equal or shallower depth.
+
 ```ruby
 require 'ruby-gem-release/changelog'
 

@@ -27,17 +27,21 @@ module RubyGemRelease
         matches.first
       end
 
-      def heading_positions(content, pattern)
+      def heading_positions(content, pattern, max_level: 6)
         lines = content.lines
         offsets = line_offsets(lines)
         matches = []
         document(content).each do |node|
-          next unless node.type == :heading && node.header_level == 2
+          next unless node.type == :heading && node.header_level <= max_level
 
           index = node.source_position[:start_line] - 1
           matches << offsets[index] if pattern.match?(lines[index].chomp)
         end
         matches
+      end
+
+      def heading_prefix(content, position)
+        content[position, 6][/\A#+/]
       end
 
       def editable_lines(content)

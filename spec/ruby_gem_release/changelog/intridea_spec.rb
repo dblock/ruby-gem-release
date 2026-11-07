@@ -14,6 +14,25 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
 
   after { FileUtils.remove_entry(directory) }
 
+  [1, 3, 4, 5, 6].each do |level|
+    it "preserves level #{level} headings across release and next-section preparation" do # rubocop:disable RSpec/ExampleLength -- Exercise both phases and unchanged history.
+      prefix = '#' * level
+      history = "#{prefix} 0.9.0 (2026/11/06)\n\n* Older change.\n"
+      File.write(path, "#{prefix} 1.0.0 (Next)\n\n* Change.\n* Your contribution here.\n\n#{history}")
+      updater = described_class.new(path: path, placeholder: '* Your contribution here.')
+      updater.release!(release)
+      updater.prepare_next!(next_release)
+      expect(File.read(path)).to eq("#{prefix} 1.0.1 (Next)\n\n* Your contribution here.\n\n#{prefix} 1.0.0 (2026/11/07)\n\n* Change.\n\n#{history}")
+    end
+  end
+
+  it 'keeps deeper subsections inside the release and stops at a shallower heading' do
+    history = "## History\n\n### 0.9.0 (2026/11/06)\n\n- Your contribution here.\n"
+    File.write(path, "### 1.0.0 (Next)\n\n#### Added\n\n- Change.\n- Your contribution here.\n\n#{history}")
+    described_class.new(path: path).release!(release)
+    expect(File.read(path)).to eq("### 1.0.0 (2026/11/07)\n\n#### Added\n\n- Change.\n\n#{history}")
+  end
+
   it 'releases an Intridea section and opens the next section', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check both phases.
     File.write(path, "# Changelog\n\n## 1.0.0 (Next)\n\n- Change.\n- Your contribution here.\n")
     updater = described_class.new(path: path)

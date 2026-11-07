@@ -2,6 +2,8 @@
 
 Updates [Keep a Changelog](https://keepachangelog.com/) files with `## [Unreleased]` and `## [VERSION] - YYYY-MM-DD` headings. See the [sample changelog](../../examples/keep_a_changelog/CHANGELOG.md) and [Rakefile](../../examples/keep_a_changelog/Rakefile). Inherits shared source handling from [Base](base.md).
 
+Release headings can use any Markdown depth from `#` through `######`. Both phases preserve the matched heading's depth, leaving category headings and history unchanged. No configuration or changelog reformatting is required.
+
 ```ruby
 require 'ruby-gem-release/changelog'
 

@@ -3,7 +3,7 @@
 module RubyGemRelease
   module Changelog
     class KeepAChangelog < Base
-      UNRELEASED = /\A## \[Unreleased\]\z/
+      UNRELEASED = /\A\#{1,6} \[Unreleased\]\z/
 
       private
 
@@ -12,11 +12,11 @@ module RubyGemRelease
         content = File.read(@path)
         separator = newline(content)
         position = heading(content, UNRELEASED)
-        check_absent(content, /\A## \[#{Regexp.escape(version)}\] - \d{4}-\d{2}-\d{2}\z/, 'release heading already exists')
+        check_absent(content, /\A\#{1,6} \[#{Regexp.escape(version)}\] - \d{4}-\d{2}-\d{2}\z/, 'release heading already exists')
         line_end = content.index(separator, position)
         raise ArgumentError, "heading must end with a newline in #{@path}" unless line_end
 
-        content[position...line_end] = "## [#{version}] - #{date.strftime('%Y-%m-%d')}"
+        content[position...line_end] = "#{heading_prefix(content, position)} [#{version}] - #{date.strftime('%Y-%m-%d')}"
         release_references(content, version, separator)
         File.write(@path, content)
       end
@@ -26,12 +26,13 @@ module RubyGemRelease
         validate_version(released_version)
         content = File.read(@path)
         separator = newline(content)
-        pattern = /\A## \[#{Regexp.escape(released_version)}\] - \d{4}-\d{2}-\d{2}\z/
+        pattern = /\A\#{1,6} \[#{Regexp.escape(released_version)}\] - \d{4}-\d{2}-\d{2}\z/
         position = heading(content, pattern)
+        prefix = heading_prefix(content, position)
         check_absent(content, UNRELEASED, 'unreleased heading already exists')
         check_next_reference(content, released_version)
 
-        File.write(@path, content.insert(position, ['## [Unreleased]', '', ''].join(separator)))
+        File.write(@path, content.insert(position, ["#{prefix} [Unreleased]", '', ''].join(separator)))
       end
 
       def references(content, label)

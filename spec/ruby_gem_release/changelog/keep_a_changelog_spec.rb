@@ -14,6 +14,25 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
 
   after { FileUtils.remove_entry(directory) }
 
+  [1, 3, 6].each do |level|
+    it "preserves level #{level} headings across release and next-section preparation" do # rubocop:disable RSpec/ExampleLength -- Exercise both phases and unchanged history.
+      prefix = '#' * level
+      history = "#{prefix} [0.9.0] - 2026-11-06\n\n- Older change.\n"
+      File.write(path, "#{prefix} [Unreleased]\n\n- Change.\n\n#{history}")
+      updater = described_class.new(path: path)
+      updater.release!(release)
+      updater.prepare_next!(next_release)
+      expect(File.read(path)).to eq("#{prefix} [Unreleased]\n\n#{prefix} [1.0.0] - 2026-11-07\n\n- Change.\n\n#{history}")
+    end
+  end
+
+  it 'rejects ambiguous release headings at different depths without writing', :aggregate_failures do
+    content = "## [Unreleased]\n\n### [Unreleased]\n"
+    File.write(path, content)
+    expect { described_class.new(path: path).release!(release) }.to raise_error(ArgumentError, /exactly one/)
+    expect(File.read(path)).to eq(content)
+  end
+
   it 'releases Keep a Changelog and opens the next section', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check both phases.
     File.write(path, "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Feature.\n")
     updater = described_class.new(path: path)

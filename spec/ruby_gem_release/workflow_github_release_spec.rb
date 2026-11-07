@@ -32,6 +32,10 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     File.read('examples/keep_a_changelog/Rakefile')
   end
 
+  def consumer_changelog
+    File.read('examples/keep_a_changelog/CHANGELOG.md')
+  end
+
   before do
     FileUtils.mkdir_p(File.join(checkout, 'lib/example'))
     File.write(File.join(checkout, 'lib/example/version.rb'), "module Example\n  VERSION = '0.1.0'\nend\n")
@@ -45,7 +49,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
         spec.files = ['lib/example/version.rb']
       end
     RUBY
-    FileUtils.cp('examples/keep_a_changelog/CHANGELOG.md', checkout)
+    File.write(File.join(checkout, 'CHANGELOG.md'), consumer_changelog)
     File.write(File.join(checkout, 'Rakefile'), "#{consumer_rakefile}\n#{remote_write_guard}")
     run_git('init', '--bare', '--quiet', '-b', 'master', remote)
     run_git('init', '--quiet', '-b', 'master', checkout)
@@ -100,7 +104,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
   end
 
-  shared_examples 'a local release lifecycle' do
+  shared_examples 'a local release lifecycle' do |next_heading = '## [Unreleased]'|
     it 'runs the documented callbacks, preserving the exact artifact without remote writes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
       initial = run_git('--git-dir', remote, 'rev-parse', 'master')
       run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
@@ -114,6 +118,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(File).to exist(File.join(directory, 'release.bundle'))
       run_phase('Prepare Next Development Iteration')
       expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
+      expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include(next_heading)
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
       expect(run_git('--git-dir', remote, 'tag')).to eq('')
       expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
@@ -121,6 +126,18 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   it_behaves_like 'a local release lifecycle'
+
+  context 'with third-level Intridea release headings' do
+    def consumer_rakefile
+      super.sub('Changelog::KeepAChangelog.new', "Changelog::Intridea.new(placeholder: '* Your contribution here.')")
+    end
+
+    def consumer_changelog
+      "### 0.1.0 (Next)\n\n* Change.\n* Your contribution here.\n"
+    end
+
+    it_behaves_like 'a local release lifecycle', '### 0.1.1 (Next)'
+  end
 
   context 'with detailed manual callbacks' do
     def consumer_rakefile

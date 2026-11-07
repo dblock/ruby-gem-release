@@ -17,3 +17,5 @@ Shared implementation for [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_
 ## Source Preservation
 
 Uses `Commonmarker` to identify top-level headings and exclude code, HTML, and quoted blocks. Updates edit the original source rather than rendering the parsed document again, preserving unrelated formatting. Unix and Windows line endings are supported; mixed line endings or standalone carriage returns are rejected.
+
+Hash-style release headings support depths 1 through 6, and their hash count is preserved. Headings inside nested blocks remain excluded. Multiple matching release headings are rejected even when their depths differ.
