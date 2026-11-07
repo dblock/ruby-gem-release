@@ -20,7 +20,7 @@ module RubyGemRelease
     end
 
     def install
-      namespace :ruby_gem_release do
+      namespace :release do
         namespace :version do
           install_read_task
           install_set_task
@@ -37,7 +37,7 @@ module RubyGemRelease
     end
 
     def install_set_task
-      desc 'Set the version: rake ruby_gem_release:version:set[1.2.3]'
+      desc 'Set the version: rake release:version:set[1.2.3]'
       task(:set, [:version]) { |_task, args| write(args[:version]) }
     end
 

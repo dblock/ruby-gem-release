@@ -16,7 +16,8 @@ on:
       prepare:
         description: Command to prepare release files; RELEASE_VERSION is available
         type: string
-        default: 'bundle exec rake "ruby_gem_release:version:set[$RELEASE_VERSION]"'
+        default: |
+          bundle exec rake "release:version:set[$RELEASE_VERSION]"
       validate:
         description: Command to validate the prepared release
         type: string
@@ -24,7 +25,7 @@ on:
       bump:
         description: Command to prepare the next development version
         type: string
-        default: bundle exec rake ruby_gem_release:version:bump
+        default: bundle exec rake release:version:bump
       dry-run:
         description: Validate and build without publishing or pushing
         type: boolean
@@ -87,7 +88,7 @@ jobs:
           set -euo pipefail
           version="$INPUT_VERSION"
           if [[ -z "$version" ]]; then
-            version="$(bundle exec rake ruby_gem_release:version:read)"
+            version="$(bundle exec rake release:version:read)"
           fi
           if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "::error::Version must be MAJOR.MINOR.PATCH without leading zeros."
@@ -122,11 +123,12 @@ jobs:
             echo "::error::Gem build changed the working tree after the release commit."
             exit 1
           fi
-          ruby -rrubygems/package -e '
-            spec = Gem::Package.new(ARGV.fetch(0)).spec
-            abort "Built version #{spec.version} does not match #{ENV.fetch("RELEASE_VERSION")}" unless spec.version.to_s == ENV.fetch("RELEASE_VERSION")
-            File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |f| f.puts "name=#{spec.name}" }
-          ' "$RUNNER_TEMP/release.gem"
+          ruby -rrubygems/package - "$RUNNER_TEMP/release.gem" <<'RUBY'
+          spec = Gem::Package.new(ARGV.fetch(0)).spec
+          version = ENV.fetch('RELEASE_VERSION')
+          abort "Built version #{spec.version} does not match #{version}" unless spec.version.to_s == version
+          File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') { |f| f.puts "name=#{spec.name}" }
+          RUBY
           git tag "v$RELEASE_VERSION"
           git bundle create "$RUNNER_TEMP/release.bundle" HEAD "refs/tags/v$RELEASE_VERSION"
           if [[ "$DRY_RUN" != true ]]; then

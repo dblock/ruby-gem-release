@@ -93,9 +93,9 @@ By default, it sets the configured version to `RELEASE_VERSION`, runs `bundle ex
 
 The version file must contain exactly one assignment to the named constant. Versions must be numeric `MAJOR.MINOR.PATCH`.
 
-- `bundle exec rake ruby_gem_release:version:read` prints the current version.
-- `bundle exec rake 'ruby_gem_release:version:set[1.2.3]'` sets the version.
-- `bundle exec rake 'ruby_gem_release:version:bump[minor]'` increments `major`, `minor`, or `patch`, resetting lower components. The default is `patch`.
+- `bundle exec rake release:version:read` prints the current version.
+- `bundle exec rake 'release:version:set[1.2.3]'` sets the version.
+- `bundle exec rake 'release:version:bump[minor]'` increments `major`, `minor`, or `patch`, resetting lower components. The default is `patch`.
 
 ## Contributing
 

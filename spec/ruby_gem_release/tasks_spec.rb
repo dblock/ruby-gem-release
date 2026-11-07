@@ -18,7 +18,7 @@ RSpec.describe RubyGemRelease::Tasks do
   after { FileUtils.remove_entry(directory) }
 
   def invoke(name, *args)
-    Rake::Task["ruby_gem_release:version:#{name}"].invoke(*args)
+    Rake::Task["release:version:#{name}"].invoke(*args)
   end
 
   before do
