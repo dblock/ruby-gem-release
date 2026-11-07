@@ -27,12 +27,21 @@ Add `ruby-gem-release` to the development dependencies and install its tasks in 
 ```ruby
 require 'ruby-gem-release/tasks'
 require 'ruby-gem-release/changelog'
+require 'ruby-gem-release/github_release'
+require 'fileutils'
 
 RubyGemRelease::Tasks.install do |tasks|
   version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
   changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
   tasks.before_release do |release|
     changelog.release!(release.with_version(version.read))
+  end
+  tasks.publish do |release|
+    directory = ENV.fetch('RUNNER_TEMP')
+    artifact = File.join(directory, "#{ENV.fetch('GEM_NAME')}-#{release.version}.gem")
+    FileUtils.cp(File.join(directory, 'release.gem'), artifact)
+    github_release = RubyGemRelease::GitHubRelease.new(repository: ENV.fetch('GITHUB_REPOSITORY'))
+    puts github_release.publish!(release, artifacts: [artifact])
   end
   tasks.after_release do |release|
     changelog.prepare_next!(release.with_next_version(version.increment!))
@@ -107,11 +116,19 @@ By default, it runs the before-release callback, runs `bundle exec rake`, then r
 
 ## Release Callbacks
 
-[`Tasks`](docs/tasks.md) registers `before_release` and `after_release` callbacks receiving an immutable [`Release`](docs/release.md) context. Version changes are explicit callback operations. Unregistered callbacks do nothing; exceptions fail the task. Callbacks also run in dry-run mode and must be safe and trusted.
+[`Tasks`](docs/tasks.md) registers `before_release`, `publish`, and `after_release` callbacks receiving an immutable [`Release`](docs/release.md) context. Version changes are explicit callback operations. Unregistered callbacks do nothing; exceptions fail the task. Preparation and next-version callbacks also run in dry-run mode and must be safe and trusted; publication is skipped.
 
 ## Changelog Objects
 
 [`KeepAChangelog`](docs/keep_a_changelog.md) updates Unreleased sections and comparison references. [`Intridea`](docs/intridea.md) updates Next sections with a configured contribution placeholder. Both inherit source-preserving behavior from [`Base`](docs/changelog_base.md) and own their file updates. Use custom callbacks for other formats.
+
+## GitHub Releases
+
+[`GitHubRelease`](docs/github_release.md) creates a release with generated notes and the exact published gem attached. Configure it in `tasks.publish`, invoked after the tag push and skipped by the workflow in dry-run mode. Omit the callback to disable creation, or override the `github-release` command to customize this phase.
+
+## Git Commit Identity
+
+Set the reusable workflow's `git-user-name` and `git-user-email` inputs to customize both release and next-version commit attribution. Defaults are `github-actions[bot]` and `github-actions[bot]@users.noreply.github.com`. Values must be nonempty and contain no line breaks. Configuration applies only to the checkout and does not change authentication or push permissions.
 
 ## Contributing
 

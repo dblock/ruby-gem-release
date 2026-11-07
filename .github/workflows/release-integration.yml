@@ -26,7 +26,7 @@ jobs:
         version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION')
         version.set(ENV.fetch('INPUT_VERSION'))
         RUBY
-        bundle exec rake "release:before_release[$RELEASE_PREVIOUS_VERSION,$RELEASE_PREVIOUS_VERSION,$RELEASE_DATE]"
+        bundle exec rake release:before_release
         ruby - <<'RUBY'
         path = 'spec/fixtures/release_consumer/version.rb'
         content = File.read(path)
@@ -35,6 +35,6 @@ jobs:
         grep -q '^## 9000.0.1 (' CHANGELOG.md
       bump: |
         printf '%s\n%s\n' "$RELEASE_PREVIOUS_VERSION" "$RELEASE_DATE" | cmp - "$RUNNER_TEMP/release-context"
-        bundle exec rake "release:after_release[$RELEASE_VERSION,$RELEASE_PREVIOUS_VERSION,$RELEASE_DATE]"
+        bundle exec rake release:after_release
         grep -q '^## 9000.0.2 (Next)$' CHANGELOG.md
       dry-run: true

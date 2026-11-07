@@ -1,5 +1,7 @@
 # Design
 
+GitHub Release creation is implemented by `GitHubRelease` using argument-based `gh` invocation, verified remote tags, generated notes, and caller-supplied artifacts. The workflow retains orchestration: the configurable `github-release` command runs after publication and the atomic tag push, before next-version preparation, and is skipped for dry runs. The class never rebuilds artifacts or retries failed creation automatically.
+
 `ruby-gem-release` packages two related interfaces: a reusable GitHub Actions workflow invoked with `workflow_call`, and a Ruby gem that supplies lifecycle Rake tasks and objects for reading, setting, and incrementing numeric versions.
 
 The shared workflow will orchestrate an end-to-end release: authorize the release, validate the requested version, invoke project-configurable preparation and next-version commands, run validation, build and preserve the exact gem artifact, publish with RubyGems Trusted Publishing, push the release commit and tag atomically, and create a GitHub Release. Project-specific changelog and version conventions remain in the calling repository.

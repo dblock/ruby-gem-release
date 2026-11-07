@@ -17,6 +17,7 @@ module RubyGemRelease
     def install
       namespace :release do
         install_callback_tasks
+        install_publish_task
       end
     end
 
@@ -34,29 +35,43 @@ module RubyGemRelease
       @after_release = block
     end
 
+    def publish(&block)
+      raise ArgumentError, 'publish requires a block' unless block
+      raise ArgumentError, 'publish already configured' if @publish
+
+      @publish = block
+    end
+
     private
+
+    def install_publish_task
+      desc 'Run the remote publication callback after the tag push'
+      task :publish do
+        @publish&.call(context)
+      end
+    end
 
     def install_callback_tasks
       desc 'Run the before-release callback'
-      task(:before_release, %i[version previous_version date]) do |_task, args|
-        release = context(args)
+      task(:before_release) do
+        release = context(before_release: true)
         @before_release&.call(release)
       end
       desc 'Run the next-version preparation callback'
-      task(:after_release, %i[version previous_version date]) do |_task, args|
-        release = context(args)
+      task(:after_release) do
+        release = context
         @after_release&.call(release)
       end
     end
 
-    def context(args)
-      version = args[:version]
-      validate_context_versions(version, args[:previous_version])
-      raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless args[:date]&.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+    def context(before_release: false)
+      previous_version = ENV.fetch('RELEASE_PREVIOUS_VERSION')
+      version = before_release ? previous_version : ENV.fetch('RELEASE_VERSION')
+      date = ENV.fetch('RELEASE_DATE')
+      validate_context_versions(version, previous_version)
+      raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      raise ArgumentError, 'release version and previous version are required' unless version && args[:previous_version]
-
-      Release.new(version: version, previous_version: args[:previous_version], date: Date.iso8601(args[:date]))
+      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date))
     end
 
     def validate_context_versions(*versions)

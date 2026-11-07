@@ -9,6 +9,14 @@ on:
       gemspec:
         description: Optional gemspec path; defaults to the only root gemspec
         type: string
+      git-user-name:
+        description: Author name for release and next-version commits
+        type: string
+        default: github-actions[bot]
+      git-user-email:
+        description: Author email for release and next-version commits
+        type: string
+        default: github-actions[bot]@users.noreply.github.com
       ruby-version:
         description: Ruby version used to validate and build
         type: string
@@ -16,8 +24,7 @@ on:
       prepare:
         description: Command to prepare release files; INPUT_VERSION is the expected version
         type: string
-        default: |
-          bundle exec rake "release:before_release[$RELEASE_PREVIOUS_VERSION,$RELEASE_PREVIOUS_VERSION,$RELEASE_DATE]"
+        default: bundle exec rake release:before_release
       validate:
         description: Command to validate the prepared release
         type: string
@@ -25,8 +32,11 @@ on:
       bump:
         description: Command to prepare the next development version
         type: string
-        default: |
-          bundle exec rake "release:after_release[$RELEASE_VERSION,$RELEASE_PREVIOUS_VERSION,$RELEASE_DATE]"
+        default: bundle exec rake release:after_release
+      github-release:
+        description: Command to create the GitHub Release after publication and the tag push
+        type: string
+        default: bundle exec rake release:publish
       dry-run:
         description: Validate and build without publishing or pushing
         type: boolean
@@ -45,6 +55,8 @@ jobs:
       INPUT_GEMSPEC: ${{ inputs.gemspec }}
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       DRY_RUN: ${{ inputs.dry-run }}
+      GIT_USER_NAME: ${{ inputs.git-user-name }}
+      GIT_USER_EMAIL: ${{ inputs.git-user-email }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -72,8 +84,14 @@ jobs:
             exit 1
           fi
           echo "GEMSPEC=$gemspec" >> "$GITHUB_ENV"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for value in "$GIT_USER_NAME" "$GIT_USER_EMAIL"; do
+            if [[ -z "${value//[[:space:]]/}" || "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+              echo "::error::Git identity must be nonempty and contain no line breaks."
+              exit 1
+            fi
+          done
+          git config --local user.name "$GIT_USER_NAME"
+          git config --local user.email "$GIT_USER_EMAIL"
           git fetch origin "$DEFAULT_BRANCH" --tags
           if [[ "$DRY_RUN" != true && "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$DEFAULT_BRANCH")" ]]; then
             echo "::error::Default branch advanced; start a new release."
@@ -179,9 +197,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GEM_NAME: ${{ steps.build.outputs.name }}
-        run: |
-          cp "$RUNNER_TEMP/release.gem" "$RUNNER_TEMP/$GEM_NAME-$RELEASE_VERSION.gem"
-          gh release create "v$RELEASE_VERSION" --verify-tag --title "v$RELEASE_VERSION" --generate-notes "$RUNNER_TEMP/$GEM_NAME-$RELEASE_VERSION.gem"
+          COMMAND: ${{ inputs.github-release }}
+        run: bash -euo pipefail -c "$COMMAND"
       - name: Prepare Next Development Version
         env:
           COMMAND: ${{ inputs.bump }}
