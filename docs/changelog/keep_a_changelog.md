@@ -1,6 +1,6 @@
 # `RubyGemRelease::Changelog::KeepAChangelog`
 
-Updates [Keep a Changelog](https://keepachangelog.com/) files with `## [Unreleased]` and `## [VERSION] - YYYY-MM-DD` headings. See the [sample changelog](../examples/keep_a_changelog/CHANGELOG.md) and [Rakefile](../examples/keep_a_changelog/Rakefile). Inherits shared source handling from [Base](changelog_base.md).
+Updates [Keep a Changelog](https://keepachangelog.com/) files with `## [Unreleased]` and `## [VERSION] - YYYY-MM-DD` headings. See the [sample changelog](../../examples/keep_a_changelog/CHANGELOG.md) and [Rakefile](../../examples/keep_a_changelog/Rakefile). Inherits shared source handling from [Base](base.md).
 
 ```ruby
 require 'ruby-gem-release/changelog'
@@ -14,7 +14,7 @@ changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
 
 ## Release
 
-`changelog.release!(release)` replaces the single Unreleased heading using the [Release](release.md) version and date. Missing or duplicate headings, or an existing release heading, fail without writing the file.
+`changelog.release!(release)` replaces the single Unreleased heading using the [Release](../release.md) version and date. Missing or duplicate headings, or an existing release heading, fail without writing the file.
 
 ## Prepare Next
 

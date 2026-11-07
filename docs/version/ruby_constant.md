@@ -1,6 +1,6 @@
 # `RubyGemRelease::Version::RubyConstant`
 
-Reads and updates numeric `MAJOR.MINOR.PATCH` versions without evaluating the version file. Version objects are local to your configuration; [Tasks](tasks.md) requires no version strategy.
+Reads and updates numeric `MAJOR.MINOR.PATCH` versions without evaluating the version file. Version objects are local to your configuration; [Tasks](../tasks.md) requires no version strategy.
 
 ```ruby
 require 'ruby-gem-release/version/ruby_constant'

@@ -15,11 +15,11 @@ The optional `repository:` argument identifies the target as `'OWNER/REPO'`. It 
 
 ## Publish
 
-`publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](release.md) context. It generates release notes and verifies that the tag exists remotely; it never creates a tag automatically. It returns the release URL printed by `gh`.
+`publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](../release.md) context. It generates release notes and verifies that the tag exists remotely; it never creates a tag automatically. It returns the release URL printed by `gh`.
 
 ## Package
 
-`package:` attaches the exact archive returned by [`Package::RubyGem#artifact`](package.md#artifact), with its package filename and verified digest, without rebuilding or manual copying.
+`package:` attaches the exact archive returned by [`Package::RubyGem#artifact`](../package/ruby_gem.md#artifact), with its package filename and verified digest, without rebuilding or manual copying.
 
 ## Artifacts
 
@@ -33,7 +33,7 @@ Without `package:`, `artifacts:` accepts existing file paths, defaulting to no a
 
 Install `gh` and authenticate using `GH_TOKEN` or its existing credentials. The workflow supplies the GitHub Actions token and requires the caller's `contents: write` permission.
 
-Failed commands raise without retries or overwriting existing releases. If package publication and the tag push succeeded, recover only the missing GitHub Release with the preserved artifact; see [RELEASING.md](../RELEASING.md).
+Failed commands raise without retries or overwriting existing releases. If package publication and the tag push succeeded, recover only the missing GitHub Release with the preserved artifact; see [RELEASING.md](../../RELEASING.md).
 
 ## Workflow Command
 

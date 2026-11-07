@@ -40,4 +40,4 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Errors
 
-Failed commands raise without retries. Publish the gem before the atomic push, as in [Usage](../README.md#usage); this preserves the package-before-tag ordering but leaves a recovery window if pushing fails.
+Failed commands raise without retries. Publish the gem before the atomic push, as in [Usage](../../README.md#usage); this preserves the package-before-tag ordering but leaves a recovery window if pushing fails.

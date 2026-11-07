@@ -119,7 +119,7 @@ By default, it runs the before-release callback, `bundle exec rake`, the publica
 
 ## Version Objects
 
-[`RubyConstant`](docs/ruby_constant.md) reads and updates numeric versions without evaluating the version file. Version objects are local to your callbacks; use your own objects for other file formats.
+[`RubyConstant`](docs/version/ruby_constant.md) reads and updates numeric versions without evaluating the version file. Version objects are local to your callbacks; use your own objects for other file formats.
 
 ## Release Callbacks
 
@@ -127,15 +127,15 @@ By default, it runs the before-release callback, `bundle exec rake`, the publica
 
 ## Changelog Objects
 
-[`KeepAChangelog`](docs/keep_a_changelog.md) updates Unreleased sections and comparison references. [`Intridea`](docs/intridea.md) updates Next sections with a configured contribution placeholder. Both inherit source-preserving behavior from [`Base`](docs/changelog_base.md) and own their file updates. Use custom callbacks for other formats.
+[`KeepAChangelog`](docs/changelog/keep_a_changelog.md) updates Unreleased sections and comparison references. [`Intridea`](docs/changelog/intridea.md) updates Next sections with a configured contribution placeholder. Both inherit source-preserving behavior from [`Base`](docs/changelog/base.md) and own their file updates. Use custom callbacks for other formats.
 
 ## GitHub Releases
 
-[`GitHubRelease`](docs/github_release.md) creates a release with generated notes and the exact published gem attached. Invoke it after `git.push!` in `tasks.publish`; omit only `github.publish!` to disable GitHub Release creation without disabling package publication.
+[`GitHubRelease`](docs/hosting/github_release.md) creates a release with generated notes and the exact published gem attached. Invoke it after `git.push!` in `tasks.publish`; omit only `github.publish!` to disable GitHub Release creation without disabling package publication.
 
 ## Packages and Git
 
-[`Package::RubyGem`](docs/package.md) builds once, verifies the exact artifact, and publishes it to RubyGems. [`SourceControl::Git`](docs/git.md) commits release files, tags the release, preserves a recovery bundle, checks branch concurrency, and pushes atomically. [`Hosting::GitHubRelease`](docs/github_release.md) owns hosting-specific publication. File paths mirror these namespaces; operations and callback ordering are unchanged. Both package and Git objects perform local work in dry runs without publishing or pushing.
+[`Package::RubyGem`](docs/package/ruby_gem.md) builds once, verifies the exact artifact, and publishes it to RubyGems. [`SourceControl::Git`](docs/source_control/git.md) commits release files, tags the release, preserves a recovery bundle, checks branch concurrency, and pushes atomically. [`Hosting::GitHubRelease`](docs/hosting/github_release.md) owns hosting-specific publication. File paths mirror these namespaces; operations and callback ordering are unchanged. Both package and Git objects perform local work in dry runs without publishing or pushing.
 
 ## Git Commit Identity
 

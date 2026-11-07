@@ -28,4 +28,4 @@ The optional `directory:` defaults to `RUNNER_TEMP`, or a new temporary director
 
 ## Errors
 
-Build failures, version mismatches, changed artifacts, and failed uploads raise without automatic retries. Before retrying an ambiguous upload, check RubyGems; see [recovery instructions](../RELEASING.md#verify-and-recover).
+Build failures, version mismatches, changed artifacts, and failed uploads raise without automatic retries. Before retrying an ambiguous upload, check RubyGems; see [recovery instructions](../../RELEASING.md#verify-and-recover).

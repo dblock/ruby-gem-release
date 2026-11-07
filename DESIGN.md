@@ -16,7 +16,7 @@ The package builds once and publishes before atomically pushing its commit and t
 
 ## Class Areas
 
-Namespaces group implementations by responsibility: `Package::RubyGem` builds and publishes gems, `SourceControl::Git` manages commits and tags independently of hosting, and `Hosting::GitHubRelease` creates hosted releases. `Version` and `Changelog` retain their existing areas; `Release`, `Tasks`, and `Workflow` remain orchestration and shared context. File paths mirror namespaces.
+Namespaces group implementations by responsibility: `Package::RubyGem` builds and publishes gems, `SourceControl::Git` manages commits and tags independently of hosting, and `Hosting::GitHubRelease` creates hosted releases. `Version` and `Changelog` retain their existing areas; `Release`, `Tasks`, and `Workflow` remain orchestration and shared context. Class, documentation, and spec paths mirror namespaces.
 
 Future hosting implementations can implement `publish!(release, package:)` without changing callbacks or Git operations. No shared hosting base or additional provider is implemented until real shared behavior requires one.
 

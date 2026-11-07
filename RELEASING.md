@@ -18,7 +18,7 @@ For a non-publishing integration check, set `dry-run: true` in the caller. The w
 
 ## Verify and Recover
 
-The `publish` input replaces the former `github-release` command and now invokes the entire publication callback. [`GitHubRelease`](docs/github_release.md) attaches the exact gem through `package:` after the remote tag push. To disable only GitHub Release creation, omit `github.publish!`, not the publication callback. A custom recovery command must not republish the gem or replace its tag.
+The `publish` input replaces the former `github-release` command and now invokes the entire publication callback. [`GitHubRelease`](docs/hosting/github_release.md) attaches the exact gem through `package:` after the remote tag push. To disable only GitHub Release creation, omit `github.publish!`, not the publication callback. A custom recovery command must not republish the gem or replace its tag.
 
 Verify the version on RubyGems, the tag's commit, the GitHub Release and attached gem, and the next development version on the default branch. Never overwrite published versions or move release tags.
 
