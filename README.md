@@ -48,7 +48,11 @@ jobs:
       ruby-version: '3.3'
 ```
 
-In your GitHub repository, open **Settings → Environments** and create an environment named `release`.
+In your GitHub repository, open **Settings → Environments** and create an environment named `release`. Alternatively, from your repository directory, create it with `gh` (check existing environment settings before running this create-or-update command):
+
+```sh
+gh api --method PUT repos/{owner}/{repo}/environments/release
+```
 
 On RubyGems.org, open your gem's **Trusted publishers** page and create a [trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows). Set the repository fields to your gem's repository, the workflow filename to `release.yml`, and the environment to `release`. Set the separate workflow repository fields to `dblock` and `ruby-gem-release`; these identify the reusable workflow RubyGems verifies in the OIDC token. For a new gem, use the [pending trusted publishers page](https://rubygems.org/profile/oidc/pending_trusted_publishers) instead.
 
