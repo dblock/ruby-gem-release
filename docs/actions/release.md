@@ -2,6 +2,8 @@
 
 Reference for [`.github/workflows/release.yml`](../../.github/workflows/release.yml), invoked with `workflow_call`. See [Usage](../../README.md#usage) for a caller example and [Detailed Usage](../usage.md#configuration) for customization. See [RELEASING.md](../../RELEASING.md#one-time-setup) for branch permissions. Trusted Publishing is required setup in [Usage](../../README.md#3-enable-trusted-publishing).
 
+For a step-based interface with caller-owned job settings, see the [Composite Action](action.md). Both interfaces invoke the same Ruby release tasks; the reusable workflow keeps its own runner, environment, permissions contract, and concurrency group.
+
 ## Inputs
 
 Set these under the calling job's `with:` mapping. Only `ruby-version` is required.

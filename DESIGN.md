@@ -2,11 +2,11 @@
 
 `Package::RubyGem`, `SourceControl::Git`, and `Hosting::GitHubRelease` own release operations through argument-based command invocation. The publication callback commits, builds once, tags, publishes to RubyGems, pushes the commit and tag atomically, and creates the GitHub Release with generated notes and the verified exact artifact. The workflow retains setup, context checks, validation, Trusted Publishing authentication, artifact uploading, and phase invocation. All callbacks run for dry runs; the immutable release context suppresses remote writes in the supplied classes.
 
-`ruby-gem-release` packages two related interfaces: a reusable GitHub Actions workflow invoked with `workflow_call`, and a Ruby gem that supplies lifecycle Rake tasks and objects for reading, setting, and incrementing numeric versions.
+`ruby-gem-release` supplies a reusable GitHub Actions workflow invoked with `workflow_call`, a step-based composite action, and a Ruby gem with shared lifecycle Rake tasks and objects for reading, setting, and incrementing numeric versions.
 
 The shared workflow will orchestrate an end-to-end release: authorize the release, validate the requested version, invoke project-configurable preparation and next-version commands, run validation, build and preserve the exact gem artifact, publish with RubyGems Trusted Publishing, push the release commit and tag atomically, and create a GitHub Release. Project-specific changelog and version conventions remain in the calling repository.
 
-The Rake tasks update exactly one constant assignment without evaluating the version file. The reusable workflow is the primary GitHub interface; it is not a composite or JavaScript action. Caller-provided shell commands run with the workflow's privileges and must be trusted.
+The Rake tasks update exactly one constant assignment without evaluating the version file. The reusable workflow is the primary GitHub interface; a composite action offers the same release lifecycle as a caller-owned job step. Caller-provided shell commands run with the workflow's privileges and must be trusted.
 
 Optional Ruby callbacks receive an immutable release context during release preparation and next-version preparation. The workflow reads the initial and prepared versions from the gemspec and retains its previous version and UTC date across both phases. An optional version input asserts the prepared version rather than setting it. Callbacks own their version objects with no task-level strategy configuration; `with_version` and `with_next_version` return new release contexts without mutating the originals. Version objects own their file updates; optional changelog objects support `Intridea` and Keep a Changelog formats, including standard version comparison reference links. The caller chooses its objects and owns custom formats and unsupported links; callback failures stop the workflow.
 
@@ -23,6 +23,12 @@ Future hosting implementations can implement `publish!(release, package:)` witho
 ## Standard Workflow
 
 `Workflow::RubyGem` installs the existing callback sequence using explicit version and changelog objects. Package, Git, and hosting objects use their established defaults and can be replaced without changing ordering. Only unambiguous gemspec, repository, branch, and artifact-directory defaults are used; version files and changelog formats are never guessed. An explicit `nil` disables changelog or hosted-release work, not package publication or version incrementing. Custom sequences continue to use `Tasks.install`; no workflow framework or speculative provider abstraction is introduced.
+
+## Composite Action
+
+The root `action.yml` is the single Marketplace action metadata file. It invokes the same Ruby lifecycle tasks, authentication paths, and exact-artifact publication as the reusable workflow. Its input configuration uses `Workflow::Context` to export values across composite steps and strictly validate the string-valued dry-run flag before preparation. Callers own job permissions, runner, environment, and concurrency; the reusable workflow continues to provide those settings without changing existing consumers.
+
+Both YAML interfaces keep thin orchestration wrappers over the Ruby implementation. The reusable workflow deliberately does not reference a moving composite-action branch or a future release tag: a pinned workflow must remain independent of later action versions. Real consumer CI exercises both interfaces and verifies recovery artifacts and skipped iteration preparation after a failed action callback. Both interfaces use the same release versions, and published tags remain immutable.
 
 ## Project Release Caller
 

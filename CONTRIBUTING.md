@@ -16,6 +16,8 @@ RuboCop includes Markdown prose checks with `rubocop-prose`, Ruby code block che
 
 RSpec examples live in `spec/`; add focused examples for release-task behavior and use a real consumer fixture for reusable-workflow integration. Specs write HTML and LCOV coverage reports under `coverage/`, which CI uploads to Coveralls.
 
+The release integration workflow also executes the root composite action with successful and deliberately failed publication callbacks in dry-run mode. Preserve the shared lifecycle behavior, authentication gates, and failure-aware artifact upload when changing either interface. Validate workflow examples with `actionlint .github/workflows/*.yml examples/.github/workflows/*.yml`.
+
 ## Pull Requests
 
-Keep one coherent commit per PR, amending it for updates and using `git push --force-with-lease` on the topic branch when needed. Squash and rebase merges are supported; merge commits are disabled. Update documentation for user-visible changes and add notable behavior changes to the `0.1.0 (Next)` section of `CHANGELOG.md` with the PR link and author attribution once available. List entries chronologically within each release and keep `- Your contribution here.` as the last entry in the next-release section. Keep Markdown paragraphs on one source line. See [RELEASING.md](RELEASING.md) for release procedures.
+Keep one coherent commit per PR, amending it for updates and using `git push --force-with-lease` on the topic branch when needed. Squash and rebase merges are supported; merge commits are disabled. Update documentation for user-visible changes and add notable behavior changes to the `0.2.0 (Next)` section of `CHANGELOG.md` with the PR link and author attribution once available. List entries chronologically within each release and keep `- Your contribution here.` as the last entry in the next-release section. Keep Markdown paragraphs on one source line. See [RELEASING.md](RELEASING.md) for release procedures.

@@ -21,6 +21,9 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       'DEFAULT_BRANCH' => 'master',
       'INPUT_VERSION' => '',
       'INPUT_GEMSPEC' => '',
+      'GIT_USER_NAME' => 'Fixture',
+      'GIT_USER_EMAIL' => 'fixture@example.com',
+      'RUBYGEMS_OWNER' => '',
       'DRY_RUN' => 'true'
     }
   end
@@ -74,10 +77,17 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   def phase_command(name)
-    step = workflow.fetch('jobs').fetch('release').fetch('steps').find { |item| item['name'] == name }
-    inputs = workflow.fetch(true).fetch('workflow_call').fetch('inputs')
+    step = steps.find { |item| item['name'] == name }
     command_input = step.dig('env', 'COMMAND')
     command_input ? inputs.fetch(command_input[/inputs\.(\w+)/, 1]).fetch('default') : step.fetch('run')
+  end
+
+  def steps
+    workflow.fetch('jobs').fetch('release').fetch('steps')
+  end
+
+  def inputs
+    workflow.fetch(true).fetch('workflow_call').fetch('inputs')
   end
 
   def run_phase(name)
@@ -93,6 +103,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   shared_examples 'a local release lifecycle' do
     it 'runs the documented callbacks, preserving the exact artifact without remote writes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
       initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+      run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
       run_phase('Capture Release Context')
       run_phase('Prepare Release')
       run_phase('Resolve Prepared Version')
@@ -101,7 +112,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(run_git('-C', checkout, 'rev-parse', 'v0.1.0')).to eq(release_commit)
       expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
       expect(File).to exist(File.join(directory, 'release.bundle'))
-      run_phase('Prepare Next Development Version')
+      run_phase('Prepare Next Development Iteration')
       expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
       expect(run_git('--git-dir', remote, 'tag')).to eq('')
@@ -117,6 +128,26 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
 
     it_behaves_like 'a local release lifecycle'
+  end
+
+  context 'with the composite action' do
+    let(:workflow) { YAML.load_file('action.yml') }
+
+    def steps
+      workflow.fetch('runs').fetch('steps')
+    end
+
+    def inputs
+      workflow.fetch('inputs')
+    end
+
+    it_behaves_like 'a local release lifecycle'
+
+    it 'uses string-valued dry-run gates and failure-aware artifact preservation', :aggregate_failures do
+      expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ inputs.dry-run == 'false' && inputs.rubygems-owner == '' }}")
+      expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ inputs.dry-run == 'false' && inputs.rubygems-owner != '' }}")
+      expect(steps.find { |item| item['name'] == 'Preserve Release Artifacts' }.fetch('if')).to include('always()')
+    end
   end
 
   it 'invokes publication in dry runs and preserves artifacts after a failed callback', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify failure-aware artifact preservation and the authentication gate.

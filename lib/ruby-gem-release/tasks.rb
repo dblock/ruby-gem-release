@@ -49,6 +49,7 @@ module RubyGemRelease
 
     def install_workflow_tasks
       namespace :workflow do
+        task(:configure) { Workflow::Context.new.configure! }
         task(:capture) { Workflow::Context.new.capture! }
         task(:resolve) { Workflow::Context.new.resolve! }
         task(:credentials) { Workflow::RubyGemsCredentials.new(owner: ENV.fetch('RUBYGEMS_OWNER')).configure! }

@@ -18,7 +18,7 @@ Requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
 
 ### 1. Configure Your Gem
 
-Add `ruby-gem-release` to the development dependencies and install the standard workflow in your Rakefile. Choose your version file and changelog format explicitly:
+Add `ruby-gem-release` (`~> 0.2.0`) to the development dependencies and install the standard workflow in your Rakefile. Choose your version file and changelog format explicitly:
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'
@@ -53,7 +53,7 @@ permissions:
 
 jobs:
   release:
-    uses: dblock/ruby-gem-release/.github/workflows/release.yml@master
+    uses: dblock/ruby-gem-release/.github/workflows/release.yml@v0.2.0
     with:
       ruby-version: '3.3'
       rubygems-owner: ${{ inputs.rubygems-owner }}
@@ -90,6 +90,8 @@ gh workflow run release.yml
 ## Configuration
 
 See [Detailed Usage](docs/usage.md#configuration) for workflow customization, callbacks, and available classes, and the [Actions Reference](docs/actions/release.md) for inputs and defaults.
+
+For step-based integration, see the [Composite Action](docs/actions/action.md).
 
 ## Contributing
 

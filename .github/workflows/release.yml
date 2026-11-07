@@ -37,7 +37,7 @@ on:
         type: string
         default: bundle exec rake release:publish
       bump:
-        description: Command to prepare, commit, and push the next development version.
+        description: Command to prepare, commit, and push the next development iteration.
         type: string
         default: bundle exec rake release:after_release
       dry-run:
@@ -103,7 +103,7 @@ jobs:
             ${{ runner.temp }}/release.bundle
           if-no-files-found: warn
           retention-days: 30
-      - name: Prepare Next Development Version
+      - name: Prepare Next Development Iteration
         env:
           COMMAND: ${{ inputs.bump }}
         run: bash -euo pipefail -c "$COMMAND"

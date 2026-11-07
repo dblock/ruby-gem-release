@@ -42,6 +42,12 @@ The workflow captures `RELEASE_PREVIOUS_VERSION` from the gemspec and `RELEASE_D
 
 For a non-publishing integration check, set `dry-run: true` in the caller. The workflow skips RubyGems authentication but invokes every callback. The supplied classes honor `release.dry_run?`, performing local commits, builds, and tags without package uploads, remote Git pushes, or GitHub Release creation. Custom commands and callback code must themselves honor dry runs; never use untrusted commands or workflow inputs.
 
+## Publish the Action to Marketplace
+
+Publish a new version through the normal authorized publication workflow. Before listing the action, confirm that its release tag contains the root `action.yml`, and that the gem and GitHub Release match it. Never move an existing release tag to add action metadata.
+
+The repository owner must accept the GitHub Marketplace Developer Agreement. Edit the new GitHub Release, select **Publish this Action to the GitHub Marketplace**, choose its categories, and update the release. GitHub checks that the action name is unique and the metadata is valid; follow its [Marketplace publication requirements](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace). Marketplace publication is a separate step from creating a GitHub Release and does not happen automatically in the current release workflow.
+
 ## Verify and Recover
 
 The `publish` input replaces the former `github-release` command and now invokes the entire publication callback. [`GitHubRelease`](docs/hosting/github_release.md) attaches the exact gem through `package:` after the remote tag push. To disable only GitHub Release creation, set `hosting: nil` in the standard workflow or omit `github.publish!` from manual callbacks, not the publication callback. A custom recovery command must not republish the gem or replace its tag.

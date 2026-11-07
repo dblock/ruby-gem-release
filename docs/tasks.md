@@ -6,6 +6,8 @@ Registers optional preparation, publication, and next-version callbacks in the R
 
 Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all three callback tasks are registered and do nothing. It also registers `release:workflow:capture` and `release:workflow:resolve` for [Workflow::Context](workflow/context.md) context checks.
 
+The composite action first invokes `release:workflow:configure` to validate and export its input environment for later steps. The reusable workflow supplies the same values through its job environment.
+
 ## Before Release
 
 `tasks.before_release` prepares files before validation and publication. The callback receives an immutable [Release](release.md). Initially, `version` and `previous_version` contain the current gemspec version, and `next_version` is `nil`. Attach the prepared version with `release.with_version(version.read)` before updating a changelog if your callback changes it.

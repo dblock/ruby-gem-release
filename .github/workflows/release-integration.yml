@@ -12,6 +12,56 @@ jobs:
     with:
       ruby-version: '3.3'
       dry-run: true
+  action-consumer:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - version: '9000.0.2'
+            next-version: '9000.0.3'
+            publish: bundle exec rake release:publish
+            outcome: success
+          - version: '9000.0.3'
+            next-version: '9000.0.3'
+            publish: bundle exec rake release:publish && exit 1
+            outcome: failure
+    steps:
+      - uses: actions/checkout@v7
+      - name: Exercise Composite Action
+        id: release
+        continue-on-error: true
+        uses: ./
+        with:
+          ruby-version: '3.3'
+          version: ${{ matrix.version }}
+          gemspec: spec/fixtures/release_consumer/fixture.gemspec
+          rubygems-owner: '123'
+          dry-run: 'true'
+          prepare: |
+            ruby - <<'RUBY'
+            require_relative 'lib/ruby-gem-release/version/ruby_constant'
+            version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION')
+            version.set(ENV.fetch('INPUT_VERSION'))
+            RUBY
+            bundle exec rake release:before_release
+            ruby - <<'RUBY'
+            path = 'spec/fixtures/release_consumer/version.rb'
+            content = File.read(path)
+            File.write(path, content.sub('9000.0.0', ENV.fetch('INPUT_VERSION')))
+            RUBY
+          publish: ${{ matrix.publish }}
+      - name: Verify Composite Action Outcome
+        if: ${{ always() }}
+        env:
+          ACTUAL_OUTCOME: ${{ steps.release.outcome }}
+          EXPECTED_OUTCOME: ${{ matrix.outcome }}
+          NEXT_VERSION: ${{ matrix.next-version }}
+        run: |
+          test "$ACTUAL_OUTCOME" = "$EXPECTED_OUTCOME"
+          test -f "$RUNNER_TEMP/release.gem"
+          test -f "$RUNNER_TEMP/release.json"
+          test -f "$RUNNER_TEMP/release.bundle"
+          grep -Fq "VERSION = '$NEXT_VERSION'" lib/ruby-gem-release/version.rb
   consumer:
     uses: ./.github/workflows/release.yml
     with:

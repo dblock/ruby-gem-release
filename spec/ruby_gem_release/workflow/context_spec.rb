@@ -55,4 +55,28 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     allow(git).to receive(:check_tag!).and_raise('Release tag already exists')
     expect { described_class.new.resolve! }.to raise_error(/tag already exists/)
   end
+
+  context 'when configuring composite action inputs' do
+    before do
+      ENV.update('INPUT_GEMSPEC' => 'fixture.gemspec', 'DEFAULT_BRANCH' => 'master',
+                 'GIT_USER_NAME' => 'Fixture', 'GIT_USER_EMAIL' => 'fixture@example.com', 'RUBYGEMS_OWNER' => '123')
+    end
+
+    it 'exports inputs for later action steps' do
+      described_class.new.configure!
+      expect(File.read(environment_file)).to include("DRY_RUN=true\n", "INPUT_GEMSPEC=fixture.gemspec\n", "RUBYGEMS_OWNER=123\n")
+    end
+
+    it 'rejects invalid boolean strings without exporting inputs', :aggregate_failures do
+      ENV['DRY_RUN'] = 'FALSE'
+      expect { described_class.new.configure! }.to raise_error(ArgumentError, /true or false/)
+      expect(File.read(environment_file)).to eq('')
+    end
+
+    it 'rejects environment-file injection before exporting any inputs', :aggregate_failures do
+      ENV['GIT_USER_EMAIL'] = "fixture@example.com\nINJECTED=value"
+      expect { described_class.new.configure! }.to raise_error(ArgumentError, /line breaks/)
+      expect(File.read(environment_file)).to eq('')
+    end
+  end
 end

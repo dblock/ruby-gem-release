@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      rubygems-owner:
+        description: RubyGems account ID for first publication; omit for an existing gem.
+        type: string
+        required: false
+      dry-run:
+        description: Exercise the release without publishing or pushing.
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: ruby-gem-release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Release Gem
+        uses: dblock/ruby-gem-release@v0.2.0
+        with:
+          ruby-version: '3.3'
+          rubygems-owner: ${{ inputs.rubygems-owner }}
+          dry-run: ${{ inputs.dry-run }}

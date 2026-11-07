@@ -8,6 +8,13 @@ require_relative '../version/ruby_constant'
 module RubyGemRelease
   module Workflow
     class Context
+      def configure!
+        raise ArgumentError, 'dry-run must be true or false' unless %w[true false].include?(ENV.fetch('DRY_RUN'))
+
+        names = %w[INPUT_VERSION INPUT_GEMSPEC DEFAULT_BRANCH DRY_RUN GIT_USER_NAME GIT_USER_EMAIL RUBYGEMS_OWNER]
+        export(names.to_h { |name| [name, ENV.fetch(name)] })
+      end
+
       def capture!
         dry_run = ENV.fetch('DRY_RUN', 'false') == 'true'
         check_branch(dry_run)
@@ -57,10 +64,10 @@ module RubyGemRelease
       end
 
       def export(values)
+        raise ArgumentError, 'Workflow values cannot contain line breaks' if values.values.any? { |value| value.match?(/[\r\n]/) }
+
         File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
           values.each do |key, value|
-            raise ArgumentError, 'Workflow values cannot contain line breaks' if value.match?(/[\r\n]/)
-
             file.puts "#{key}=#{value}"
           end
         end

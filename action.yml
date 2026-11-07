@@ -1,0 +1,108 @@
+name: Ruby Gem Release
+description: Validate and publish a Ruby gem with Trusted Publishing, then prepare its next development version.
+author: dblock
+branding:
+  icon: package
+  color: red
+
+inputs:
+  version:
+    description: Optional expected version; must match the prepared gemspec.
+    default: ''
+  gemspec:
+    description: Optional gemspec path; defaults to the only root gemspec.
+    default: ''
+  rubygems-owner:
+    description: Optional RubyGems account ID for first publication with a pending trusted publisher.
+    default: ''
+  git-user-name:
+    description: Author name for release and next-version commits.
+    default: github-actions[bot]
+  git-user-email:
+    description: Author email for release and next-version commits.
+    default: github-actions[bot]@users.noreply.github.com
+  ruby-version:
+    description: Ruby version used to validate and build.
+    required: true
+  prepare:
+    description: Command to prepare release files; INPUT_VERSION is the expected version.
+    default: bundle exec rake release:before_release
+  validate:
+    description: Command to validate the prepared release.
+    default: bundle exec rake
+  publish:
+    description: Command to commit, build, tag, and publish the release.
+    default: bundle exec rake release:publish
+  bump:
+    description: Command to prepare, commit, and push the next development iteration.
+    default: bundle exec rake release:after_release
+  dry-run:
+    description: Validate and build without publishing or pushing; must be true or false.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ inputs.ruby-version }}
+        bundler-cache: true
+    - name: Configure Release Inputs
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_GEMSPEC: ${{ inputs.gemspec }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        GIT_USER_NAME: ${{ inputs.git-user-name }}
+        GIT_USER_EMAIL: ${{ inputs.git-user-email }}
+        RUBYGEMS_OWNER: ${{ inputs.rubygems-owner }}
+      run: bundle exec rake release:workflow:configure
+    - name: Capture Release Context
+      shell: bash
+      run: bundle exec rake release:workflow:capture
+    - name: Prepare Release
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.prepare }}
+      run: bash -euo pipefail -c "$COMMAND"
+    - name: Resolve Prepared Version
+      shell: bash
+      run: bundle exec rake release:workflow:resolve
+    - name: Validate Release
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.validate }}
+      run: bash -euo pipefail -c "$COMMAND"
+    - name: Authenticate to RubyGems
+      if: ${{ inputs.dry-run == 'false' && inputs.rubygems-owner == '' }}
+      uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+    - name: Authenticate Pending Publisher
+      if: ${{ inputs.dry-run == 'false' && inputs.rubygems-owner != '' }}
+      shell: bash
+      run: bundle exec rake release:workflow:credentials
+    - name: Publish Release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        COMMAND: ${{ inputs.publish }}
+      run: bash -euo pipefail -c "$COMMAND"
+    - name: Preserve Release Artifacts
+      if: ${{ always() && env.RELEASE_VERSION != '' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: release-gem-${{ env.RELEASE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: |
+          ${{ runner.temp }}/release.gem
+          ${{ runner.temp }}/release.json
+          ${{ runner.temp }}/release.bundle
+        if-no-files-found: warn
+        retention-days: 30
+    - name: Prepare Next Development Iteration
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.bump }}
+      run: bash -euo pipefail -c "$COMMAND"

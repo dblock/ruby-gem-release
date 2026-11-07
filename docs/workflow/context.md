@@ -1,6 +1,10 @@
 # `RubyGemRelease::Workflow::Context`
 
-Supplies the reusable workflow's context checks, invoked through [Tasks](../tasks.md). It leaves setup, validation, authentication, artifact uploading, and callback invocation to GitHub Actions. For action inputs and defaults, see the [GitHub Actions workflow reference](../actions/release.md).
+Supplies context checks for the reusable workflow and composite action, invoked through [Tasks](../tasks.md). It leaves setup, validation, authentication, artifact uploading, and callback invocation to GitHub Actions. For inputs and defaults, see the [GitHub Actions workflow reference](../actions/release.md).
+
+## Configure
+
+`configure!` exports the composite action's input environment for subsequent steps through `GITHUB_ENV`. It requires `DRY_RUN` to be exactly `true` or `false` and rejects line breaks in all values before writing any of them. The reusable workflow supplies the same values through its job environment and does not need this method.
 
 ## Capture
 
@@ -12,4 +16,4 @@ Supplies the reusable workflow's context checks, invoked through [Tasks](../task
 
 ## Environment
 
-Inputs are `INPUT_GEMSPEC`, `INPUT_VERSION`, `GIT_USER_NAME`, `GIT_USER_EMAIL`, `DEFAULT_BRANCH`, `GITHUB_REF`, `GITHUB_ENV`, and `DRY_RUN`. See the [reusable workflow](../../.github/workflows/release.yml) for defaults.
+Inputs are `INPUT_GEMSPEC`, `INPUT_VERSION`, `GIT_USER_NAME`, `GIT_USER_EMAIL`, `DEFAULT_BRANCH`, `GITHUB_REF`, `GITHUB_ENV`, and `DRY_RUN`. Configuration also exports `RUBYGEMS_OWNER` for authentication. See the [reusable workflow](../../.github/workflows/release.yml) and [composite action](../../action.yml) for defaults.

@@ -6,6 +6,8 @@ The reusable workflow belongs in `.github/workflows/`, the gem API and Rake task
 
 Keep release orchestration reusable while leaving project-specific preparation and version bump commands configurable by the calling repository. Test task behavior with focused unit tests and test the workflow through a real reusable-workflow consumer fixture; never claim workflow behavior is validated by unit tests alone.
 
+The root `action.yml` exposes the same Ruby tasks as a composite action. Keep both interfaces consistent without making version-pinned workflows depend on moving action references. Action callers own job permissions, runner, environment, and concurrency. Preserve string-valued dry-run validation and failure-aware artifact preservation; run the real action consumer CI and `actionlint .github/workflows/*.yml examples/.github/workflows/*.yml` when changing YAML interfaces.
+
 Run `bundle exec rake` locally for specs and RuboCop before every push, and `bundle exec rake build` for package construction when applicable. Danger checks the changelog in PR CI, not as a routine local command. Document user-visible changes in `CHANGELOG.md`, listing entries within each release chronologically and keeping `- Your contribution here.` as the last entry in the next-release section; keep Markdown paragraphs on one source line.
 
 The normal RuboCop command checks prose, Markdown Ruby examples, spelling, and YAML through `rubocop-prose`, `rubocop-md`, `rubocop-spellcheck`, and `rubocop-yaml`. Fix typos rather than suppressing checks; keep reviewed project vocabulary in `.spellcheck.txt` alongside the bundled English dictionary.
