@@ -1,6 +1,7 @@
 Bundler
 changelog
 Coveralls
+dblock
 GitHub
 LCOV
 md
