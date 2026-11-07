@@ -1,0 +1,44 @@
+AllCops:
+  TargetRubyVersion: 3.3
+  NewCops: enable
+  Exclude:
+    - 'vendor/**/*'
+    - 'bin/**/*'
+
+plugins:
+  - rubocop-md
+  - rubocop-prose
+  - rubocop-rake
+  - rubocop-rspec
+  - rubocop-spellcheck
+
+Spellcheck:
+  DictionaryFiles:
+    en:
+      - gem:rubocop-spellcheck/data/en/en.dic
+      - .spellcheck.txt
+
+Spellcheck/Spelling:
+  Exclude:
+    - LICENSE.txt
+  Ruby:
+    Strings: false
+
+Prose/MaxLength:
+  Exclude:
+    - LICENSE.txt
+
+Style/Documentation:
+  Enabled: false
+
+Layout/LineLength:
+  Enabled: false
+
+Naming/FileName:
+  Enabled: false
+
+Metrics/BlockLength:
+  Enabled: false
+
+Gemspec/RequiredRubyVersion:
+  Enabled: false

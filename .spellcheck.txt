@@ -1,0 +1,14 @@
+Bundler
+changelog
+Coveralls
+GitHub
+LCOV
+md
+OIDC
+PRs
+rebase
+reviewable
+RSpec
+RuboCop
+RubyGems
+worktree
