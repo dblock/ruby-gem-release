@@ -9,5 +9,5 @@
 - [#9](https://github.com/dblock/ruby-gem-release/pull/9): Add package, Git, and GitHub Release classes with dry-run-aware publication callbacks, environment-based lifecycle tasks, configurable workflow commands, and Git commit identity inputs - [@dblock](https://github.com/dblock).
 - [#10](https://github.com/dblock/ruby-gem-release/pull/10): Organize release classes, documentation, and tests by area; consolidate README configuration and add a reusable workflow reference - [@dblock](https://github.com/dblock).
 - [#11](https://github.com/dblock/ruby-gem-release/pull/11): Add a standard Ruby gem workflow with explicit strategies and configurable objects, and move manual callback usage into detailed documentation - [@dblock](https://github.com/dblock).
-- [#12](https://github.com/dblock/ruby-gem-release/pull/12): Explain release automation benefits and requirements, clarify version incrementing, and simplify the caller example by omitting the optional version assertion - [@dblock](https://github.com/dblock).
+- [#12](https://github.com/dblock/ruby-gem-release/pull/12): Explain release automation benefits and requirements, clarify version incrementing, simplify the caller example, and move configuration details out of README - [@dblock](https://github.com/dblock).
 - Your contribution here.

@@ -93,3 +93,57 @@ Use custom callbacks to set a release version during preparation, choose a diffe
 Follow [Usage](../README.md#usage) to add the caller workflow, enable Trusted Publishing, and dispatch a release. Command overrides and all input defaults are documented in the [workflow reference](actions/release.md).
 
 Both approaches invoke all callbacks in dry-run mode. The supplied classes perform local commits, builds, and tags while suppressing uploads and remote pushes. Custom code must honor the release context's dry-run flag. See [RELEASING.md](../RELEASING.md) before recovering from partial publication; never automatically retry an accepted upload or move a release tag.
+
+## Configuration
+
+### GitHub Actions Workflow
+
+The reusable workflow provides the GitHub Actions environment for release callbacks, including setup, validation, authentication, and artifact preservation. Use its `with:` inputs to choose the gemspec, expected version, Ruby version, commands, and commit identity. Pin the workflow to a reviewed release or commit instead of `master` when available.
+
+- [Release Workflow](actions/release.md): All inputs, defaults, permissions, commands, dry runs, and recovery artifacts.
+- [`Workflow::Context`](workflow/context.md): Ruby context capture and prepared-version checks used by the action workflow.
+
+### Standard Workflows
+
+Standard workflows wire the usual release sequence using your explicitly chosen version and changelog objects. Override package, Git, or hosting objects when needed; use custom callbacks for a different sequence.
+
+- [`Workflow::RubyGem`](workflow/ruby_gem.md): Gem release preparation, publication, and next-version callbacks with conservative defaults.
+
+### Version Objects
+
+Version objects read, set, and increment the version stored in project files. Construct them locally in your callbacks; use your own objects for other file formats.
+
+- [`Version::RubyConstant`](version/ruby_constant.md): Numeric Ruby constant versions, updated without evaluating the file.
+
+### Release Callbacks
+
+Callbacks define project-specific preparation, publication, and next-version work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
+
+- [`Tasks`](tasks.md): Registers `before_release`, `publish`, and `after_release` callbacks and their Rake tasks.
+- [`Release`](release.md): Immutable version, date, and dry-run context passed to callbacks.
+
+### Changelog Objects
+
+Changelog objects prepare release headings and open the next development section while preserving unrelated Markdown. Choose the strategy matching your changelog format or use custom callbacks for other formats.
+
+- [`Changelog::KeepAChangelog`](changelog/keep_a_changelog.md): Unreleased sections and version comparison references.
+- [`Changelog::Intridea`](changelog/intridea.md): Next sections and a configured contribution placeholder.
+- [`Changelog::Base`](changelog/base.md): Shared source-preserving implementation for concrete strategies.
+
+### Package Objects
+
+Package objects build, verify, and publish the exact release artifact. They perform local builds in dry runs without uploading.
+
+- [`Package::RubyGem`](package/ruby_gem.md): Gem construction, artifact verification, and RubyGems publication.
+
+### Source Control Objects
+
+Source control objects manage release history independently of the repository's hosting provider. They perform local commits and tags in dry runs without pushing.
+
+- [`SourceControl::Git`](source_control/git.md): Release and next-version commits, tags, recovery bundles, branch checks, and atomic release pushes.
+
+### Hosting Objects
+
+Hosting objects publish release notes and attach package artifacts after the release tag is pushed. Set `hosting: nil` in the standard workflow, or omit the hosting publication call in custom callbacks, to disable hosted releases without disabling package publication.
+
+- [`Hosting::GitHubRelease`](hosting/github_release.md): GitHub Releases with generated notes and the exact gem attached.

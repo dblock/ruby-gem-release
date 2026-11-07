@@ -1,6 +1,6 @@
 # GitHub Actions Release Workflow
 
-Reference for [`.github/workflows/release.yml`](../../.github/workflows/release.yml), invoked with `workflow_call`. See [Usage](../../README.md#usage) for a caller example and [Configuration](../../README.md#configuration) for customization and branch permissions. Trusted Publishing is required setup in [Usage](../../README.md#3-enable-trusted-publishing).
+Reference for [`.github/workflows/release.yml`](../../.github/workflows/release.yml), invoked with `workflow_call`. See [Usage](../../README.md#usage) for a caller example and [Detailed Usage](../usage.md#configuration) for customization. See [RELEASING.md](../../RELEASING.md#one-time-setup) for branch permissions. Trusted Publishing is required setup in [Usage](../../README.md#3-enable-trusted-publishing).
 
 ## Inputs
 
