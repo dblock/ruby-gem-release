@@ -5,10 +5,11 @@ require 'rspec/core/rake_task'
 require 'rubocop/rake_task'
 require_relative 'lib/ruby-gem-release/workflow/ruby_gem'
 require_relative 'lib/ruby-gem-release/changelog'
+require_relative 'tasks/release_version'
 
 Bundler::GemHelper.install_tasks
 RubyGemRelease::Workflow::RubyGem.new(
-  version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION'),
+  version: ReleaseVersion.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION', readme_path: 'README.md'),
   changelog: RubyGemRelease::Changelog::Intridea.new
 ).install_tasks
 

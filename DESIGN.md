@@ -34,6 +34,8 @@ Both YAML interfaces keep thin orchestration wrappers over the Ruby implementati
 
 The project's `publish.yml` caller invokes the local reusable workflow through manual dispatch only, using the standard workflow configured in the root Rakefile and the Ruby 4.0 runtime already used by package CI. Dry runs are the caller's default; publishing requires an explicit `dry-run=false` selection and prior release authorization. The caller grants only contents-write and OIDC-token permissions needed for release operations. Trusted Publishing setup remains a separate prerequisite.
 
+The root Rakefile uses the project-local `ReleaseVersion` subclass of `Version::RubyConstant`. Its `increment!` updates README action and reusable-workflow references to the version just released while returning the next development version. README edits are committed with the next development iteration, not the already-created release tag. The shared workflow and gem API remain unchanged.
+
 ### Owner-Bound Authentication
 
 First publication with a pending trusted publisher requires the RubyGems account ID in the OIDC exchange. `Workflow::RubyGemsCredentials` uses Ruby's standard HTTP and JSON libraries because the released credentials action does not yet support this owner assertion. It masks both tokens, exports the short-lived key through `GITHUB_ENV`, and makes no retry or persistent credential-file writes. The optional `rubygems-owner` input selects this helper; an empty input retains the pinned credentials action for existing gems. Both paths are skipped in dry runs. The project's caller reads the account ID from the non-secret `RUBYGEMS_OWNER_ID` repository variable.

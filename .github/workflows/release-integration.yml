@@ -11,6 +11,9 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       ruby-version: '3.3'
+      bump: |
+        bundle exec rake release:after_release
+        grep -Fq "release.yml@v$RELEASE_VERSION" README.md
       dry-run: true
   action-consumer:
     runs-on: ubuntu-latest
