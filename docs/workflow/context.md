@@ -8,11 +8,11 @@ Supplies context checks for the reusable workflow and composite action, invoked 
 
 ## Capture
 
-`capture!` checks the dispatch branch, validates the timezone, selects the gemspec, reads the initial numeric version, configures checkout-local Git identity, and checks that the default branch has not advanced. It appends `TZ`, `GEMSPEC`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `RELEASE_INITIAL_COMMIT` to `GITHUB_ENV`. The date is captured once in `TZ`, defaulting to UTC when that variable is absent. Invalid identifiers fail before Git configuration or environment export.
+`capture!` checks the dispatch branch, validates the timezone, configures checkout-local Git identity, rejects a dirty checkout after dependency installation, selects the gemspec, reads the initial numeric version, and checks that the default branch has not advanced. It appends `TZ`, `GEMSPEC`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `RELEASE_INITIAL_COMMIT` to `GITHUB_ENV`. The date is captured once in `TZ`, defaulting to UTC when that variable is absent. Invalid identifiers fail before Git configuration or environment export.
 
 ## Resolve
 
-`resolve!` reads the prepared gemspec version, validates optional `INPUT_VERSION`, rejects an existing release tag, and appends `RELEASE_VERSION` to `GITHUB_ENV`.
+`resolve!` reads the prepared gemspec version, validates optional `INPUT_VERSION`, rejects an existing release tag, stages the trusted preparation command's changes and saves the index tree before validation, and appends `RELEASE_VERSION` to `GITHUB_ENV`. Later working tree or index changes are rejected by publication rather than staged automatically.
 
 ## Environment
 

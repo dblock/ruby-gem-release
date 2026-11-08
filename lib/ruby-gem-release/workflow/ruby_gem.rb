@@ -27,7 +27,9 @@ module RubyGemRelease
       private
 
       def prepare_release(release)
-        @changelog&.release!(release.with_version(@version.read))
+        @git.stage_changes! do
+          @changelog&.release!(release.with_version(@version.read))
+        end
       end
 
       def publish(release)
@@ -40,8 +42,11 @@ module RubyGemRelease
       end
 
       def prepare_next(release)
-        next_release = release.with_next_version(@version.increment!)
-        @changelog&.prepare_next!(next_release)
+        next_release = nil
+        @git.stage_changes! do
+          next_release = release.with_next_version(@version.increment!)
+          @changelog&.prepare_next!(next_release)
+        end
         @git.commit_next!(next_release)
         @git.push!
       end

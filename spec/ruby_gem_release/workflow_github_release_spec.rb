@@ -41,6 +41,10 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     File.read('examples/keep_a_changelog/CHANGELOG.md')
   end
 
+  def consumer_ignores
+    ''
+  end
+
   before do
     FileUtils.mkdir_p(File.join(checkout, 'lib/example'))
     File.write(File.join(checkout, 'lib/example/version.rb'), "module Example\n  VERSION = '0.1.0'\nend\n")
@@ -56,6 +60,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     RUBY
     File.write(File.join(checkout, 'CHANGELOG.md'), consumer_changelog)
     File.write(File.join(checkout, 'Rakefile'), "#{consumer_rakefile}\n#{publication_stub}")
+    File.write(File.join(checkout, '.gitignore'), consumer_ignores)
     run_git('init', '--bare', '--quiet', '-b', 'master', remote)
     run_git('init', '--quiet', '-b', 'master', checkout)
     run_git('-C', checkout, 'add', '.')
@@ -122,6 +127,74 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
   end
 
+  def generate_bundler_artifacts
+    FileUtils.mkdir_p(File.join(checkout, '.bundle'))
+    FileUtils.mkdir_p(File.join(checkout, 'vendor/bundle/ruby/gems'))
+    File.write(File.join(checkout, '.bundle/config'), "BUNDLE_PATH: vendor/bundle\n")
+    File.write(File.join(checkout, 'vendor/bundle/ruby/gems/generated.rb'), 'dependency')
+  end
+
+  shared_examples 'clean release preparation' do
+    it 'checks the checkout after dependency setup and before preparation', :aggregate_failures do
+      setup = steps.index { |item| item['uses'] == 'ruby/setup-ruby@v1' }
+      capture = steps.index { |item| item['name'] == 'Capture Release Context' }
+      prepare = steps.index { |item| item['name'] == 'Prepare Release' }
+      expect(capture).to be > setup
+      expect(capture).to be < prepare
+    end
+
+    it 'rejects generated Bundler files before changing the version or changelog', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise the real preflight before any release callback.
+      generate_bundler_artifacts
+      original = File.read(File.join(checkout, 'lib/example/version.rb'))
+      expect do
+        run_phase('Capture Release Context')
+        run_phase('Prepare Release')
+      end.to raise_error(%r{clean checkout.*\n.*\.bundle/config.*\n.*vendor/bundle}m)
+      expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to eq(original)
+      expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to eq(consumer_changelog)
+      expect(run_git('-C', checkout, 'diff', '--cached', '--name-only')).to eq('')
+      expect(run_git('--git-dir', remote, 'tag')).to eq('')
+      expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
+    end
+
+    it 'refuses generated Bundler files created after preparation without staging them', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify the separate publication process cannot sweep up validation output.
+      run_phase('Capture Release Context')
+      run_phase('Prepare Release')
+      run_phase('Resolve Prepared Version')
+      initial = run_git('-C', checkout, 'rev-parse', 'HEAD')
+      generate_bundler_artifacts
+      expect { run_phase('Publish Release') }.to raise_error(/commit refused/)
+      expect(run_git('-C', checkout, 'diff', '--cached', '--name-only')).to eq('CHANGELOG.md')
+      expect(run_git('-C', checkout, 'rev-parse', 'HEAD')).to eq(initial)
+      expect(run_git('-C', checkout, 'tag')).to eq('')
+      expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
+    end
+
+    context 'with intentionally ignored Bundler output' do
+      def consumer_ignores
+        ".bundle/\nvendor/bundle/\n"
+      end
+
+      before { generate_bundler_artifacts }
+
+      it_behaves_like 'a local release lifecycle'
+    end
+
+    context 'with a custom preparation command' do
+      def phase_command(name)
+        command = super
+        name == 'Prepare Release' ? "#{command}\nprintf 'Custom release documentation' > README.md" : command
+      end
+
+      it 'retains custom command outputs in the intended preparation index' do
+        run_phase('Capture Release Context')
+        run_phase('Prepare Release')
+        run_phase('Resolve Prepared Version')
+        expect(run_git('-C', checkout, 'diff', '--cached', '--name-only').lines.map(&:strip)).to contain_exactly('CHANGELOG.md', 'README.md')
+      end
+    end
+  end
+
   shared_examples 'a local release lifecycle' do |next_heading = '## [Unreleased]'|
     it 'runs the documented callbacks with real Git pushes and isolated package and hosting publication', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
       run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
@@ -144,6 +217,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(run_git('-C', checkout, 'rev-parse', 'HEAD'))
       expect(run_git('--git-dir', remote, 'rev-parse', 'v0.1.0')).to eq(release_commit)
       expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+      expect(run_git('-C', checkout, 'ls-files', '.bundle', 'vendor/bundle')).to eq('')
       artifact = File.join(directory, 'example-0.1.0.gem')
       publications = File.readlines(File.join(directory, 'publication.jsonl')).map { |line| JSON.parse(line) }
       expect(publications).to eq([
@@ -155,6 +229,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   it_behaves_like 'a local release lifecycle'
+  it_behaves_like 'clean release preparation'
 
   context 'with Eastern Time' do
     let(:environment) { super().merge('TZ' => 'America/New_York') }
@@ -214,6 +289,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
 
     it_behaves_like 'a local release lifecycle'
+    it_behaves_like 'clean release preparation'
 
     context 'with Eastern Time' do
       let(:environment) { super().merge('TZ' => 'America/New_York') }

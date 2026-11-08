@@ -3,6 +3,7 @@
 require 'open3'
 require 'tmpdir'
 require 'fileutils'
+require_relative 'git/preparation'
 
 module RubyGemRelease
   module SourceControl
@@ -34,6 +35,14 @@ module RubyGemRelease
       def check_current!(_release, expected: head)
         run('fetch', @remote, branch, '--tags')
         raise 'Default branch advanced; start a new release' unless remote_head == expected
+      end
+
+      def check_clean!
+        preparation.check_clean!
+      end
+
+      def stage_changes!(&)
+        preparation.stage_changes!(&)
       end
 
       def commit!(release)
@@ -87,13 +96,22 @@ module RubyGemRelease
       end
 
       def commit_changes(message, required:)
-        run('add', '-A')
-        output = run('diff', '--cached', '--name-only')
+        preparation.verify!
+        output = run('diff', '--cached', '--name-only', '-z')
         raise 'Preparing the next development iteration did not change any files' if required && output.empty?
-        return head if output.empty?
+
+        if output.empty?
+          preparation.clear!
+          return head
+        end
 
         run('commit', '-m', message)
+        preparation.clear!
         head
+      end
+
+      def preparation
+        @preparation ||= Preparation.new(directory: @directory, &method(:run))
       end
 
       def run(*)

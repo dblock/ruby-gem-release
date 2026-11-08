@@ -4,7 +4,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Branch and Remote
 
-`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the recovery bundle location; it defaults to `RUNNER_TEMP` or a new temporary directory.
+`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the recovery bundle and preparation index snapshot location; it defaults to `RUNNER_TEMP` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do.
 
 ## Configure
 
@@ -24,7 +24,13 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Commit
 
-`commit!(release)` stages release changes and creates a preparation commit if needed. It retains the initial commit for subsequent concurrency checks; the workflow supplies `RELEASE_INITIAL_COMMIT`.
+`commit!(release)` commits previously staged preparation changes if needed; it never stages files. It rejects unexpected unstaged, untracked non-ignored, or index changes by comparing the index with the saved preparation tree. It retains the initial commit for subsequent concurrency checks; the workflow supplies `RELEASE_INITIAL_COMMIT`.
+
+## Clean Checkout and Preparation
+
+`check_clean!` rejects any tracked changes, including staged changes, and any untracked non-ignored files. Diagnostics list escaped status paths, limit large listings, and suggest removing generated files, restoring unexpected changes, or intentionally ignoring dependency artifacts. Both Actions interfaces call it after dependency installation and before loading the gemspec or preparing release files. Existing ignore rules are honored, but tracked artifacts are never exempt.
+
+`stage_changes! { ... }` requires a clean checkout, runs trusted preparation code, and stages the resulting paths with literal, argument-based Git invocation. This supports custom version, changelog, README, added, renamed, and deleted files without guessing conventions. Without a block, it stages current preparation outputs; the workflow uses this at the end of the configurable `prepare` command, before validation. It saves the exact index tree in `prepared-tree`, so even unrelated files staged later cannot silently enter publication. A failing block does not stage or commit its edits. Do not call this method from publication to accept unexpected validation output.
 
 ## Tag
 
@@ -32,7 +38,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Commit Next
 
-`commit_next!(release)` commits next development iteration changes and fails if no files changed. The context must include a nonempty `next_version`, obtained with `release.with_next_version(version.increment!)`. For `next_version: '0.5.1'`, the commit message is `Prepare next development iteration, 0.5.1`. It retains the published commit for the next push's concurrency check.
+`commit_next!(release)` commits changes previously staged with `stage_changes!` and fails if no files changed. The context must include a nonempty `next_version`, obtained with `release.with_next_version(version.increment!)`. For `next_version: '0.5.1'`, the commit message is `Prepare next development iteration, 0.5.1`. It retains the published commit for the next push's concurrency check.
 
 ## Push
 

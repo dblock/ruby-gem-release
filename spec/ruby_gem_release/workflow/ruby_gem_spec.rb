@@ -39,6 +39,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     record_operations(:changelog, %i[release! prepare_next!])
     record_operations(:package, %i[build! publish!])
     record_operations(:git, %i[commit! tag! push! commit_next!])
+    allow(objects.fetch(:git)).to receive(:stage_changes!).and_yield
     record_operations(:hosting, [:publish!])
     allow(RubyGemRelease::Package::RubyGem).to receive(:new).and_return(objects.fetch(:package))
     allow(RubyGemRelease::SourceControl::Git).to receive(:new).and_return(objects.fetch(:git))

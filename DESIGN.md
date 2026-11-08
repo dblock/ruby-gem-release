@@ -22,6 +22,8 @@ Future hosting implementations can implement `publish!(release, package:)` witho
 
 ## Standard Workflow
 
+Context capture enforces a clean checkout after dependency installation in both Actions interfaces. Preparation stages literal changed paths and records the exact index tree before validation, including outputs of custom preparation commands; publication never stages files and rejects any later non-ignored working tree or index changes. The standard next development iteration wraps version and changelog edits in the same preparation boundary, preserving custom version side effects such as README updates. Custom callbacks can use `Git#stage_changes!` around their trusted edits without requiring hard-coded version or changelog paths.
+
 `Workflow::RubyGem` installs the existing callback sequence using explicit version and changelog objects. Package, Git, and hosting objects use their established defaults and can be replaced without changing ordering. Only unambiguous gemspec, repository, branch, and artifact-directory defaults are used; version files and changelog formats are never guessed. An explicit `nil` disables changelog or hosted-release work, not package publication or version incrementing. Custom sequences continue to use `Tasks.install`; no workflow framework or speculative provider abstraction is introduced.
 
 ## Composite Action

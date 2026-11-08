@@ -7,7 +7,7 @@ require 'tmpdir'
 RSpec.describe RubyGemRelease::Workflow::Context do
   let(:directory) { Dir.mktmpdir }
   let(:environment_file) { File.join(directory, 'environment') }
-  let(:git) { instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_current!: nil, check_tag!: nil, head: 'initial-commit') }
+  let(:git) { instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_clean!: nil, check_current!: nil, check_tag!: nil, stage_changes!: nil, head: 'initial-commit') }
 
   around do |example|
     original = ENV.to_h
@@ -84,6 +84,14 @@ RSpec.describe RubyGemRelease::Workflow::Context do
   it 'rejects non-default-branch publication before configuring Git' do
     ENV['GITHUB_REF'] = 'refs/heads/topic'
     expect { described_class.new.capture! }.to raise_error(/default branch/)
+  end
+
+  it 'rejects dirty dependencies before evaluating the gemspec or exporting context', :aggregate_failures do
+    File.write('fixture.gemspec', "raise 'gemspec must not load'\n")
+    allow(git).to receive(:check_clean!).and_raise('Release requires a clean checkout')
+    expect { described_class.new.capture! }.to raise_error(/clean checkout/)
+    expect(git).not_to have_received(:check_current!)
+    expect(File.read(environment_file)).to eq('')
   end
 
   it 'rejects an existing tag before recording the prepared version' do

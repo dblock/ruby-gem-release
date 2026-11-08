@@ -18,9 +18,10 @@ module RubyGemRelease
       def capture!
         check_branch
         validate_timezone(ENV.fetch('TZ', 'UTC'))
+        git = configured_git
+        git.check_clean!
         package = Package::RubyGem.new(gemspec: ENV.fetch('INPUT_GEMSPEC', nil))
         release = initial_release(package)
-        git = configured_git
         git.check_current!(release)
         export('TZ' => ENV.fetch('TZ', 'UTC'), 'GEMSPEC' => package.gemspec, 'RELEASE_PREVIOUS_VERSION' => release.version,
                'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => git.head)
@@ -32,7 +33,9 @@ module RubyGemRelease
         expected = ENV.fetch('INPUT_VERSION', '')
         raise "Prepared version #{version} does not match expected version #{expected}" unless expected.empty? || version == expected
 
-        SourceControl::Git.new.check_tag!(version)
+        git = SourceControl::Git.new
+        git.check_tag!(version)
+        git.stage_changes!
         export('RELEASE_VERSION' => version)
       end
 

@@ -46,6 +46,8 @@ The workflow uses the GitHub Actions token as `GH_TOKEN` during publication. Bra
 
 ## Execution
 
+After `ruby/setup-ruby` installs dependencies, context capture requires a clean checkout before preparation: tracked/index changes and untracked non-ignored files fail with actionable paths. Ignored Bundler output is allowed; tracked dependency artifacts are not. Resolving the prepared version stages the trusted `prepare` command's outputs and records the index tree before validation. The publication callback refuses later working tree or index changes rather than staging unrelated files. Custom commands own their operations; wrap custom next development iteration edits in `git.stage_changes!` as shown in [Detailed Usage](../usage.md#custom-callbacks).
+
 The job runs on `ubuntu-latest` in the `release` environment. It checks out full history, sets up Ruby with Bundler caching, captures release context, runs `prepare`, resolves the prepared version, runs `validate`, authenticates to RubyGems, runs `publish`, uploads available recovery artifacts, then runs `bump`. Ordinary failures prevent later callback phases; artifact uploading is attempted even after failure.
 
 Releases must run from the default branch at its current remote commit. Git checks the branch again before publication and pushing, rejects existing tags, and pushes the release commit and tag atomically. Concurrency is grouped by repository without canceling a running release.

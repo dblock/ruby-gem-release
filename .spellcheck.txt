@@ -22,6 +22,8 @@ rulesets
 RSpec
 RuboCop
 RubyGems
+unstaged
+untracked
 untrusted
 worktree
 worktrees

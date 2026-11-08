@@ -68,7 +68,9 @@ RubyGemRelease::Tasks.install do |tasks|
   git = RubyGemRelease::SourceControl::Git.new
   github = RubyGemRelease::Hosting::GitHubRelease.new
   tasks.before_release do |release|
-    changelog.release!(release.with_version(version.read))
+    git.stage_changes! do
+      changelog.release!(release.with_version(version.read))
+    end
   end
   tasks.publish do |release|
     git.commit!(release)
@@ -79,8 +81,11 @@ RubyGemRelease::Tasks.install do |tasks|
     github.publish!(release, package: package)
   end
   tasks.after_release do |release|
-    next_release = release.with_next_version(version.increment!)
-    changelog.prepare_next!(next_release)
+    next_release = nil
+    git.stage_changes! do
+      next_release = release.with_next_version(version.increment!)
+      changelog.prepare_next!(next_release)
+    end
     git.commit_next!(next_release)
     git.push!
   end
@@ -88,6 +93,8 @@ end
 ```
 
 Use custom callbacks to set a release version during preparation, choose a different increment, or change the sequence. [`Tasks`](tasks.md) does not change files implicitly; each callback receives an immutable [`Release`](release.md) context. Changes to its version fields return copies rather than mutating the original.
+
+Wrap custom preparation edits in `git.stage_changes!` as above; it checks for a clean checkout before the block and stages only the resulting changes, including custom README or version files. Both Actions interfaces also stage the trusted `prepare` command's outputs while resolving the prepared version, before validation. Publication never stages files: unexpected working tree or index changes after preparation fail instead of entering a release commit. Custom commands retain control of their operations, but must not stage unrelated validation or dependency output during publication.
 
 ## Actions Setup
 
