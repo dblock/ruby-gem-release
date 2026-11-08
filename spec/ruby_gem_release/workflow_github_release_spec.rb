@@ -93,6 +93,21 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
         end
       end
       Open3.singleton_class.prepend(StubPublication)
+      module StubVersionLookup
+        def start(host, port, **options)
+          return super unless host == 'rubygems.org'
+
+          raise 'Unexpected RubyGems request configuration' unless port == 443 && options == {use_ssl: true, open_timeout: 10, read_timeout: 30, max_retries: 0}
+          http = Object.new
+          http.define_singleton_method(:get) do |path|
+            raise 'Unexpected version lookup: ' + path unless path == '/api/v2/rubygems/example/versions/0.1.0.json'
+            File.open(File.join(ENV.fetch('RUNNER_TEMP'), 'version-lookups.jsonl'), 'a') { |file| file.puts JSON.generate(path) }
+            Struct.new(:code).new(ENV.fetch('RELEASE_TEST_VERSION_STATUS', '404'))
+          end
+          yield http
+        end
+      end
+      Net::HTTP.singleton_class.prepend(StubVersionLookup)
     RUBY
   end
 
@@ -167,6 +182,34 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(run_git('-C', checkout, 'diff', '--cached', '--name-only')).to eq('CHANGELOG.md')
       expect(run_git('-C', checkout, 'rev-parse', 'HEAD')).to eq(initial)
       expect(run_git('-C', checkout, 'tag')).to eq('')
+      expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
+    end
+
+    it 'rejects a published version before validation, committing, building, tagging, or uploading', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise version resolution in real consumer processes.
+      initial = run_git('-C', checkout, 'rev-parse', 'HEAD')
+      run_phase('Capture Release Context')
+      run_phase('Prepare Release')
+      environment['RELEASE_TEST_VERSION_STATUS'] = '200'
+      expect { run_phase('Resolve Prepared Version') }.to raise_error(/example 0.1.0.*already published.*recovery/)
+      expect(environment).not_to have_key('RELEASE_VERSION')
+      expect(run_git('-C', checkout, 'rev-parse', 'HEAD')).to eq(initial)
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
+      expect(run_git('-C', checkout, 'tag')).to eq('')
+      expect(File).not_to exist(File.join(directory, 'release.gem'))
+      expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
+    end
+
+    it 'rechecks RubyGems before committing when the version appears after validation', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify the publication process repeats the preflight without writes.
+      run_phase('Capture Release Context')
+      run_phase('Prepare Release')
+      run_phase('Resolve Prepared Version')
+      initial = run_git('-C', checkout, 'rev-parse', 'HEAD')
+      environment['RELEASE_TEST_VERSION_STATUS'] = '200'
+      expect { run_phase('Publish Release') }.to raise_error(/already published/)
+      expect(run_git('-C', checkout, 'rev-parse', 'HEAD')).to eq(initial)
+      expect(run_git('--git-dir', remote, 'tag')).to eq('')
+      expect(run_git('-C', checkout, 'tag')).to eq('')
+      expect(File).not_to exist(File.join(directory, 'release.gem'))
       expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
     end
 

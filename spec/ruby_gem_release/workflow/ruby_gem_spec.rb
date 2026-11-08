@@ -37,7 +37,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
       '2.0.1'
     end
     record_operations(:changelog, %i[release! prepare_next!])
-    record_operations(:package, %i[build! publish!])
+    record_operations(:package, %i[check_version! build! publish!])
     record_operations(:git, %i[commit! tag! push! commit_next!])
     allow(objects.fetch(:git)).to receive(:stage_changes!).and_yield
     record_operations(:hosting, [:publish!])
@@ -65,7 +65,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(events).to be_empty
     run_callbacks
     expect(events).to eq([
-                           :read, %i[changelog release!], %i[git commit!], %i[package build!], %i[git tag!],
+                           :read, %i[changelog release!], %i[package check_version!], %i[git commit!], %i[package build!], %i[git tag!],
                            %i[package publish!], %i[git push!], %i[hosting publish!],
                            :increment, %i[changelog prepare_next!], %i[git commit_next!], %i[git push!]
                          ])
@@ -97,7 +97,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   it 'disables hosted releases without skipping package publication', :aggregate_failures do
     install(hosting: nil)
     Rake::Task['release:publish'].invoke
-    expect(events).to eq([%i[git commit!], %i[package build!], %i[git tag!], %i[package publish!], %i[git push!]])
+    expect(events).to eq([%i[package check_version!], %i[git commit!], %i[package build!], %i[git tag!], %i[package publish!], %i[git push!]])
     expect(RubyGemRelease::Hosting::GitHubRelease).not_to have_received(:new)
   end
 
@@ -112,7 +112,14 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:package)).to receive(:build!).and_raise('build failed')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('build failed')
-    expect(events).to eq([%i[git commit!]])
+    expect(events).to eq([%i[package check_version!], %i[git commit!]])
+  end
+
+  it 'checks the exact release version before committing, building, or tagging', :aggregate_failures do
+    allow(objects.fetch(:package)).to receive(:check_version!).with('2.0.0').and_raise('already published')
+    install
+    expect { Rake::Task['release:publish'].invoke }.to raise_error('already published')
+    expect(events).to be_empty
   end
 
   it 'stops before committing when next development iteration changelog preparation fails', :aggregate_failures do

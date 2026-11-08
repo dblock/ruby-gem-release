@@ -3,6 +3,7 @@
 ## 0.4.0 (Next)
 
 - [#24](https://github.com/dblock/ruby-gem-release/pull/24): Reject empty release notes in both built-in changelog formats before writing release updates, ignoring placeholders, category headings, comments, and reference definitions - [@dblock](https://github.com/dblock).
+- [#25](https://github.com/dblock/ruby-gem-release/pull/25): Reject existing RubyGems versions before release publication, stop on version lookup failures, and highlight release safeguards, recovery files, and timezone support in README - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.3.1 (2026/11/07)

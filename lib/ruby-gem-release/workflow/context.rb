@@ -28,18 +28,25 @@ module RubyGemRelease
       end
 
       def resolve!
-        version = Package::RubyGem.new.version
-        validate_version(version)
-        expected = ENV.fetch('INPUT_VERSION', '')
-        raise "Prepared version #{version} does not match expected version #{expected}" unless expected.empty? || version == expected
-
+        package = Package::RubyGem.new
+        version = prepared_version(package)
         git = SourceControl::Git.new
         git.check_tag!(version)
+        package.check_version!(version)
         git.stage_changes!
         export('RELEASE_VERSION' => version)
       end
 
       private
+
+      def prepared_version(package)
+        version = package.version
+        validate_version(version)
+        expected = ENV.fetch('INPUT_VERSION', '')
+        raise "Prepared version #{version} does not match expected version #{expected}" unless expected.empty? || version == expected
+
+        version
+      end
 
       def initial_release(package)
         version = package.version

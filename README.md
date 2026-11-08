@@ -11,6 +11,10 @@ Update your changelog, validate and publish your gem, create its GitHub Release,
 - **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
 - **Let collaborators release:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials.
 - **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
+- **Catch release mistakes:** [Check for already published RubyGems versions](docs/package/ruby_gem.md#check-version), reject existing tags, and [require actual release notes](docs/changelog/base.md#release) in both built-in changelog formats.
+- **Keep dependency files out of release commits:** [Reject dirty checkouts after dependency installation](docs/source_control/git.md) and unexpected working tree or index changes after preparation, instead of staging unrelated files during publication.
+- **Build once and retain recovery files:** Publish the same verified gem artifact to RubyGems and attach it to the GitHub Release. Preserve available gem, checksum manifest, and Git recovery bundle files for [recovery after failures](docs/actions/release.md#recovery-artifacts).
+- **Use your release timezone:** [Configure release dates](docs/actions/release.md#timezone) with a named timezone such as `America/New_York`, including daylight saving changes; UTC is the default.
 
 Requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
 

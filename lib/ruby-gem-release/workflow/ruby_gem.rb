@@ -33,6 +33,7 @@ module RubyGemRelease
       end
 
       def publish(release)
+        @package.check_version!(release.version)
         @git.commit!(release)
         @package.build!(release)
         @git.tag!(release)

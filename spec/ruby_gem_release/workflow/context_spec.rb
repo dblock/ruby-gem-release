@@ -22,10 +22,14 @@ RSpec.describe RubyGemRelease::Workflow::Context do
   end
 
   before do
-    File.write('fixture.gemspec', "require_relative 'version'\nGem::Specification.new { |spec| spec.version = VERSION }\n")
+    File.write('fixture.gemspec', "require_relative 'version'\nGem::Specification.new { |spec| spec.name = 'fixture'; spec.version = VERSION }\n")
     File.write('version.rb', "VERSION = '1.2.3'\n")
     File.write(environment_file, '')
     allow(RubyGemRelease::SourceControl::Git).to receive(:new).and_return(git)
+    http = instance_double(Net::HTTP)
+    response = instance_double(Net::HTTPResponse, code: '404')
+    allow(Net::HTTP).to receive(:start).with('rubygems.org', 443, use_ssl: true, open_timeout: 10, read_timeout: 30, max_retries: 0).and_yield(http)
+    allow(http).to receive(:get).and_return(response)
   end
 
   it 'retains the initial version while resolving callback edits', :aggregate_failures do
@@ -97,6 +101,17 @@ RSpec.describe RubyGemRelease::Workflow::Context do
   it 'rejects an existing tag before recording the prepared version' do
     allow(git).to receive(:check_tag!).and_raise('Release tag already exists')
     expect { described_class.new.resolve! }.to raise_error(/tag already exists/)
+  end
+
+  it 'rejects an already published prepared version before staging or exporting it', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify custom version edits are checked before recording them.
+    File.write('version.rb', "VERSION = '2.0.0'\n")
+    http = instance_double(Net::HTTP)
+    response = instance_double(Net::HTTPResponse, code: '200')
+    allow(Net::HTTP).to receive(:start).and_yield(http)
+    allow(http).to receive(:get).with('/api/v2/rubygems/fixture/versions/2.0.0.json').and_return(response)
+    expect { described_class.new.resolve! }.to raise_error(/fixture 2.0.0.*already published/)
+    expect(git).not_to have_received(:stage_changes!)
+    expect(File.read(environment_file)).to eq('')
   end
 
   context 'when configuring composite action inputs' do

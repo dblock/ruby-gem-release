@@ -73,6 +73,7 @@ RubyGemRelease::Tasks.install do |tasks|
     end
   end
   tasks.publish do |release|
+    package.check_version!(release.version)
     git.commit!(release)
     package.build!(release)
     git.tag!(release)
@@ -95,6 +96,8 @@ end
 Use custom callbacks to set a release version during preparation, choose a different increment, or change the sequence. [`Tasks`](tasks.md) does not change files implicitly; each callback receives an immutable [`Release`](release.md) context. Changes to its version fields return copies rather than mutating the original.
 
 Wrap custom preparation edits in `git.stage_changes!` as above; it checks for a clean checkout before the block and stages only the resulting changes, including custom README or version files. Both Actions interfaces also stage the trusted `prepare` command's outputs while resolving the prepared version, before validation. Publication never stages files: unexpected working tree or index changes after preparation fail instead of entering a release commit. Custom commands retain control of their operations, but must not stage unrelated validation or dependency output during publication.
+
+Check `package.check_version!(release.version)` before committing so a known RubyGems duplicate stops before local release writes. Both Actions interfaces also check the prepared version during resolution, and the package publisher repeats the check using the built artifact's exact name and version. For an earlier check like a project-specific preparation command, call `package.check_version!(version.read)` before writing the changelog or other files. Only a RubyGems 404 permits proceeding; service and connection failures stop the release. See [Check Version](package/ruby_gem.md#check-version).
 
 ## Actions Setup
 

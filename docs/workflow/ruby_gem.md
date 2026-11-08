@@ -14,7 +14,7 @@ Both built-in changelog objects reject empty release notes during preparation, b
 
 ## Package
 
-The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md). It selects `GEMSPEC` or the only root gemspec and owns artifact construction, verification, and publication. Override it with an object implementing `build!(release)` and `publish!(release)`, plus `artifact(release)` when required by your hosting object.
+The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md). It selects `GEMSPEC` or the only root gemspec and owns artifact construction, verification, and publication. Override it with an object implementing `check_version!(version)`, `build!(release)`, and `publish!(release)`, plus `artifact(release)` when required by your hosting object. The version check is a required new method for custom package objects; it must reject already published versions before any release commit. The default implementation checks public RubyGems.
 
 ## Git
 
@@ -28,7 +28,7 @@ The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github
 
 `install_tasks` registers preparation, publication, next development iteration, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
 
-Preparation updates the changelog with the explicitly read version. Publication commits release changes, builds once, tags locally, publishes the package, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
+Preparation updates the changelog with the explicitly read version. Publication checks RubyGems for the prepared version, commits release changes, builds once, tags locally, publishes the package, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
 
 ## Errors
 
