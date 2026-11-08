@@ -14,6 +14,7 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 | `version`        | String | Empty                                          | Expected numeric `MAJOR.MINOR.PATCH` version, without leading zeros. Must match the prepared gemspec; does not set the version. |
 | `gemspec`        | String | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                              |
 | `rubygems-owner` | String | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                    |
+| `timezone`       | String | `UTC`                                          | Installed timezone identifier for the release calendar date and Git timestamp offsets.                                          |
 | `prepare`        | String | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                 |
 | `validate`       | String | `bundle exec rake`                             | Validate prepared release files before publication.                                                                             |
 | `publish`        | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.          |
@@ -22,6 +23,14 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 | `git-user-email` | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                 |
 
 Identity values must be nonempty and contain no line breaks. They change commit attribution, not authentication or push permissions.
+
+### Timezone
+
+Starting with version `0.3.0`, set `timezone: America/New_York` under `with:` to use Eastern Time, including daylight saving changes. Upgrade the gem and pinned workflow or action together before adding this input; earlier release tags do not expose it. UTC remains the default.
+
+The interfaces set `TZ` and capture the local calendar date once as `RELEASE_DATE`, preserving it across callbacks even if the release crosses midnight. Git commits retain their actual creation times with offsets in the selected timezone. GitHub and RubyGems generate their own publication timestamps; this input does not change those service timestamps.
+
+Identifiers must resolve to files under the runner's `/usr/share/zoneinfo` directory. Unknown identifiers, empty values, fixed-offset strings, and traversal paths fail before release preparation or publication. Use a named timezone rather than a fixed offset so daylight saving changes are handled correctly.
 
 The `publish` input replaces the former `github-release` input and controls the whole publication sequence. To disable only GitHub Release creation, set `hosting: nil` in the standard workflow or omit `github.publish!` from manual callbacks rather than disabling `publish`.
 
@@ -52,7 +61,8 @@ Commands run through `bash -euo pipefail`. Overrides replace the corresponding p
 | `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication. |
 | `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                      |
 | `RELEASE_PREVIOUS_VERSION`        | After capture    | Initial gemspec version, retained across callbacks.                  |
-| `RELEASE_DATE`                    | After capture    | Date captured once in UTC, as `YYYY-MM-DD`.                          |
+| `RELEASE_DATE`                    | After capture    | Date captured once in the configured timezone, as `YYYY-MM-DD`.      |
+| `TZ`                              | All phases       | Configured timezone; defaults to `UTC`.                              |
 | `RELEASE_INITIAL_COMMIT`          | After capture    | Checkout commit used for concurrency checks.                         |
 | `RELEASE_VERSION`                 | After resolution | Prepared version to publish.                                         |
 | `DEFAULT_BRANCH`                  | All phases       | Repository default branch.                                           |

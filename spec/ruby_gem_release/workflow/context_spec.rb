@@ -14,6 +14,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     ENV.update('GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'GITHUB_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master')
     ENV.delete('GEMSPEC')
     ENV.delete('INPUT_GEMSPEC')
+    ENV.delete('TZ')
     Dir.chdir(directory) { example.run }
   ensure
     ENV.replace(original)
@@ -32,6 +33,40 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     File.write('version.rb', "VERSION = '2.0.0'\n")
     described_class.new.resolve!
     expect(File.read(environment_file)).to include("RELEASE_PREVIOUS_VERSION=1.2.3\n", "RELEASE_VERSION=2.0.0\n", "RELEASE_INITIAL_COMMIT=initial-commit\n")
+  end
+
+  it 'defaults the calendar date to UTC rather than the server timezone' do
+    allow(Time).to receive(:now).and_return(Time.new(2026, 11, 7, 23, 30, 0, '-05:00'))
+    described_class.new.capture!
+    expect(File.read(environment_file)).to include("RELEASE_DATE=2026-11-08\n")
+  end
+
+  it 'retains the captured calendar date when a later phase crosses midnight' do # rubocop:disable RSpec/ExampleLength -- Advance the clock only after gemspec loading and capture.
+    ENV['TZ'] = 'America/New_York'
+    allow(Time).to receive(:now).and_return(Time.utc(2026, 11, 8, 4, 30))
+    described_class.new.capture!
+    allow(Time).to receive(:now).and_return(Time.utc(2026, 11, 8, 5, 30))
+    described_class.new.resolve!
+    expect(File.readlines(environment_file).grep(/\ARELEASE_DATE=/)).to eq(["RELEASE_DATE=2026-11-07\n"])
+  end
+
+  it 'uses the configured timezone across midnight and daylight saving changes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check winter and summer dates for the same UTC clock time.
+    ENV['TZ'] = 'America/New_York'
+    [[Time.utc(2026, 11, 8, 4, 30), '2026-11-07'], [Time.utc(2026, 7, 8, 4, 30), '2026-07-08']].each do |instant, date|
+      File.write(environment_file, '')
+      allow(Time).to receive(:now).and_return(instant)
+      described_class.new.capture!
+      expect(File.read(environment_file)).to include("RELEASE_DATE=#{date}\n")
+    end
+  end
+
+  it 'rejects unknown timezones and traversal before configuring Git or exporting context', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check unsupported and unsafe timezone identifiers.
+    ['Unknown/Zone', '../UTC', '', '-05:00'].each do |timezone|
+      ENV['TZ'] = timezone
+      expect { described_class.new.capture! }.to raise_error(ArgumentError, /timezone/)
+    end
+    expect(git).not_to have_received(:configure!)
+    expect(File.read(environment_file)).to eq('')
   end
 
   it 'rejects an expected-version mismatch before recording a release', :aggregate_failures do
@@ -64,7 +99,19 @@ RSpec.describe RubyGemRelease::Workflow::Context do
 
     it 'exports inputs for later action steps' do
       described_class.new.configure!
-      expect(File.read(environment_file)).to include("INPUT_GEMSPEC=fixture.gemspec\n", "RUBYGEMS_OWNER=123\n")
+      expect(File.read(environment_file)).to include("INPUT_GEMSPEC=fixture.gemspec\n", "RUBYGEMS_OWNER=123\n", "TZ=UTC\n")
+    end
+
+    it 'exports the configured timezone for subsequent steps' do
+      ENV['TZ'] = 'America/New_York'
+      described_class.new.configure!
+      expect(File.read(environment_file)).to include("TZ=America/New_York\n")
+    end
+
+    it 'rejects an invalid timezone before exporting inputs', :aggregate_failures do
+      ENV['TZ'] = 'Unknown/Zone'
+      expect { described_class.new.configure! }.to raise_error(ArgumentError, /timezone/)
+      expect(File.read(environment_file)).to eq('')
     end
 
     it 'rejects environment-file injection before exporting any inputs', :aggregate_failures do

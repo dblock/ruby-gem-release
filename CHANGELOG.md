@@ -1,14 +1,15 @@
 # Changelog
 
-## 0.2.4 (Next)
+## 0.3.0 (Next)
 
+- [#22](https://github.com/dblock/ruby-gem-release/pull/22): Make the release timezone configurable with a UTC default, use Eastern Time for this project's releases, and prepare version 0.3.0 - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
-## 0.2.3 (2026/11/08)
+## 0.2.3 (2026/11/07)
 
 - [#21](https://github.com/dblock/ruby-gem-release/pull/21): Remove dry-run inputs and release context, always publish when dispatched, and test installed release callbacks with isolated publication boundaries (breaking change) - [@dblock](https://github.com/dblock).
 
-## 0.2.2 (2026/11/08)
+## 0.2.2 (2026/11/07)
 
 - [#18](https://github.com/dblock/ruby-gem-release/pull/18): Update README release tags as part of the next development iteration - [@dblock](https://github.com/dblock).
 - [#19](https://github.com/dblock/ruby-gem-release/pull/19): Use the incremented version in next development iteration commit messages and update terminology throughout workflows and documentation - [@dblock](https://github.com/dblock).

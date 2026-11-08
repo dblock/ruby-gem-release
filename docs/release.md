@@ -16,7 +16,7 @@ An immutable context passed to [release callbacks](tasks.md). Strings and the da
 
 ## Date
 
-`release.date` is a Ruby `Date`. The workflow captures it once in UTC and retains it across both phases. The constructor requires `date:`.
+`release.date` is a Ruby `Date`. The workflow captures it once in the configured `timezone` and retains it across both phases. UTC is the default; `America/New_York` uses Eastern Time with daylight saving changes. The constructor requires `date:` and does not perform timezone conversion.
 
 ## With Version
 

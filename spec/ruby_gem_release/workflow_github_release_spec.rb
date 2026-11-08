@@ -28,6 +28,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       'GIT_USER_NAME' => 'Fixture',
       'GIT_USER_EMAIL' => 'fixture@example.com',
       'RUBYGEMS_OWNER' => '',
+      'TZ' => inputs.fetch('timezone').fetch('default'),
       'RELEASE_TEST_REMOTE' => remote
     }
   end
@@ -130,6 +131,8 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       run_phase('Publish Release')
       release_commit = run_git('-C', checkout, 'rev-parse', 'HEAD')
       expect(run_git('-C', checkout, 'rev-parse', 'v0.1.0')).to eq(release_commit)
+      offset = environment.fetch('TZ') == 'UTC' ? /\+0000\z/ : /-0[45]00\z/
+      expect(run_git('-C', checkout, 'log', '-1', '--format=%ai')).to match(offset)
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(release_commit)
       expect(run_git('--git-dir', remote, 'rev-parse', 'v0.1.0')).to eq(release_commit)
       expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
@@ -152,6 +155,12 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   it_behaves_like 'a local release lifecycle'
+
+  context 'with Eastern Time' do
+    let(:environment) { super().merge('TZ' => 'America/New_York') }
+
+    it_behaves_like 'a local release lifecycle'
+  end
 
   context 'with third-level Intridea release headings' do
     def consumer_rakefile
@@ -206,7 +215,14 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
     it_behaves_like 'a local release lifecycle'
 
+    context 'with Eastern Time' do
+      let(:environment) { super().merge('TZ' => 'America/New_York') }
+
+      it_behaves_like 'a local release lifecycle'
+    end
+
     it 'selects owner-aware authentication and preserves artifacts after failures', :aggregate_failures do
+      expect(steps.find { |item| item['name'] == 'Configure Release Inputs' }.dig('env', 'TZ')).to eq('${{ inputs.timezone }}')
       expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ inputs.rubygems-owner == '' }}")
       expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ inputs.rubygems-owner != '' }}")
       expect(steps.find { |item| item['name'] == 'Preserve Release Artifacts' }.fetch('if')).to include('always()')
@@ -215,6 +231,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
   it 'invokes publication and preserves artifacts after a failed callback', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify failure-aware artifact preservation and the authentication gate.
     steps = workflow.fetch('jobs').fetch('release').fetch('steps')
+    expect(workflow.dig('jobs', 'release', 'env', 'TZ')).to eq('${{ inputs.timezone }}')
     publish = steps.find { |item| item['name'] == 'Publish Release' }
     artifacts = steps.find { |item| item['name'] == 'Preserve Release Artifacts' }
     expect(publish).not_to have_key('if')

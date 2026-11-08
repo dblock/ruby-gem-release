@@ -12,4 +12,5 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       ruby-version: '4.0'
+      timezone: America/New_York
       rubygems-owner: ${{ vars.RUBYGEMS_OWNER_ID }}

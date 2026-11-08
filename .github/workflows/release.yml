@@ -24,6 +24,10 @@ on:
         description: Ruby version used to validate and build.
         type: string
         required: true
+      timezone:
+        description: Timezone for release dates and Git timestamps.
+        type: string
+        default: UTC
       prepare:
         description: Command to prepare release files; INPUT_VERSION is the expected version.
         type: string
@@ -56,6 +60,7 @@ jobs:
       GIT_USER_NAME: ${{ inputs.git-user-name }}
       GIT_USER_EMAIL: ${{ inputs.git-user-email }}
       RUBYGEMS_OWNER: ${{ inputs.rubygems-owner }}
+      TZ: ${{ inputs.timezone }}
     steps:
       - uses: actions/checkout@v7
         with:
