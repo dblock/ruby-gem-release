@@ -4,9 +4,24 @@ These instructions describe the reusable release workflow; they do not authorize
 
 ## One-Time Setup
 
-Add a caller workflow as shown in [README.md](README.md), with `contents: write` and `id-token: write`, and create a GitHub environment named `release` in the publishing repository. This repository's manual caller is [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which invokes the reusable workflow in the same checkout. Restrict environment deployment branches and require approval when available. Configure the gem's [RubyGems trusted publisher](https://guides.rubygems.org/trusted-publishing/) with the publishing repository and `release` environment, workflow filename `release.yml`, and workflow repository owner `dblock` and name `ruby-gem-release` when calling from another repository. For a first release, configure a pending trusted publisher. The workflow uses short-lived OIDC credentials, not a stored RubyGems API key.
+Add a caller workflow as shown in [README.md](README.md), with `contents: write` and `id-token: write`, and create a GitHub environment named `release` in the publishing repository. This repository's manual caller is [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which invokes the reusable workflow in the same checkout. Configure maintainer-approved publication as described below; creating an environment alone is not an access restriction. Configure the gem's [RubyGems trusted publisher](https://guides.rubygems.org/trusted-publishing/) with the publishing repository and `release` environment, workflow filename `release.yml`, and workflow repository owner `dblock` and name `ruby-gem-release` when calling from another repository. For a first release, configure a pending trusted publisher. The workflow uses short-lived OIDC credentials, not a stored RubyGems API key.
 
 The GitHub Actions token must be permitted to push fast-forward commits and tags to the default branch. Rulesets with a PR requirement may block it; a dedicated release App bypass can preserve PR enforcement if configured. This repository's ruleset instead allows all writers to push directly while blocking force pushes and deletion; ordinary changes still go through PRs. Actions-token pushes do not trigger ordinary push workflows, so the caller's validation command must run the necessary checks.
+
+### Maintainer-Approved Publication
+
+For maintainer-only publication, open **Settings > Environments > release** in the publishing repository and configure these [environment protection rules](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments):
+
+- **Required reviewers:** Select the release maintainers. Any one of the designated reviewers can approve the release job.
+- **Prevent self-review:** Leave disabled if maintainers should be able to dispatch and approve their own releases. Enable it for two-person approval: the person who dispatched the run cannot approve it, so another designated maintainer must approve.
+- **Allow administrators to bypass configured protection rules:** Disable this option if approval must always be required, including for administrators.
+- **Deployment branches and tags:** Choose **Selected branches and tags**, with `main` as the only **Branch** rule. Remove any other branch or tag rules.
+
+Replace `main` with your actual default branch if it differs (`master` in this repository); both release interfaces require the default branch. Save the protection rules. Availability depends on repository visibility and your GitHub plan; verify that the required controls are available before relying on this policy.
+
+Other repository writers can still dispatch the workflow, but the job using the `release` environment waits before running its steps or obtaining publication credentials. Publication remains blocked until a designated maintainer approves. Environments protect jobs, not the dispatch entry point: they do not provide a workflow-dispatch allow list.
+
+Creating a `release` environment without protection rules does not restrict release access. Its name and presence in the Trusted Publishing configuration do not make publication maintainer-only.
 
 ## Prepare and Publish
 
@@ -14,7 +29,7 @@ Upgrade the gem and pinned workflow or action together when adopting this breaki
 
 ### Releasing This Project
 
-The repository's **Release** workflow is manual only; merges and schedules do not publish. Every dispatch publishes. It uses the standard workflow configured in the root Rakefile with Ruby 4.0, releasing the current version and preparing the next patch version afterward.
+The repository's **Release** workflow is manual only; merges and schedules do not publish. Every dispatch requests publication, subject to configured environment protection. It uses the standard workflow configured in the root Rakefile with Ruby 4.0, releasing the current version and preparing the next patch version afterward.
 
 While preparing the next development iteration, this project's `ReleaseVersion` updates README action and reusable-workflow tags to the version just released. These edits belong to the next development iteration commit; README continues to point at the published version.
 
@@ -37,7 +52,7 @@ Only after explicit release authorization, successful validation, and Trusted Pu
 gh workflow run publish.yml --ref master
 ```
 
-The Actions token can make fast-forward release and next development iteration pushes under the existing ruleset, which blocks force pushes and branch deletion. The `release` environment currently has no required reviewer or deployment-branch policy; the reusable workflow still enforces the default branch for publishing runs. Configure stronger environment protection if needed before dispatch.
+The Actions token can make fast-forward release and next development iteration pushes under the existing ruleset, which blocks force pushes and branch deletion. The reusable workflow enforces the default branch for publishing runs, but that check does not restrict the dispatch actor. Configure [maintainer approval](#maintainer-approved-publication) before dispatch if release access must be restricted.
 
 ### Releasing a Consumer Project
 

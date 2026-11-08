@@ -48,7 +48,7 @@ The action checks out the calling repository with full history and sets up Ruby 
 
 ## Inputs and Environment
 
-Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. Dispatching the sample workflow publishes the gem.
+Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. Dispatching the sample workflow requests publication; configured environment protection rules must pass before the job runs.
 
 Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `release:workflow:configure` rejects line breaks before exporting any values. Override commands execute with release privileges and must be trusted.
 
@@ -59,6 +59,8 @@ The optional `timezone` input defaults to `UTC`; set `timezone: America/New_York
 ## Trusted Publishing
 
 Register a RubyGems trusted publisher for the calling repository, its own workflow filename (`release.yml` above), and environment `release`. Leave the optional Workflow Repository fields blank: the composite action is a step in your workflow, not a reusable workflow from another repository.
+
+For maintainer-only publication, protect the caller job's `release` environment using [Maintainer-Approved Publication](../../RELEASING.md#maintainer-approved-publication). Other repository writers can dispatch, but publication waits for a designated maintainer to approve. Environments do not restrict who can dispatch, and an environment without protection rules does not restrict release access.
 
 For first publication, register a pending trusted publisher and supply its numeric account ID through `rubygems-owner`. Later publications can omit that input. The action uses the same owner-aware helper and credentials action as the reusable workflow, without a stored RubyGems API key.
 

@@ -9,7 +9,7 @@
 Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development iteration with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
 
 - **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
-- **Let collaborators release:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials.
+- **Let collaborators request releases:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials. [Environment protection](RELEASING.md#maintainer-approved-publication) can require approval from a release maintainer before publication.
 - **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
 - **Choose the release version:** Release the checked-in version or [select a different version](docs/actions/release.md#release-version) when dispatching, without a separate version-bump commit.
 - **Catch release mistakes:** [Check for already published RubyGems versions](docs/package/ruby_gem.md#check-version), reject existing tags, and [require actual release notes](docs/changelog/base.md#release) in both built-in changelog formats.
@@ -77,13 +77,11 @@ In your GitHub repository, open **Settings → Environments** and create an envi
 gh api --method PUT repos/{owner}/{repo}/environments/release
 ```
 
-On [RubyGems.org](https://rubygems.org), open your gem's **Trusted publishers** page and create a [trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows). Set the repository fields to your gem's repository, the workflow filename to `release.yml`, and the environment to `release`. Set the separate workflow repository fields to `dblock` and `ruby-gem-release`; these identify the reusable workflow RubyGems verifies in the OIDC token. For a new gem, use the [pending trusted publishers page](https://rubygems.org/profile/oidc/pending_trusted_publishers) instead.
-
-For example, the trusted publishers page for a gem named `example` is `https://rubygems.org/gems/example/trusted_publishers`.
+For a new gem, open the [pending trusted publishers page](https://rubygems.org/profile/oidc/pending_trusted_publishers). For an existing gem, open your existing gem's **Trusted publishers** page (e.g. `https://rubygems.org/gems/example/trusted_publishers`). Create a [trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows). Set the repository fields to your gem's repository, the workflow filename to `release.yml`, and the environment to `release`. Set the separate workflow repository fields to `dblock` and `ruby-gem-release`; these identify the reusable workflow RubyGems verifies in the OIDC token.
 
 ### 4. Make a Release
 
-Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Dispatching the workflow publishes the gem. Run your project's tests and build checks, review the changes, and dispatch from your default branch:
+Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Dispatching starts a publishing run; when required reviewers are configured, the release job waits for approval from a designated maintainer. Run your project's tests and build checks, review the changes, and dispatch from your default branch:
 
 **First release:** Pass the numeric RubyGems account ID shown on the Pending Trusted Publishers page as `rubygems-owner`. This declares the account that will own the gem on its first publication. Replace `YOUR_ACCOUNT_ID` below with that ID:
 
@@ -106,6 +104,10 @@ For a real-world example of adding release automation to an existing gem, see [r
 See [Detailed Usage](docs/usage.md#configuration) for workflow customization, callbacks, and available classes, and the [Actions Reference](docs/actions/release.md) for inputs and defaults.
 
 For step-based integration, see the [Composite Action](docs/actions/action.md).
+
+### Release Access
+
+Creating the environment without protection rules does not restrict release access. For maintainer-only publication, configure **Settings → Environments → release** with required maintainer reviewers, self-review and administrator-bypass rules, and deployment branches restricted to `main` (or your actual default branch), as described in [Maintainer-Approved Publication](RELEASING.md#maintainer-approved-publication). Other repository writers can still dispatch, but publication waits for a designated maintainer to approve; environments do not provide a workflow-dispatch allow list.
 
 ## Contributing
 
