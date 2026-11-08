@@ -24,7 +24,7 @@ module RubyGemRelease
         check_release_absent(content, version)
         section_end = section_end_position(content, position, prefix.length)
         content[position...section_end] = "#{prefix} #{version} (#{date.strftime('%Y/%m/%d')})" +
-                                          remove_placeholder(content[line_end(content, position, separator)...section_end], separator)
+                                          release_notes(content[line_end(content, position, separator)...section_end], separator, version)
         File.write(@path, content)
       end
 
@@ -45,22 +45,14 @@ module RubyGemRelease
         check_absent(content, %r{\A\#{1,6} #{Regexp.escape(version)} \(\d{4}/\d{2}/\d{2}\)\z}, 'release heading already exists')
       end
 
-      def line_end(content, position, separator)
-        content.index(separator, position) || raise(ArgumentError, "heading must end with a newline in #{@path}")
-      end
-
-      def section_end_position(content, position, level)
-        heading_positions(content, /\A\#{1,6} /, max_level: level).find { |offset| offset > position } || content.length
-      end
-
-      def remove_placeholder(section, separator)
+      def release_notes(section, separator, version)
         positions = []
         editable_lines(section) { |line, offset| positions << offset if line.chomp == @placeholder }
         raise ArgumentError, "expected exactly one placeholder in #{@path}" unless positions.one?
 
         position = positions.first
         section.slice!(position, placeholder_length(section, position, separator))
-        section
+        check_notes(section, version)
       end
 
       def placeholder_length(section, position, separator)

@@ -34,11 +34,12 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
   end
 
   ["\n", "\r\n"].each do |separator|
-    it "releases an empty section without extra blank lines using #{separator.inspect} endings" do
+    it "rejects placeholder-only notes using #{separator.inspect} endings without changing history", :aggregate_failures do
       history = ['## 0.9.0 (2026/11/06)', '', '- Older change.', ''].join(separator)
-      File.write(path, ['## 1.0.0 (Next)', '', '- Your contribution here.', '', history].join(separator))
-      described_class.new(path: path).release!(release)
-      expect(File.binread(path)).to eq("## 1.0.0 (2026/11/07)#{separator}#{separator}#{history}")
+      content = ['## 1.0.0 (Next)', '', '- Your contribution here.', '', history].join(separator)
+      File.write(path, content)
+      expect { described_class.new(path: path).release!(release) }.to raise_error(ArgumentError, /empty release notes/)
+      expect(File.binread(path)).to eq(content)
     end
   end
 
@@ -59,11 +60,18 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
   end
 
   it 'preserves CRLF and a configured star placeholder across phases' do
-    File.write(path, "## 1.0.0 (Next)\r\n\r\n* Your contribution here.\r\n")
+    File.write(path, "## 1.0.0 (Next)\r\n\r\n* Change.\r\n* Your contribution here.\r\n")
     updater = described_class.new(path: path, placeholder: '* Your contribution here.')
     updater.release!(release)
     updater.prepare_next!(next_release)
-    expect(File.binread(path)).to eq("## 1.0.1 (Next)\r\n\r\n* Your contribution here.\r\n\r\n## 1.0.0 (2026/11/07)\r\n\r\n")
+    expect(File.binread(path)).to eq("## 1.0.1 (Next)\r\n\r\n* Your contribution here.\r\n\r\n## 1.0.0 (2026/11/07)\r\n\r\n* Change.\r\n")
+  end
+
+  it 'rejects category headings, comments, and a custom placeholder without writing', :aggregate_failures do
+    content = "### 1.0.0 (Next)\n\n#### Added\n\n<!-- pending -->\n\n* Your contribution here.\n\n## History\n\n- Older notes.\n"
+    File.write(path, content)
+    expect { described_class.new(path: path, placeholder: '* Your contribution here.').release!(release) }.to raise_error(ArgumentError, /1.0.0.*empty release notes.*CHANGELOG.md.*add release notes/)
+    expect(File.read(path)).to eq(content)
   end
 
   it 'rejects mixed line endings without modifying the file', :aggregate_failures do

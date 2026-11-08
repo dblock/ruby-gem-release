@@ -22,6 +22,8 @@ changelog = RubyGemRelease::Changelog::Intridea.new(path: 'CHANGELOG.md')
 
 `changelog.release!(release)` replaces the single Next heading with the [Release](../release.md) version and date, removing exactly one placeholder from that section. Missing or duplicate headings and placeholders, or an existing release heading, fail without writing the file.
 
+Placeholder-only sections and sections containing only headings, comments, or reference definitions also fail without writing. Add actual release notes to the Next section before retrying; older releases do not count. There is no empty-release opt-out. See [Release Notes](base.md#release) for what counts as content.
+
 ## Prepare Next
 
 `changelog.prepare_next!(release)` inserts a Next section using `release.next_version` and the configured placeholder above the section for `release.version`. It requires exactly one matching release section and no existing Next section.

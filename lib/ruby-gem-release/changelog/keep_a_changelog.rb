@@ -13,11 +13,9 @@ module RubyGemRelease
         separator = newline(content)
         position = heading(content, UNRELEASED)
         check_absent(content, /\A\#{1,6} \[#{Regexp.escape(version)}\] - \d{4}-\d{2}-\d{2}\z/, 'release heading already exists')
-        line_end = content.index(separator, position)
-        raise ArgumentError, "heading must end with a newline in #{@path}" unless line_end
-
-        content[position...line_end] = "#{heading_prefix(content, position)} [#{version}] - #{date.strftime('%Y-%m-%d')}"
+        content[position...line_end(content, position, separator)] = "#{heading_prefix(content, position)} [#{version}] - #{date.strftime('%Y-%m-%d')}"
         release_references(content, version, separator)
+        check_release_notes(content, position, separator, version)
         File.write(@path, content)
       end
 

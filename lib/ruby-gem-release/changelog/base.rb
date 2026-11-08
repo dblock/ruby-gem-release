@@ -44,6 +44,32 @@ module RubyGemRelease
         content[position, 6][/\A#+/]
       end
 
+      def section_end_position(content, position, level)
+        heading_positions(content, /\A\#{1,6} /, max_level: level).find { |offset| offset > position } || content.length
+      end
+
+      def line_end(content, position, separator)
+        content.index(separator, position) || raise(ArgumentError, "heading must end with a newline in #{@path}")
+      end
+
+      def check_release_notes(content, position, separator, version)
+        section_end = section_end_position(content, position, heading_prefix(content, position).length)
+        check_notes(content[line_end(content, position, separator)...section_end], version)
+      end
+
+      def check_notes(section, version)
+        return section if notes?(document(section))
+
+        raise ArgumentError, "cannot release #{version}: empty release notes in #{@path}; add release notes before retrying"
+      end
+
+      def notes?(node)
+        return false if %i[heading html_block html_inline].include?(node.type)
+        return !node.string_content.strip.empty? if %i[text code code_block].include?(node.type)
+
+        node.each.any? { |child| notes?(child) }
+      end
+
       def editable_lines(content)
         excluded = excluded_lines(content)
         offset = 0

@@ -228,8 +228,33 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
   end
 
+  shared_examples 'rejects empty release notes' do |content|
+    before do
+      File.write(File.join(checkout, 'CHANGELOG.md'), content)
+      run_git('-C', checkout, 'add', 'CHANGELOG.md')
+      run_git('-C', checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--quiet', '-m', 'Empty release fixture')
+      run_git('-C', checkout, 'push', '--quiet', 'origin', 'master')
+    end
+
+    it 'stops preparation without changing files, building, tagging, or publishing', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify the failed preparation in real workflow processes.
+      initial = run_git('-C', checkout, 'rev-parse', 'HEAD')
+      run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
+      run_phase('Capture Release Context')
+      expect { run_phase('Prepare Release') }.to raise_error(/empty release notes.*add release notes/)
+      expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to eq(content)
+      expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.0'")
+      expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+      expect(run_git('-C', checkout, 'rev-parse', 'HEAD')).to eq(initial)
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
+      expect(run_git('-C', checkout, 'tag')).to eq('')
+      expect(File).not_to exist(File.join(directory, 'release.gem'))
+      expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
+    end
+  end
+
   it_behaves_like 'a local release lifecycle'
   it_behaves_like 'clean release preparation'
+  it_behaves_like 'rejects empty release notes', "## [Unreleased]\n\n### Fixed\n\n<!-- pending -->\n\n## [0.0.1] - 2026-11-07\n\n- Older notes.\n"
 
   context 'with Eastern Time' do
     let(:environment) { super().merge('TZ' => 'America/New_York') }
@@ -247,6 +272,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
 
     it_behaves_like 'a local release lifecycle', '### 0.1.1 (Next)'
+    it_behaves_like 'rejects empty release notes', "### 0.1.0 (Next)\n\n* Your contribution here.\n\n### 0.0.1 (2026/11/07)\n\n* Older notes.\n"
   end
 
   context 'with detailed manual callbacks' do
@@ -290,6 +316,15 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
     it_behaves_like 'a local release lifecycle'
     it_behaves_like 'clean release preparation'
+    it_behaves_like 'rejects empty release notes', "## [Unreleased]\n\n### Fixed\n\n<!-- pending -->\n\n## [0.0.1] - 2026-11-07\n\n- Older notes.\n"
+
+    context 'with Intridea changelogs' do
+      def consumer_rakefile
+        super.sub('Changelog::KeepAChangelog.new', "Changelog::Intridea.new(placeholder: '* Your contribution here.')")
+      end
+
+      it_behaves_like 'rejects empty release notes', "### 0.1.0 (Next)\n\n* Your contribution here.\n\n### 0.0.1 (2026/11/07)\n\n* Older notes.\n"
+    end
 
     context 'with Eastern Time' do
       let(:environment) { super().merge('TZ' => 'America/New_York') }

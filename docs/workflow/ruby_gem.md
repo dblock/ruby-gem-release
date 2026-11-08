@@ -10,6 +10,8 @@ The required `version:` object implements `read` and `increment!`. Preparation r
 
 The required `changelog:` object implements `release!(release)` and `prepare_next!(release)`. Choose [`KeepAChangelog`](../changelog/keep_a_changelog.md) or [`Intridea`](../changelog/intridea.md) explicitly. Set `changelog: nil` to skip changelog updates without skipping version incrementing.
 
+Both built-in changelog objects reject empty release notes during preparation, before writing changes or reaching publication. They have no opt-out. If you supply a custom changelog implementation or disable changelog updates, your callbacks must enforce any required release-note policy; the library does not guess custom formats.
+
 ## Package
 
 The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md). It selects `GEMSPEC` or the only root gemspec and owns artifact construction, verification, and publication. Override it with an object implementing `build!(release)` and `publish!(release)`, plus `artifact(release)` when required by your hosting object.

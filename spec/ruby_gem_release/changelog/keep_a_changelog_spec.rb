@@ -61,7 +61,7 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
   end
 
   it 'preserves unprefixed tags and CRLF comparison references' do
-    File.write(path, "## [Unreleased]\r\n\r\n[Unreleased]: https://example.com/compare/0.9.0...HEAD\r\n")
+    File.write(path, "## [Unreleased]\r\n\r\n- Change.\r\n\r\n[Unreleased]: https://example.com/compare/0.9.0...HEAD\r\n")
     described_class.new(path: path).release!(release)
     expect(File.binread(path)).to include("[Unreleased]: https://example.com/compare/1.0.0...HEAD\r\n[1.0.0]: https://example.com/compare/0.9.0...1.0.0\r\n")
   end
@@ -103,10 +103,28 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
   end
 
   it 'ignores headings inside HTML blocks and nested quoted fences' do
-    content = "<div>\n## [Unreleased]\n</div>\n\n> ```\n> ## [Unreleased]\n> ```\n\n## [Unreleased]\n"
+    content = "<div>\n## [Unreleased]\n</div>\n\n> ```\n> ## [Unreleased]\n> ```\n\n## [Unreleased]\n\n- Change.\n"
     File.write(path, content)
     described_class.new(path: path).release!(release)
-    expect(File.read(path)).to eq(content.sub(/## \[Unreleased\]\n\z/, "## [1.0.0] - 2026-11-07\n"))
+    expect(File.read(path)).to eq(content.sub("## [Unreleased]\n\n- Change", "## [1.0.0] - 2026-11-07\n\n- Change"))
+  end
+
+  ["\n", "\r\n"].each do |separator|
+    ['', "### Added\n\n<!-- pending -->\n\n[Unreleased]: https://example.com/compare/0.9.0...HEAD\n"].each do |notes|
+      it "rejects empty or structural-only notes #{notes.inspect} with #{separator.inspect} endings", :aggregate_failures do
+        content = "### [Unreleased]\n\n#{notes}\n## [0.9.0] - 2026-11-06\n\n- Older notes.\n".gsub("\n", separator)
+        File.write(path, content)
+        expect { described_class.new(path: path).release!(release) }.to raise_error(ArgumentError, /1.0.0.*empty release notes.*CHANGELOG.md.*add release notes/)
+        expect(File.binread(path)).to eq(content)
+      end
+    end
+  end
+
+  it 'accepts notes in deeper categories while preserving shallower history' do
+    content = "### [Unreleased]\n\n#### Fixed\n\n- A fix with `code` and [documentation][docs].\n\n## History\n\n- Older notes.\n\n[docs]: https://example.com\n"
+    File.write(path, content)
+    described_class.new(path: path).release!(release)
+    expect(File.read(path)).to eq(content.sub('### [Unreleased]', '### [1.0.0] - 2026-11-07'))
   end
 
   it 'rejects ambiguous headings without changing the file', :aggregate_failures do

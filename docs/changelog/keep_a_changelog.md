@@ -18,6 +18,8 @@ changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
 
 `changelog.release!(release)` replaces the single Unreleased heading using the [Release](../release.md) version and date. Missing or duplicate headings, or an existing release heading, fail without writing the file.
 
+An empty Unreleased section, including category headings, comments, or comparison links without notes, fails before any file or reference update is written. Add actual release notes before retrying; older releases do not count. There is no empty-release opt-out. See [Release Notes](base.md#release) for what counts as content.
+
 ## Prepare Next
 
 `changelog.prepare_next!(release)` inserts an Unreleased section above the section for `release.version`. It requires a valid `release.next_version`, exactly one matching release section, and no existing Unreleased section.
