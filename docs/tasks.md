@@ -10,9 +10,9 @@ The composite action first invokes `release:workflow:configure` to validate and 
 
 ## Before Release
 
-`tasks.before_release` prepares files before validation and publication. The callback receives an immutable [Release](release.md). Initially, `version` and `previous_version` contain the current gemspec version, and `next_version` is `nil`. Attach the prepared version with `release.with_version(version.read)` before updating a changelog if your callback changes it.
+`tasks.before_release` prepares files before validation and publication. The callback receives an immutable [Release](release.md). `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `previous_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `release.with_version(version.read)` before updating a changelog.
 
-The default `prepare` command invokes `bundle exec rake release:before_release`. The task reads `RELEASE_PREVIOUS_VERSION` for both version fields and `RELEASE_DATE` from the environment.
+The default `prepare` command invokes `bundle exec rake release:before_release`. The task reads optional `INPUT_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. It validates the selected version before invoking the callback, but does not itself write a version file; the standard workflow callback does that through its configured object.
 
 ## After Release
 

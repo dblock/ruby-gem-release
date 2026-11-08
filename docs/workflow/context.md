@@ -14,6 +14,8 @@ Supplies context checks for the reusable workflow and composite action, invoked 
 
 `resolve!` reads the prepared gemspec version, validates optional `INPUT_VERSION`, rejects an existing release tag or published RubyGems version, stages the trusted preparation command's changes and saves the index tree before validation, and appends `RELEASE_VERSION` to `GITHUB_ENV`. The RubyGems lookup checks the prepared version rather than the initial version; only HTTP 404 permits proceeding. Validation and authentication run afterward. Later working tree or index changes are rejected by publication rather than staged automatically.
 
+The optional `version` input selects a version rather than only asserting one. Standard preparation updates the configured version object through `set!`; custom preparation commands and callbacks must honor the selected value themselves. Resolution still rejects a prepared gemspec that differs from the selection, before any publication. Capture always retains the checked-in gemspec version as `RELEASE_PREVIOUS_VERSION`.
+
 ## Environment
 
 Inputs are `INPUT_GEMSPEC`, `INPUT_VERSION`, `GIT_USER_NAME`, `GIT_USER_EMAIL`, `DEFAULT_BRANCH`, `GITHUB_REF`, `GITHUB_ENV`, and optional `TZ`. Timezone identifiers must resolve under `/usr/share/zoneinfo`, as on the supported Ubuntu runners. Configuration also exports `RUBYGEMS_OWNER` for authentication. See the [reusable workflow](../../.github/workflows/release.yml) and [composite action](../../action.yml) for defaults.

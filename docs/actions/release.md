@@ -8,21 +8,29 @@ For a step-based interface with caller-owned job settings, see the [Composite Ac
 
 Set these under the calling job's `with:` mapping. Only `ruby-version` is required.
 
-| Input            | Type   | Default                                        | Behavior                                                                                                                        |
-| ---              | ---    | ---                                            | ---                                                                                                                             |
-| `ruby-version`   | String | Required                                       | Ruby version used for validation and building.                                                                                  |
-| `version`        | String | Empty                                          | Expected numeric `MAJOR.MINOR.PATCH` version, without leading zeros. Must match the prepared gemspec; does not set the version. |
-| `gemspec`        | String | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                              |
-| `rubygems-owner` | String | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                    |
-| `timezone`       | String | `UTC`                                          | Installed timezone identifier for the release calendar date and Git timestamp offsets.                                          |
-| `prepare`        | String | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                 |
-| `validate`       | String | `bundle exec rake`                             | Validate prepared release files before publication.                                                                             |
-| `publish`        | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.          |
-| `bump`           | String | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development iteration through the configured callback.                                       |
-| `git-user-name`  | String | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                  |
-| `git-user-email` | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                 |
+| Input            | Type   | Default                                        | Behavior                                                                                                                               |
+| ---              | ---    | ---                                            | ---                                                                                                                                    |
+| `ruby-version`   | String | Required                                       | Ruby version used for validation and building.                                                                                         |
+| `version`        | String | Empty                                          | Selected numeric `MAJOR.MINOR.PATCH` release version, without leading zeros. Overrides the checked-in version in standard preparation. |
+| `gemspec`        | String | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                                     |
+| `rubygems-owner` | String | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                           |
+| `timezone`       | String | `UTC`                                          | Installed timezone identifier for the release calendar date and Git timestamp offsets.                                                 |
+| `prepare`        | String | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                        |
+| `validate`       | String | `bundle exec rake`                             | Validate prepared release files before publication.                                                                                    |
+| `publish`        | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.                 |
+| `bump`           | String | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development iteration through the configured callback.                                              |
+| `git-user-name`  | String | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                         |
+| `git-user-email` | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                        |
 
 Identity values must be nonempty and contain no line breaks. They change commit attribution, not authentication or push permissions.
+
+### Release Version
+
+Set `version: '1.2.3'` under `with:` to select a release version instead of the one checked in. The standard workflow calls the configured version object's `set!` method before preparing the changelog; an empty input leaves the checked-in version unchanged. The release commit includes the version and changelog changes, and the next development iteration increments from the selected version. The initial gemspec version and captured date remain available to callbacks.
+
+Expose a string `version` input in the caller's `workflow_dispatch` form and forward it with `version: ${{ inputs.version }}`. You can then choose it in GitHub's form or run `gh workflow run release.yml -f version=1.2.3`. No release is performed by adding this input.
+
+This changes the former assertion-only behavior. Custom preparation commands and callbacks retain control and must honor the selection; resolution rejects a mismatched prepared gemspec before publication. Custom version objects must implement `set!` when selecting a version. The former `RubyConstant#set` API is removed without an alias; use `set!`. Upgrade the gem and pinned interface together when adopting the new behavior.
 
 ### Timezone
 
@@ -58,7 +66,7 @@ Commands run through `bash -euo pipefail`. Overrides replace the corresponding p
 
 | Variable                          | Availability     | Meaning                                                              |
 | ---                               | ---              | ---                                                                  |
-| `INPUT_VERSION`                   | All phases       | Optional expected-version input.                                     |
+| `INPUT_VERSION`                   | All phases       | Optional selected release version.                                   |
 | `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                              |
 | `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication. |
 | `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                      |

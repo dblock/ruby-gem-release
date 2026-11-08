@@ -11,6 +11,7 @@ Update your changelog, validate and publish your gem, create its GitHub Release,
 - **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
 - **Let collaborators release:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials.
 - **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
+- **Choose the release version:** Release the checked-in version or [select a different version](docs/actions/release.md#release-version) when dispatching, without a separate version-bump commit.
 - **Catch release mistakes:** [Check for already published RubyGems versions](docs/package/ruby_gem.md#check-version), reject existing tags, and [require actual release notes](docs/changelog/base.md#release) in both built-in changelog formats.
 - **Keep dependency files out of release commits:** [Reject dirty checkouts after dependency installation](docs/source_control/git.md) and unexpected working tree or index changes after preparation, instead of staging unrelated files during publication.
 - **Build once and retain recovery files:** Publish the same verified gem artifact to RubyGems and attach it to the GitHub Release. Preserve available gem, checksum manifest, and Git recovery bundle files for [recovery after failures](docs/actions/release.md#recovery-artifacts).
@@ -46,6 +47,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: Optional release version overriding the checked-in version.
+        type: string
+        required: false
       rubygems-owner:
         description: RubyGems account ID for first publication; omit for an existing gem.
         type: string
@@ -60,6 +65,7 @@ jobs:
     uses: dblock/ruby-gem-release/.github/workflows/release.yml@v0.3.1
     with:
       ruby-version: '3.3'
+      version: ${{ inputs.version }}
       rubygems-owner: ${{ inputs.rubygems-owner }}
 ```
 
@@ -90,6 +96,8 @@ gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID
 ```sh
 gh workflow run release.yml
 ```
+
+To release a different version, select it in the dispatch form or pass `-f version=1.2.3`. The standard workflow updates the configured version file before preparing the changelog, then starts the next development iteration from the selected release version.
 
 For a real-world example of adding release automation to an existing gem, see [ruby-link-checker #26](https://github.com/dblock/ruby-link-checker/pull/26). It adds the dependency, Rake tasks, reusable workflow, and release instructions while preserving the existing changelog format.
 

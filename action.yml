@@ -7,7 +7,7 @@ branding:
 
 inputs:
   version:
-    description: Optional expected version; must match the prepared gemspec.
+    description: Optional release version overriding the checked-in version in the standard workflow.
     default: ''
   gemspec:
     description: Optional gemspec path; defaults to the only root gemspec.
@@ -28,7 +28,7 @@ inputs:
     description: Timezone for release dates and Git timestamps.
     default: UTC
   prepare:
-    description: Command to prepare release files; INPUT_VERSION is the expected version.
+    description: Command to prepare release files; INPUT_VERSION is the selected release version.
     default: bundle exec rake release:before_release
   validate:
     description: Command to validate the prepared release.

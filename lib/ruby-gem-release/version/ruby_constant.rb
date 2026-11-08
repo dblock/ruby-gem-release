@@ -18,7 +18,7 @@ module RubyGemRelease
         value
       end
 
-      def set(value)
+      def set!(value)
         parse(value)
         content = File.read(@path)
         match = assignment(content)
@@ -34,7 +34,7 @@ module RubyGemRelease
         end
         parts[index] += 1
         ((index + 1)...parts.size).each { |i| parts[i] = 0 }
-        set(parts.join('.'))
+        set!(parts.join('.'))
       end
 
       private

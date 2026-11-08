@@ -3,6 +3,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: Optional release version overriding the checked-in version.
+        type: string
+        required: false
       rubygems-owner:
         description: RubyGems account ID for first publication; omit for an existing gem.
         type: string
@@ -25,4 +29,5 @@ jobs:
         uses: dblock/ruby-gem-release@v0.2.0
         with:
           ruby-version: '3.3'
+          version: ${{ inputs.version }}
           rubygems-owner: ${{ inputs.rubygems-owner }}

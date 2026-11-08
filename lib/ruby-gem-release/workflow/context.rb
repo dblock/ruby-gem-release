@@ -42,8 +42,8 @@ module RubyGemRelease
       def prepared_version(package)
         version = package.version
         validate_version(version)
-        expected = ENV.fetch('INPUT_VERSION', '')
-        raise "Prepared version #{version} does not match expected version #{expected}" unless expected.empty? || version == expected
+        selected = ENV.fetch('INPUT_VERSION', '')
+        raise "Prepared version #{version} does not match selected version #{selected}" unless selected.empty? || version == selected
 
         version
       end

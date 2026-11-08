@@ -22,7 +22,7 @@ The required `constant:` argument names the Ruby constant, such as `'VERSION'`. 
 
 ## Set
 
-`version.set('1.2.3')` writes and returns the supplied version, preserving surrounding file content. Invalid versions or ambiguous assignments fail without writing the file.
+`version.set!('1.2.3')` writes and returns the supplied version, preserving surrounding file content. Invalid versions or ambiguous assignments fail without writing the file. The former `set` method has been removed; update callers to `set!`.
 
 ## Increment
 

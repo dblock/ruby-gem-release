@@ -73,9 +73,9 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     expect(File.read(environment_file)).to eq('')
   end
 
-  it 'rejects an expected-version mismatch before recording a release', :aggregate_failures do
+  it 'rejects a prepared version that does not honor the selected version', :aggregate_failures do
     ENV['INPUT_VERSION'] = '2.0.0'
-    expect { described_class.new.resolve! }.to raise_error(/does not match expected version/)
+    expect { described_class.new.resolve! }.to raise_error(/does not match selected version/)
     expect(File.read(environment_file)).to eq('')
   end
 

@@ -4,7 +4,7 @@ An immutable context passed to [release callbacks](tasks.md). Strings and the da
 
 ## Version
 
-`release.version` is the current gemspec version before preparation and the prepared version after publication. The required constructor argument `version:` is a string.
+`release.version` is the selected version before preparation, or the initial gemspec version when no version is selected. Later phases use the prepared gemspec version. `release.previous_version` retains the initial version independently. The required constructor argument `version:` is a string.
 
 ## Previous Version
 

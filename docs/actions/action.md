@@ -14,6 +14,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: Optional release version overriding the checked-in version.
+        type: string
+        required: false
       rubygems-owner:
         description: RubyGems account ID for first publication; omit for an existing gem.
         type: string
@@ -36,6 +40,7 @@ jobs:
         uses: dblock/ruby-gem-release@v0.2.0
         with:
           ruby-version: '3.3'
+          version: ${{ inputs.version }}
           rubygems-owner: ${{ inputs.rubygems-owner }}
 ```
 
@@ -46,6 +51,8 @@ The action checks out the calling repository with full history and sets up Ruby 
 Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. Dispatching the sample workflow publishes the gem.
 
 Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `release:workflow:configure` rejects line breaks before exporting any values. Override commands execute with release privileges and must be trusted.
+
+The optional `version` input selects a release version in standard preparation. The configured version object must implement `set!`; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples and migration from assertion-only behavior.
 
 The optional `timezone` input defaults to `UTC`; set `timezone: America/New_York` for Eastern Time, including daylight saving changes. This input requires gem and action version `0.3.0` or newer, rather than the older pinned example above. The action validates the identifier and exports `TZ`, affecting subsequent release steps and any later steps in the caller's job. See [Timezone](release.md#timezone) for date capture and service timestamp behavior.
 

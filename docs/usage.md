@@ -32,7 +32,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 
 This installs the before-release, publication, next development iteration, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development iteration commit.
 
-The default workflow releases the current version in your version file; it increments the patch version only afterward. An optional workflow `version` input asserts the prepared gemspec version rather than changing it. Use custom preparation callbacks when you need to set a different release version.
+The default workflow releases the current version in your version file; it increments the patch version only afterward. Set the optional workflow `version` input to choose a different release version. The standard workflow calls your version object's `set!` method before preparing the changelog, preserving the initial version in the release context. Custom preparation callbacks retain control of their own file updates.
 
 The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
@@ -69,6 +69,7 @@ RubyGemRelease::Tasks.install do |tasks|
   github = RubyGemRelease::Hosting::GitHubRelease.new
   tasks.before_release do |release|
     git.stage_changes! do
+      version.set!(release.version) unless ENV.fetch('INPUT_VERSION', '').empty?
       changelog.release!(release.with_version(version.read))
     end
   end
@@ -109,7 +110,7 @@ Both approaches publish when dispatched. Validate and build locally before autho
 
 ### GitHub Actions Workflow
 
-The reusable workflow provides the GitHub Actions environment for release callbacks, including setup, validation, authentication, and artifact preservation. Use its `with:` inputs to choose the gemspec, expected version, Ruby version, commands, and commit identity. Pin the workflow to a reviewed release or commit instead of `master` when available.
+The reusable workflow provides the GitHub Actions environment for release callbacks, including setup, validation, authentication, and artifact preservation. Use its `with:` inputs to choose the gemspec, release version, Ruby version, commands, and commit identity. Pin the workflow to a reviewed release or commit instead of `master` when available.
 
 - [Release Workflow](actions/release.md): All inputs, defaults, permissions, commands, and recovery artifacts.
 - [`Workflow::Context`](workflow/context.md): Ruby context capture and prepared-version checks used by the action workflow.

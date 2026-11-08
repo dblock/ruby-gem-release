@@ -20,7 +20,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     application = Rake.application
     environment = ENV.to_h
     Rake.application = Rake::Application.new
-    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07')
+    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     example.run
   ensure
     Rake.application = application
@@ -83,6 +83,41 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(objects.fetch(:git)).to have_received(:commit!).with(an_instance_of(RubyGemRelease::Release))
     expect(objects.fetch(:git)).to have_received(:commit_next!).with(received.last)
     expect(objects.fetch(:hosting)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
+  end
+
+  it 'sets a selected version before preparing the changelog and preserves the previous version', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify setter ordering and the copied changelog context.
+    ENV['INPUT_VERSION'] = '3.0.0'
+    allow(version).to receive(:set!).with('3.0.0') { events << :set }
+    allow(version).to receive(:read).and_return('3.0.0')
+    install
+    Rake::Task['release:before_release'].invoke
+    expect(events).to eq([:set, %i[changelog release!]])
+    expect(objects.fetch(:changelog)).to have_received(:release!).with(have_attributes(version: '3.0.0', previous_version: '1.2.3'))
+  end
+
+  it 'sets a selected version even when changelog updates are disabled', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check version selection independently of changelog updates.
+    ENV['INPUT_VERSION'] = '3.0.0'
+    allow(version).to receive(:set!).with('3.0.0')
+    described_class.new(version: version, changelog: nil).install_tasks
+    Rake::Task['release:before_release'].invoke
+    expect(version).to have_received(:set!).with('3.0.0')
+    expect(objects.fetch(:changelog)).not_to have_received(:release!)
+  end
+
+  it 'rejects invalid selected versions before invoking the setter or changelog', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify invalid input fails before callbacks or file edits.
+    ENV['INPUT_VERSION'] = '03.0.0'
+    allow(version).to receive(:set!)
+    install
+    expect { Rake::Task['release:before_release'].invoke }.to raise_error(ArgumentError, /invalid version/)
+    expect(version).not_to have_received(:set!)
+    expect(events).to be_empty
+  end
+
+  it 'requires custom version objects to implement set! only when selecting a version' do
+    ENV['INPUT_VERSION'] = '3.0.0'
+    custom = Struct.new(:read).new('1.2.3')
+    described_class.new(version: custom, changelog: objects.fetch(:changelog)).install_tasks
+    expect { Rake::Task['release:before_release'].invoke }.to raise_error(ArgumentError, /must implement set!/)
   end
 
   it 'uses supplied publication objects instead of constructing defaults', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check all three injectable defaults.

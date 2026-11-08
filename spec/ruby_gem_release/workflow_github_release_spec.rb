@@ -83,7 +83,9 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
           tags, = super('git', '--git-dir', ENV.fetch('RELEASE_TEST_REMOTE'), 'tag')
           raise 'Tag pushed before package publication' if upload && !tags.empty?
-          raise 'GitHub Release attempted before tag push' if !upload && tags.strip != 'v0.1.0'
+          version = ENV.fetch('INPUT_VERSION', '')
+          version = '0.1.0' if version.empty?
+          raise 'GitHub Release attempted before tag push' if !upload && tags.strip != 'v' + version
           File.open(File.join(ENV.fetch('RUNNER_TEMP'), 'publication.jsonl'), 'a') do |file|
             file.puts JSON.generate(command)
           end
@@ -100,7 +102,9 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
           raise 'Unexpected RubyGems request configuration' unless port == 443 && options == {use_ssl: true, open_timeout: 10, read_timeout: 30, max_retries: 0}
           http = Object.new
           http.define_singleton_method(:get) do |path|
-            raise 'Unexpected version lookup: ' + path unless path == '/api/v2/rubygems/example/versions/0.1.0.json'
+            version = ENV.fetch('INPUT_VERSION', '')
+            version = '0.1.0' if version.empty?
+            raise 'Unexpected version lookup: ' + path unless path == '/api/v2/rubygems/example/versions/' + version + '.json'
             File.open(File.join(ENV.fetch('RUNNER_TEMP'), 'version-lookups.jsonl'), 'a') { |file| file.puts JSON.generate(path) }
             Struct.new(:code).new(ENV.fetch('RELEASE_TEST_VERSION_STATUS', '404'))
           end
@@ -295,8 +299,42 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
   end
 
+  shared_examples 'a selected release version' do
+    it 'releases the selected version and increments from it while retaining the checked-in version', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise both phases in separate processes and real Git remotes.
+      environment['INPUT_VERSION'] = '2.0.0'
+      run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
+      run_phase('Capture Release Context')
+      run_phase('Prepare Release')
+      expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '2.0.0'")
+      expect(run_git('-C', checkout, 'diff', '--cached', '--name-only').lines.map(&:strip)).to contain_exactly('CHANGELOG.md', 'lib/example/version.rb')
+      run_phase('Resolve Prepared Version')
+      expect(environment.values_at('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION')).to eq(%w[2.0.0 0.1.0])
+      run_phase('Publish Release')
+      release_commit = run_git('-C', checkout, 'rev-parse', 'v2.0.0')
+      expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('2.0.0')
+      expect(run_git('--git-dir', remote, 'rev-parse', 'v2.0.0')).to eq(release_commit)
+      expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include('2.0.0')
+      run_phase('Prepare Next Development Iteration')
+      expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '2.0.1'")
+      expect(run_git('-C', checkout, 'log', '-1', '--format=%s')).to eq('Prepare next development iteration, 2.0.1')
+      expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(run_git('-C', checkout, 'rev-parse', 'HEAD'))
+      expect(environment.fetch('RELEASE_PREVIOUS_VERSION')).to eq('0.1.0')
+    end
+
+    it 'rejects invalid selections before changing the version or changelog', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify invalid dispatch input leaves the real checkout unchanged.
+      environment['INPUT_VERSION'] = '02.0.0'
+      expect { run_phase('Capture Release Context') }.to raise_error(/MAJOR.MINOR.PATCH/)
+      expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.0'")
+      expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to eq(consumer_changelog)
+      expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+      expect(run_git('--git-dir', remote, 'tag')).to eq('')
+    end
+  end
+
   it_behaves_like 'a local release lifecycle'
   it_behaves_like 'clean release preparation'
+  it_behaves_like 'a selected release version'
   it_behaves_like 'rejects empty release notes', "## [Unreleased]\n\n### Fixed\n\n<!-- pending -->\n\n## [0.0.1] - 2026-11-07\n\n- Older notes.\n"
 
   context 'with Eastern Time' do
@@ -315,6 +353,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
 
     it_behaves_like 'a local release lifecycle', '### 0.1.1 (Next)'
+    it_behaves_like 'a selected release version'
     it_behaves_like 'rejects empty release notes', "### 0.1.0 (Next)\n\n* Your contribution here.\n\n### 0.0.1 (2026/11/07)\n\n* Older notes.\n"
   end
 
@@ -324,6 +363,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
 
     it_behaves_like 'a local release lifecycle'
+    it_behaves_like 'a selected release version'
   end
 
   context 'when package publication fails' do
@@ -359,6 +399,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
     it_behaves_like 'a local release lifecycle'
     it_behaves_like 'clean release preparation'
+    it_behaves_like 'a selected release version'
     it_behaves_like 'rejects empty release notes', "## [Unreleased]\n\n### Fixed\n\n<!-- pending -->\n\n## [0.0.1] - 2026-11-07\n\n- Older notes.\n"
 
     context 'with Intridea changelogs' do

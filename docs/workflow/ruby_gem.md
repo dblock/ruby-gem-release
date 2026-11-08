@@ -4,7 +4,7 @@ Installs the standard Ruby gem release sequence through [`Tasks`](../tasks.md), 
 
 ## Version
 
-The required `version:` object implements `read` and `increment!`. Preparation reads its current version for the changelog; next development iteration preparation increments it. The default [`RubyConstant`](../version/ruby_constant.md) increment is a patch change. Version files are never guessed.
+The required `version:` object implements `read` and `increment!`, plus `set!(value)` when a release version is selected. With an empty `version` input, preparation reads the checked-in version as before. With a selected version, preparation calls `set!` inside the trusted staging block before updating the changelog. The initial gemspec version remains `release.previous_version`; next development iteration preparation increments from the selected release version. The default [`RubyConstant`](../version/ruby_constant.md) increment is a patch change. Version files are never guessed.
 
 ## Changelog
 

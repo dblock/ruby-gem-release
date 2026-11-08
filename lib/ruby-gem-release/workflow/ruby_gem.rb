@@ -28,8 +28,15 @@ module RubyGemRelease
 
       def prepare_release(release)
         @git.stage_changes! do
+          select_version!(release.version) unless ENV.fetch('INPUT_VERSION', '').empty?
           @changelog&.release!(release.with_version(@version.read))
         end
+      end
+
+      def select_version!(version)
+        raise ArgumentError, 'version object must implement set! when selecting a release version' unless @version.respond_to?(:set!)
+
+        @version.set!(version)
       end
 
       def publish(release)

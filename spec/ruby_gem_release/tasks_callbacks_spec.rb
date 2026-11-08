@@ -5,13 +5,13 @@ require 'spec_helper'
 RSpec.describe RubyGemRelease::Tasks do
   around do |example|
     original = Rake.application
-    environment = ENV.to_h.slice('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION', 'RELEASE_DATE')
-    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07')
+    environment = ENV.to_h.slice('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION', 'RELEASE_DATE', 'INPUT_VERSION')
+    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     Rake.application = Rake::Application.new
     example.run
   ensure
     Rake.application = original
-    %w[RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE].each { |key| ENV.delete(key) }
+    %w[RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE INPUT_VERSION].each { |key| ENV.delete(key) }
     ENV.update(environment)
   end
 
@@ -28,6 +28,16 @@ RSpec.describe RubyGemRelease::Tasks do
     end
     Rake::Task['release:before_release'].invoke
     expect(received).to eq(['1.2.3', '1.2.3', nil, Date.new(2026, 11, 7)])
+  end
+
+  it 'passes the selected version to custom callbacks while retaining the initial version and date' do # rubocop:disable RSpec/ExampleLength -- Exercise explicitly selected preparation context.
+    ENV['INPUT_VERSION'] = '3.0.0'
+    received = nil
+    described_class.install do |tasks|
+      tasks.before_release { |release| received = [release.version, release.previous_version, release.date] }
+    end
+    Rake::Task['release:before_release'].invoke
+    expect(received).to eq(['3.0.0', '1.2.3', Date.new(2026, 11, 7)])
   end
 
   it 'attaches a prepared version without changing the original context', :aggregate_failures do

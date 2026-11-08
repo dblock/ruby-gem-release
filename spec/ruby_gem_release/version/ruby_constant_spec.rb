@@ -20,13 +20,13 @@ RSpec.describe RubyGemRelease::Version::RubyConstant do
   end
 
   it 'sets a version while preserving surrounding content', :aggregate_failures do
-    expect(version.set('2.0.0')).to eq('2.0.0')
+    expect(version.set!('2.0.0')).to eq('2.0.0')
     expect(File.read(version_file)).to eq("module Example\n  VERSION = '2.0.0'\nend\n")
   end
 
   it 'rejects invalid versions without changing the file', :aggregate_failures do
     original = File.read(version_file)
-    expect { version.set('1.02.3') }.to raise_error(ArgumentError, /invalid version/)
+    expect { version.set!('1.02.3') }.to raise_error(ArgumentError, /invalid version/)
     expect(File.read(version_file)).to eq(original)
   end
 
@@ -49,7 +49,7 @@ RSpec.describe RubyGemRelease::Version::RubyConstant do
   it 'rejects ambiguous assignments without changing the file', :aggregate_failures do
     File.write(version_file, "VERSION = '1.2.3'\nVERSION = '2.0.0'\n")
     original = File.read(version_file)
-    expect { version.set('3.0.0') }.to raise_error(ArgumentError, /exactly one/)
+    expect { version.set!('3.0.0') }.to raise_error(ArgumentError, /exactly one/)
     expect(File.read(version_file)).to eq(original)
   end
 
