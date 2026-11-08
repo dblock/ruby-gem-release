@@ -18,8 +18,6 @@ module RubyGemRelease
 
         tag = "v#{version}"
         paths = artifact_paths(package ? [package.artifact(release)] : artifacts)
-        return if release.dry_run?
-
         output, error, status = Open3.capture3(*command(tag), *paths)
         raise "GitHub Release creation failed: #{error.strip}" unless status.success?
 

@@ -28,6 +28,6 @@ The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github
 
 Preparation updates the changelog with the explicitly read version. Publication commits release changes, builds once, tags locally, publishes the package, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
 
-## Errors and Dry Runs
+## Errors
 
-Errors propagate through the tasks and stop the sequence. The default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag publication. Every callback receives the same immutable release-context policy; its copies preserve dry-run state. All callbacks run in dry runs, but the supplied classes suppress remote writes. Overrides must honor this policy too.
+Errors propagate through the tasks and stop the sequence. The default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag publication. Every callback receives an immutable release context; overrides must preserve the publication order and artifact identity.

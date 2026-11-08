@@ -20,16 +20,16 @@ The default `prepare` command invokes `bundle exec rake release:before_release`.
 
 The default `bump` command invokes `bundle exec rake release:after_release`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
 
-## Errors and Dry Runs
+## Errors
 
-Each callback requires a block and can be registered only once. Exceptions fail the task. All callbacks run in dry-run mode. `DRY_RUN=true` marks their context; the supplied classes suppress remote writes while performing local operations. Custom code remains trusted and must honor dry runs. Required environment values must contain numeric versions and a date in `YYYY-MM-DD` format; missing values fail rather than guessing a version or date.
+Each callback requires a block and can be registered only once. Exceptions fail the task. Custom code executes with release privileges and must be trusted. Required environment values must contain numeric versions and a date in `YYYY-MM-DD` format; missing values fail rather than guessing a version or date.
 
 ## Publish
 
-`tasks.publish` registers the complete release sequence before `after_release`. The default `publish` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `DRY_RUN`.
+`tasks.publish` registers the complete release sequence before `after_release`. The default `publish` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE`.
 
 The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.
 
 ## Workflow Credentials
 
-`release:workflow:credentials` invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with `RUBYGEMS_OWNER`. The reusable workflow calls it only for owner-bound publishing runs, not dry runs.
+`release:workflow:credentials` invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with `RUBYGEMS_OWNER`. The reusable workflow calls it for owner-bound publishing runs.

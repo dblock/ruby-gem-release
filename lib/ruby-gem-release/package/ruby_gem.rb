@@ -41,8 +41,6 @@ module RubyGemRelease
 
       def publish!(release)
         path = artifact(release)
-        return path if release.dry_run?
-
         run(Gem.ruby, '-S', 'gem', 'push', path)
       end
 

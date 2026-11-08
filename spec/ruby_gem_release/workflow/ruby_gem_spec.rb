@@ -20,7 +20,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     application = Rake.application
     environment = ENV.to_h
     Rake.application = Rake::Application.new
-    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'DRY_RUN' => 'true')
+    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07')
     example.run
   ensure
     Rake.application = application
@@ -70,18 +70,18 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
                          ])
   end
 
-  it 'preserves the initial context and dry-run state across version copies', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check preparation and next development iteration contexts.
+  it 'preserves the initial context across version copies', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check preparation and next development iteration contexts.
     received = []
     allow(objects.fetch(:changelog)).to receive(:release!) { |release| received << release }
     allow(objects.fetch(:changelog)).to receive(:prepare_next!) { |release| received << release }
     install
     run_callbacks
-    expect(received.map { |release| [release.version, release.previous_version, release.next_version, release.dry_run?] })
-      .to eq([['2.0.0', '1.2.3', nil, true], ['2.0.0', '1.2.3', '2.0.1', true]])
+    expect(received.map { |release| [release.version, release.previous_version, release.next_version, release.date] })
+      .to eq([['2.0.0', '1.2.3', nil, Date.new(2026, 11, 7)], ['2.0.0', '1.2.3', '2.0.1', Date.new(2026, 11, 7)]])
     expect(received).to all(be_frozen)
-    expect(objects.fetch(:git)).to have_received(:commit!).with(be_dry_run)
+    expect(objects.fetch(:git)).to have_received(:commit!).with(an_instance_of(RubyGemRelease::Release))
     expect(objects.fetch(:git)).to have_received(:commit_next!).with(received.last)
-    expect(objects.fetch(:hosting)).to have_received(:publish!).with(be_dry_run, package: objects.fetch(:package))
+    expect(objects.fetch(:hosting)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
   end
 
   it 'uses supplied publication objects instead of constructing defaults', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check all three injectable defaults.
@@ -90,7 +90,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(RubyGemRelease::Package::RubyGem).not_to have_received(:new)
     expect(RubyGemRelease::SourceControl::Git).not_to have_received(:new)
     expect(RubyGemRelease::Hosting::GitHubRelease).not_to have_received(:new)
-    expect(objects.fetch(:hosting)).to have_received(:publish!).with(be_dry_run, package: objects.fetch(:package))
+    expect(objects.fetch(:hosting)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
   end
 
   it 'disables hosted releases without skipping package publication', :aggregate_failures do

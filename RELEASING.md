@@ -10,11 +10,13 @@ The GitHub Actions token must be permitted to push fast-forward commits and tags
 
 ## Prepare and Publish
 
+Upgrade the gem and pinned workflow or action together when adopting this breaking change. Remove former `dry-run` inputs and `dry_run:` constructor arguments; `DRY_RUN` no longer controls publication. Do not use an older caller's preview option with the new gem: publication methods perform remote writes.
+
 ### Releasing This Project
 
-The repository's **Release** workflow is manual only; merges and schedules do not publish. It uses the standard workflow configured in the root Rakefile with Ruby 4.0, releasing the current version and preparing the next patch version afterward. The `dry-run` input defaults to `true`.
+The repository's **Release** workflow is manual only; merges and schedules do not publish. Every dispatch publishes. It uses the standard workflow configured in the root Rakefile with Ruby 4.0, releasing the current version and preparing the next patch version afterward.
 
-While preparing the next development iteration, this project's `ReleaseVersion` updates README action and reusable-workflow tags to the version just released. These edits belong to the next development iteration commit; README continues to point at the published version. Dry runs make the same local edits without pushing them.
+While preparing the next development iteration, this project's `ReleaseVersion` updates README action and reusable-workflow tags to the version just released. These edits belong to the next development iteration commit; README continues to point at the published version.
 
 Before the first publication, configure RubyGems Trusted Publishing for owner `dblock`, repository `ruby-gem-release`, executing workflow `release.yml`, and environment `release`. Leave the optional Workflow Repository fields blank because both workflows live in this repository; `publish.yml` is the dispatch entry point, not the OIDC job workflow. The existing GitHub environment is not proof that RubyGems trusts the caller. For an unpublished gem, use a pending trusted publisher.
 
@@ -22,16 +24,17 @@ Set the non-secret repository variable `RUBYGEMS_OWNER_ID` to the numeric RubyGe
 
 The first failed release authenticated but RubyGems rejected the upload because the owner assertion was absent. The current credentials action does not accept an owner input, so owner-bound exchanges use [`RubyGemsCredentials`](docs/workflow/ruby_gems_credentials.md). With no owner input, existing-gem releases retain the credentials action. No registry credentials or trusted publisher are configured by adding the workflow.
 
-Exercise the workflow from `master` without remote writes:
+Validate and build locally before authorizing publication:
 
 ```sh
-gh workflow run publish.yml --ref master -f dry-run=true
+bundle exec rake
+bundle exec rake build
 ```
 
 Only after explicit release authorization, successful validation, and Trusted Publishing setup, dispatch a publishing run:
 
 ```sh
-gh workflow run publish.yml --ref master -f dry-run=false
+gh workflow run publish.yml --ref master
 ```
 
 The Actions token can make fast-forward release and next development iteration pushes under the existing ruleset, which blocks force pushes and branch deletion. The `release` environment currently has no required reviewer or deployment-branch policy; the reusable workflow still enforces the default branch for publishing runs. Configure stronger environment protection if needed before dispatch.
@@ -42,7 +45,7 @@ Review the changes and dispatch the caller workflow on the current default branc
 
 The workflow captures `RELEASE_PREVIOUS_VERSION` from the gemspec and `RELEASE_DATE` once before preparation. It sets `RELEASE_VERSION` from the prepared gemspec afterward and rejects a mismatch with optional `INPUT_VERSION`. Lifecycle tasks read those environment values directly; invoke `bundle exec rake release:before_release` or `bundle exec rake release:after_release` without task arguments. Existing keyword-argument callbacks must be migrated to accept the release context described in the README. Manual task installation does not configure a version strategy; construct a local `RubyGemRelease::Version::RubyConstant` as shown in [Detailed Usage](docs/usage.md#custom-callbacks). The standard workflow accepts that object through `version:`.
 
-For a non-publishing integration check, set `dry-run: true` in the caller. The workflow skips RubyGems authentication but invokes every callback. The supplied classes honor `release.dry_run?`, performing local commits, builds, and tags without package uploads, remote Git pushes, or GitHub Release creation. Custom commands and callback code must themselves honor dry runs; never use untrusted commands or workflow inputs.
+Validate and build locally before dispatching. Publication callbacks upload the gem, push commits and tags, and create hosted releases. Never invoke them as a preview or use untrusted commands or workflow inputs.
 
 ## Publish the Action to Marketplace
 

@@ -1,6 +1,6 @@
 # Design
 
-`Package::RubyGem`, `SourceControl::Git`, and `Hosting::GitHubRelease` own release operations through argument-based command invocation. The publication callback commits, builds once, tags, publishes to RubyGems, pushes the commit and tag atomically, and creates the GitHub Release with generated notes and the verified exact artifact. The workflow retains setup, context checks, validation, Trusted Publishing authentication, artifact uploading, and phase invocation. All callbacks run for dry runs; the immutable release context suppresses remote writes in the supplied classes.
+`Package::RubyGem`, `SourceControl::Git`, and `Hosting::GitHubRelease` own release operations through argument-based command invocation. The publication callback commits, builds once, tags, publishes to RubyGems, pushes the commit and tag atomically, and creates the GitHub Release with generated notes and the verified exact artifact. The workflow retains setup, context checks, validation, Trusted Publishing authentication, artifact uploading, and phase invocation. Release callbacks receive an immutable version and date context; publication methods perform their remote writes.
 
 `ruby-gem-release` supplies a reusable GitHub Actions workflow invoked with `workflow_call`, a step-based composite action, and a Ruby gem with shared lifecycle Rake tasks and objects for reading, setting, and incrementing numeric versions.
 
@@ -12,7 +12,7 @@ Optional Ruby callbacks receive an immutable release context during release prep
 
 Changelog updates use `Commonmarker` to identify top-level headings and exclude code, HTML, and quoted blocks. Updates edit the original source rather than rendering the parsed document again, preserving unrelated Markdown formatting. Reference definitions are not exposed as separate parser nodes, so comparison references use source-level matching outside those excluded blocks, with parser validation that each reference is defined.
 
-The package builds once and publishes before atomically pushing its commit and tag. Git checks concurrency before publication and again before pushing. This leaves an unavoidable recovery window if the push fails after publication; see [RELEASING.md](RELEASING.md). The artifact-upload step runs even when publication fails, preserving the gem, digest manifest, and recovery bundle where available. Because building and publication now share a callback, Actions uploads recovery artifacts afterward rather than beforehand; runner loss during that callback can still lose the local files. The pull-request integration workflow invokes the actual reusable workflow with a consumer fixture and dry-run mode, without publishing or pushing.
+The package builds once and publishes before atomically pushing its commit and tag. Git checks concurrency before publication and again before pushing. This leaves an unavoidable recovery window if the push fails after publication; see [RELEASING.md](RELEASING.md). The artifact-upload step runs even when publication fails, preserving the gem, digest manifest, and recovery bundle where available. Because building and publication now share a callback, Actions uploads recovery artifacts afterward rather than beforehand; runner loss during that callback can still lose the local files. Pull-request integration builds and installs the gem and executes both interfaces' callback commands in real consumers. Only package uploads and hosted-release creation are isolated; Git pushes use local bare repositories. These checks do not execute live Actions authentication or artifact uploading.
 
 ## Class Areas
 
@@ -26,19 +26,19 @@ Future hosting implementations can implement `publish!(release, package:)` witho
 
 ## Composite Action
 
-The root `action.yml` is the single Marketplace action metadata file. It invokes the same Ruby lifecycle tasks, authentication paths, and exact-artifact publication as the reusable workflow. Its input configuration uses `Workflow::Context` to export values across composite steps and strictly validate the string-valued dry-run flag before preparation. Callers own job permissions, runner, environment, and concurrency; the reusable workflow continues to provide those settings without changing existing consumers.
+The root `action.yml` is the single Marketplace action metadata file. It invokes the same Ruby lifecycle tasks, authentication paths, and exact-artifact publication as the reusable workflow. Its input configuration uses `Workflow::Context` to validate and export values across composite steps before preparation. Callers own job permissions, runner, environment, and concurrency; the reusable workflow continues to provide those settings without changing existing consumers.
 
 Both YAML interfaces keep thin orchestration wrappers over the Ruby implementation. The reusable workflow deliberately does not reference a moving composite-action branch or a future release tag: a pinned workflow must remain independent of later action versions. Real consumer CI exercises both interfaces and verifies recovery artifacts and skipped iteration preparation after a failed action callback. Both interfaces use the same release versions, and published tags remain immutable.
 
 ## Project Release Caller
 
-The project's `publish.yml` caller invokes the local reusable workflow through manual dispatch only, using the standard workflow configured in the root Rakefile and the Ruby 4.0 runtime already used by package CI. Dry runs are the caller's default; publishing requires an explicit `dry-run=false` selection and prior release authorization. The caller grants only contents-write and OIDC-token permissions needed for release operations. Trusted Publishing setup remains a separate prerequisite.
+The project's `publish.yml` caller invokes the local reusable workflow through manual dispatch only, using the standard workflow configured in the root Rakefile and the Ruby 4.0 runtime already used by package CI. Every dispatch publishes and requires prior release authorization. The caller grants only contents-write and OIDC-token permissions needed for release operations. Trusted Publishing setup remains a separate prerequisite.
 
 The root Rakefile uses the project-local `ReleaseVersion` subclass of `Version::RubyConstant`. Its `increment!` updates README action and reusable-workflow references to the version just released while returning the version for the next development iteration. README edits are committed with the next development iteration, not the already-created release tag. The shared workflow and gem API remain unchanged.
 
 ### Owner-Bound Authentication
 
-First publication with a pending trusted publisher requires the RubyGems account ID in the OIDC exchange. `Workflow::RubyGemsCredentials` uses Ruby's standard HTTP and JSON libraries because the released credentials action does not yet support this owner assertion. It masks both tokens, exports the short-lived key through `GITHUB_ENV`, and makes no retry or persistent credential-file writes. The optional `rubygems-owner` input selects this helper; an empty input retains the pinned credentials action for existing gems. Both paths are skipped in dry runs. The project's caller reads the account ID from the non-secret `RUBYGEMS_OWNER_ID` repository variable.
+First publication with a pending trusted publisher requires the RubyGems account ID in the OIDC exchange. `Workflow::RubyGemsCredentials` uses Ruby's standard HTTP and JSON libraries because the released credentials action does not yet support this owner assertion. It masks both tokens, exports the short-lived key through `GITHUB_ENV`, and makes no retry or persistent credential-file writes. The optional `rubygems-owner` input selects this helper; an empty input retains the pinned credentials action for existing gems. The project's caller reads the account ID from the non-secret `RUBYGEMS_OWNER_ID` repository variable.
 
 ## Logo
 

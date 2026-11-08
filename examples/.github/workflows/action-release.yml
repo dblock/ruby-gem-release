@@ -7,10 +7,6 @@ on:
         description: RubyGems account ID for first publication; omit for an existing gem.
         type: string
         required: false
-      dry-run:
-        description: Exercise the release without publishing or pushing.
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -30,4 +26,3 @@ jobs:
         with:
           ruby-version: '3.3'
           rubygems-owner: ${{ inputs.rubygems-owner }}
-          dry-run: ${{ inputs.dry-run }}

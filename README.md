@@ -4,13 +4,12 @@
 
 [![Gem Version](https://img.shields.io/gem/v/ruby-gem-release.svg)](https://rubygems.org/gems/ruby-gem-release) [![Test](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml/badge.svg)](https://github.com/dblock/ruby-gem-release/actions/workflows/test.yml) [![Coverage Status](https://coveralls.io/repos/github/dblock/ruby-gem-release/badge.svg?branch=master)](https://coveralls.io/github/dblock/ruby-gem-release?branch=master)
 
-**Release your Ruby gem from GitHub Actions—without maintaining custom release scripts or storing a RubyGems API key.**
+**Release your Ruby gem from GitHub Actions without maintaining custom release scripts or storing a RubyGems API key.**
 
 Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development iteration with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
 
 - **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
 - **Let collaborators release:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials.
-- **Try it before publishing:** Dry runs exercise local commits, builds, and tags without uploading or pushing.
 - **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
 
 Requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
@@ -74,7 +73,7 @@ For example, the trusted publishers page for a gem named `example` is `https://r
 
 ### 4. Make a Release
 
-Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Review the changes and dispatch the workflow from your default branch:
+Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Dispatching the workflow publishes the gem. Run your project's tests and build checks, review the changes, and dispatch from your default branch:
 
 **First release:** Pass the numeric RubyGems account ID shown on the Pending Trusted Publishers page as `rubygems-owner`. This declares the account that will own the gem on its first publication. Replace `YOUR_ACCOUNT_ID` below with that ID:
 

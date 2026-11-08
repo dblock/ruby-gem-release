@@ -36,9 +36,6 @@ inputs:
   bump:
     description: Command to prepare, commit, and push the next development iteration.
     default: bundle exec rake release:after_release
-  dry-run:
-    description: Validate and build without publishing or pushing; must be true or false.
-    default: 'false'
 
 runs:
   using: composite
@@ -56,7 +53,6 @@ runs:
         INPUT_VERSION: ${{ inputs.version }}
         INPUT_GEMSPEC: ${{ inputs.gemspec }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        DRY_RUN: ${{ inputs.dry-run }}
         GIT_USER_NAME: ${{ inputs.git-user-name }}
         GIT_USER_EMAIL: ${{ inputs.git-user-email }}
         RUBYGEMS_OWNER: ${{ inputs.rubygems-owner }}
@@ -78,10 +74,10 @@ runs:
         COMMAND: ${{ inputs.validate }}
       run: bash -euo pipefail -c "$COMMAND"
     - name: Authenticate to RubyGems
-      if: ${{ inputs.dry-run == 'false' && inputs.rubygems-owner == '' }}
+      if: ${{ inputs.rubygems-owner == '' }}
       uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
     - name: Authenticate Pending Publisher
-      if: ${{ inputs.dry-run == 'false' && inputs.rubygems-owner != '' }}
+      if: ${{ inputs.rubygems-owner != '' }}
       shell: bash
       run: bundle exec rake release:workflow:credentials
     - name: Publish Release

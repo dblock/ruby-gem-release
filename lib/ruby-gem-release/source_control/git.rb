@@ -31,10 +31,8 @@ module RubyGemRelease
         raise "Cannot check release tag: #{output}" unless status.exitstatus == 1
       end
 
-      def check_current!(release, expected: head)
+      def check_current!(_release, expected: head)
         run('fetch', @remote, branch, '--tags')
-        return if release.dry_run?
-
         raise 'Default branch advanced; start a new release' unless remote_head == expected
       end
 
@@ -64,7 +62,6 @@ module RubyGemRelease
 
       def push!(release = @release)
         raise ArgumentError, 'a release context is required before pushing' unless release
-        return if release.dry_run?
 
         if @next_commit_parent
           check_current!(release, expected: @next_commit_parent)

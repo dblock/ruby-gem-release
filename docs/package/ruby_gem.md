@@ -24,7 +24,7 @@ The optional `directory:` defaults to `RUNNER_TEMP`, or a new temporary director
 
 ## Publish
 
-`publish!(release)` verifies the artifact and invokes `gem push`. It skips uploading when `release.dry_run?` is true, while still verifying the artifact. Configure RubyGems credentials beforehand; the workflow uses Trusted Publishing.
+`publish!(release)` verifies the artifact and invokes `gem push`. Configure RubyGems credentials beforehand; the workflow uses Trusted Publishing.
 
 ## Errors
 

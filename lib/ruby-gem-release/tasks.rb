@@ -83,7 +83,7 @@ module RubyGemRelease
       validate_context_versions(version, previous_version)
       raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), dry_run: ENV.fetch('DRY_RUN', 'false') == 'true')
+      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date))
     end
 
     def validate_context_versions(*versions)

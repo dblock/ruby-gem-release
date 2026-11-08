@@ -5,13 +5,13 @@ require 'spec_helper'
 RSpec.describe RubyGemRelease::Tasks do
   around do |example|
     original = Rake.application
-    environment = ENV.to_h.slice('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION', 'RELEASE_DATE', 'DRY_RUN')
+    environment = ENV.to_h.slice('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION', 'RELEASE_DATE')
     ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07')
     Rake.application = Rake::Application.new
     example.run
   ensure
     Rake.application = original
-    %w[RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE DRY_RUN].each { |key| ENV.delete(key) }
+    %w[RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE].each { |key| ENV.delete(key) }
     ENV.update(environment)
   end
 
@@ -99,14 +99,6 @@ RSpec.describe RubyGemRelease::Tasks do
     described_class.install
     ENV.delete('RELEASE_VERSION')
     expect { Rake::Task['release:publish'].invoke }.not_to raise_error
-  end
-
-  it 'invokes publication with a dry-run context instead of skipping local work' do
-    received = nil
-    ENV['DRY_RUN'] = 'true'
-    described_class.install { |tasks| tasks.publish { |release| received = release } }
-    Rake::Task['release:publish'].invoke
-    expect(received).to be_dry_run
   end
 
   it 'propagates publication failures' do

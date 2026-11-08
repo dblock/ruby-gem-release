@@ -2,11 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      dry-run:
-        description: Exercise the release without publishing or pushing.
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -18,4 +13,3 @@ jobs:
     with:
       ruby-version: '4.0'
       rubygems-owner: ${{ vars.RUBYGEMS_OWNER_ID }}
-      dry-run: ${{ inputs.dry-run }}

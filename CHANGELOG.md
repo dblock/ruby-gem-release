@@ -2,6 +2,7 @@
 
 ## 0.2.3 (Next)
 
+- [#21](https://github.com/dblock/ruby-gem-release/pull/21): Remove dry-run inputs and release context, always publish when dispatched, and test installed release callbacks with isolated publication boundaries (breaking change) - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.2.2 (2026/11/08)

@@ -16,7 +16,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Check Current
 
-`check_current!(release, expected: head)` fetches the remote branch and tags and rejects an advanced branch before publication or pushing. Dry runs fetch but permit a non-default-branch checkout.
+`check_current!(release, expected: head)` fetches the remote branch and tags and rejects an advanced branch before publication or pushing.
 
 ## Check Tag
 
@@ -28,7 +28,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Tag
 
-`tag!(release)` rejects checkout mutations from building, checks concurrency and existing tags, creates `vVERSION`, and writes `release.bundle` containing the exact commit and tag. Local tagging also runs in dry runs.
+`tag!(release)` rejects checkout mutations from building, checks concurrency and existing tags, creates `vVERSION`, and writes `release.bundle` containing the exact commit and tag.
 
 ## Commit Next
 
@@ -36,7 +36,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Push
 
-`push!(release)` checks the remote branch again, then atomically pushes the release commit and tag. After `commit_next!`, `push!` uses the retained release context and pushes only the next development iteration commit. Both skip remote writes when `release.dry_run?` is true. Pushes never force or move existing tags.
+`push!(release)` checks the remote branch again, then atomically pushes the release commit and tag. After `commit_next!`, `push!` uses the retained release context and pushes only the next development iteration commit. Pushes never force or move existing tags.
 
 ## Errors
 

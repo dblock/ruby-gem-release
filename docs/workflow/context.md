@@ -4,7 +4,7 @@ Supplies context checks for the reusable workflow and composite action, invoked 
 
 ## Configure
 
-`configure!` exports the composite action's input environment for subsequent steps through `GITHUB_ENV`. It requires `DRY_RUN` to be exactly `true` or `false` and rejects line breaks in all values before writing any of them. The reusable workflow supplies the same values through its job environment and does not need this method.
+`configure!` exports the composite action's input environment for subsequent steps through `GITHUB_ENV`. It rejects line breaks in all values before writing any of them. The reusable workflow supplies the same values through its job environment and does not need this method.
 
 ## Capture
 
@@ -16,4 +16,4 @@ Supplies context checks for the reusable workflow and composite action, invoked 
 
 ## Environment
 
-Inputs are `INPUT_GEMSPEC`, `INPUT_VERSION`, `GIT_USER_NAME`, `GIT_USER_EMAIL`, `DEFAULT_BRANCH`, `GITHUB_REF`, `GITHUB_ENV`, and `DRY_RUN`. Configuration also exports `RUBYGEMS_OWNER` for authentication. See the [reusable workflow](../../.github/workflows/release.yml) and [composite action](../../action.yml) for defaults.
+Inputs are `INPUT_GEMSPEC`, `INPUT_VERSION`, `GIT_USER_NAME`, `GIT_USER_EMAIL`, `DEFAULT_BRANCH`, `GITHUB_REF`, and `GITHUB_ENV`. Configuration also exports `RUBYGEMS_OWNER` for authentication. See the [reusable workflow](../../.github/workflows/release.yml) and [composite action](../../action.yml) for defaults.

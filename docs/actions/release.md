@@ -8,19 +8,18 @@ For a step-based interface with caller-owned job settings, see the [Composite Ac
 
 Set these under the calling job's `with:` mapping. Only `ruby-version` is required.
 
-| Input            | Type    | Default                                        | Behavior                                                                                                                        |
-| ---              | ---     | ---                                            | ---                                                                                                                             |
-| `ruby-version`   | String  | Required                                       | Ruby version used for validation and building.                                                                                  |
-| `version`        | String  | Empty                                          | Expected numeric `MAJOR.MINOR.PATCH` version, without leading zeros. Must match the prepared gemspec; does not set the version. |
-| `gemspec`        | String  | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                              |
-| `rubygems-owner` | String  | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                    |
-| `prepare`        | String  | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                 |
-| `validate`       | String  | `bundle exec rake`                             | Validate prepared release files before publication.                                                                             |
-| `publish`        | String  | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.          |
-| `bump`           | String  | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development iteration through the configured callback.                                       |
-| `git-user-name`  | String  | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                  |
-| `git-user-email` | String  | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                 |
-| `dry-run`        | Boolean | `false`                                        | Exercise local release work without remote writes from the supplied classes.                                                    |
+| Input            | Type   | Default                                        | Behavior                                                                                                                        |
+| ---              | ---    | ---                                            | ---                                                                                                                             |
+| `ruby-version`   | String | Required                                       | Ruby version used for validation and building.                                                                                  |
+| `version`        | String | Empty                                          | Expected numeric `MAJOR.MINOR.PATCH` version, without leading zeros. Must match the prepared gemspec; does not set the version. |
+| `gemspec`        | String | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                              |
+| `rubygems-owner` | String | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                    |
+| `prepare`        | String | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                 |
+| `validate`       | String | `bundle exec rake`                             | Validate prepared release files before publication.                                                                             |
+| `publish`        | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.          |
+| `bump`           | String | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development iteration through the configured callback.                                       |
+| `git-user-name`  | String | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                  |
+| `git-user-email` | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                 |
 
 Identity values must be nonempty and contain no line breaks. They change commit attribution, not authentication or push permissions.
 
@@ -30,7 +29,7 @@ The `publish` input replaces the former `github-release` input and controls the 
 
 Once the repository and gem owners complete setup, collaborators with write access can [dispatch releases](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow), including in personal repositories. They do not need repository admin access, RubyGems ownership, or their own RubyGems API key. Any configured environment approval rules still apply.
 
-For a brand-new gem, register a pending trusted publisher and set `rubygems-owner` to the numeric account ID shown on that page. The [owner-aware helper](../workflow/ruby_gems_credentials.md) requests a GitHub OIDC token for audience `rubygems.org`, exchanges it with the owner assertion, masks both credentials, and exports the short-lived key for publication. The current credentials action lacks this owner input; existing-gem releases with no owner specified continue to use it. Both authentication paths are skipped in dry runs.
+For a brand-new gem, register a pending trusted publisher and set `rubygems-owner` to the numeric account ID shown on that page. The [owner-aware helper](../workflow/ruby_gems_credentials.md) requests a GitHub OIDC token for audience `rubygems.org`, exchanges it with the owner assertion, masks both credentials, and exports the short-lived key for publication. The current credentials action lacks this owner input; existing-gem releases with no owner specified continue to use it.
 
 The caller needs `contents: write` for Git pushes and GitHub Releases, and `id-token: write` for RubyGems Trusted Publishing. Configure the `release` environment and RubyGems trusted publisher as described in [Usage](../../README.md#3-enable-trusted-publishing). No stored RubyGems API key is required.
 
@@ -46,28 +45,21 @@ Releases must run from the default branch at its current remote commit. Git chec
 
 Commands run through `bash -euo pipefail`. Overrides replace the corresponding phase and must perform its required operations; callback registration alone does not cause an overridden command to invoke a task.
 
-| Variable                          | Availability     | Meaning                                                                 |
-| ---                               | ---              | ---                                                                     |
-| `INPUT_VERSION`                   | All phases       | Optional expected-version input.                                        |
-| `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                                 |
-| `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication.    |
-| `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                         |
-| `RELEASE_PREVIOUS_VERSION`        | After capture    | Initial gemspec version, retained across callbacks.                     |
-| `RELEASE_DATE`                    | After capture    | Date captured once in UTC, as `YYYY-MM-DD`.                             |
-| `RELEASE_INITIAL_COMMIT`          | After capture    | Checkout commit used for concurrency checks.                            |
-| `RELEASE_VERSION`                 | After resolution | Prepared version to publish.                                            |
-| `DRY_RUN`                         | All phases       | `true` or `false`; lifecycle tasks carry this into the release context. |
-| `DEFAULT_BRANCH`                  | All phases       | Repository default branch.                                              |
-| `GIT_USER_NAME`, `GIT_USER_EMAIL` | All phases       | Configured checkout-local commit identity.                              |
-| `GH_TOKEN`                        | Publication      | GitHub Actions token for GitHub Release creation.                       |
+| Variable                          | Availability     | Meaning                                                              |
+| ---                               | ---              | ---                                                                  |
+| `INPUT_VERSION`                   | All phases       | Optional expected-version input.                                     |
+| `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                              |
+| `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication. |
+| `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                      |
+| `RELEASE_PREVIOUS_VERSION`        | After capture    | Initial gemspec version, retained across callbacks.                  |
+| `RELEASE_DATE`                    | After capture    | Date captured once in UTC, as `YYYY-MM-DD`.                          |
+| `RELEASE_INITIAL_COMMIT`          | After capture    | Checkout commit used for concurrency checks.                         |
+| `RELEASE_VERSION`                 | After resolution | Prepared version to publish.                                         |
+| `DEFAULT_BRANCH`                  | All phases       | Repository default branch.                                           |
+| `GIT_USER_NAME`, `GIT_USER_EMAIL` | All phases       | Configured checkout-local commit identity.                           |
+| `GH_TOKEN`                        | Publication      | GitHub Actions token for GitHub Release creation.                    |
 
 GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_TEMP`. See [`Tasks`](../tasks.md) for callback context semantics and [`Workflow::Context`](../workflow/context.md) for capture and resolution methods.
-
-## Dry Runs
-
-With `dry-run: true`, RubyGems authentication is skipped, but all callback commands still run. The supplied package, Git, and hosting classes honor `release.dry_run?`: commits, builds, and local tags run; package uploads, Git pushes, and GitHub Release creation do not. Dry runs allow non-default-branch checkouts, but still fetch the remote branch and tags.
-
-Custom commands and callbacks execute with workflow privileges and must be trusted and dry-run-aware; arbitrary code is not constrained by this flag.
 
 ## Recovery Artifacts
 

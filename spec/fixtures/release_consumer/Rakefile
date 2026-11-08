@@ -1,8 +1,0 @@
-# frozen_string_literal: true
-
-require 'ruby-gem-release/tasks'
-
-RubyGemRelease::Tasks.install(
-  version_file: 'spec/fixtures/release_consumer/version.rb',
-  version_constant: 'VERSION'
-)

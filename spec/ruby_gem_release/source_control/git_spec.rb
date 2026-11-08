@@ -66,15 +66,6 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(command('--git-dir', remote, 'rev-parse', 'v1.2.3')).to eq(release_commit)
   end
 
-  it 'creates local commits and tags without changing the remote in a dry run', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check both local and remote state.
-    dry = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today, dry_run: true)
-    prepare_tag(dry)
-    git.push!
-    expect(command('rev-parse', 'v1.2.3')).to eq(git.head)
-    expect(command('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
-    expect(command('--git-dir', remote, 'tag')).to eq('')
-  end
-
   it 'rejects build mutations before creating a tag' do
     git.commit!(release)
     File.write('generated', 'unexpected build mutation')

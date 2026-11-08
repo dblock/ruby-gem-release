@@ -25,10 +25,6 @@ The optional `repository:` argument identifies the target as `'OWNER/REPO'`. It 
 
 Without `package:`, `artifacts:` accepts existing file paths, defaulting to no attachments. Paths containing spaces are supported; line breaks and `#` are rejected because `gh` interprets `#` as an asset label.
 
-## Dry Run
-
-`publish!` validates artifacts but skips `gh` when `release.dry_run?` is true. The publication callback still runs so local builds and tags are exercised.
-
 ## Authentication and Errors
 
 Install `gh` and authenticate using `GH_TOKEN` or its existing credentials. The workflow supplies the GitHub Actions token and requires the caller's `contents: write` permission.

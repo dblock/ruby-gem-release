@@ -11,7 +11,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
 
   around do |example|
     original = ENV.to_h
-    ENV.update('GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'DRY_RUN' => 'true')
+    ENV.update('GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'GITHUB_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master')
     ENV.delete('GEMSPEC')
     ENV.delete('INPUT_GEMSPEC')
     Dir.chdir(directory) { example.run }
@@ -47,7 +47,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
   end
 
   it 'rejects non-default-branch publication before configuring Git' do
-    ENV.update('DRY_RUN' => 'false', 'GITHUB_REF' => 'refs/heads/topic', 'DEFAULT_BRANCH' => 'master')
+    ENV['GITHUB_REF'] = 'refs/heads/topic'
     expect { described_class.new.capture! }.to raise_error(/default branch/)
   end
 
@@ -64,13 +64,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
 
     it 'exports inputs for later action steps' do
       described_class.new.configure!
-      expect(File.read(environment_file)).to include("DRY_RUN=true\n", "INPUT_GEMSPEC=fixture.gemspec\n", "RUBYGEMS_OWNER=123\n")
-    end
-
-    it 'rejects invalid boolean strings without exporting inputs', :aggregate_failures do
-      ENV['DRY_RUN'] = 'FALSE'
-      expect { described_class.new.configure! }.to raise_error(ArgumentError, /true or false/)
-      expect(File.read(environment_file)).to eq('')
+      expect(File.read(environment_file)).to include("INPUT_GEMSPEC=fixture.gemspec\n", "RUBYGEMS_OWNER=123\n")
     end
 
     it 'rejects environment-file injection before exporting any inputs', :aggregate_failures do

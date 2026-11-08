@@ -89,11 +89,11 @@ end
 
 Use custom callbacks to set a release version during preparation, choose a different increment, or change the sequence. [`Tasks`](tasks.md) does not change files implicitly; each callback receives an immutable [`Release`](release.md) context. Changes to its version fields return copies rather than mutating the original.
 
-## Actions Setup and Dry Runs
+## Actions Setup
 
 Follow [Usage](../README.md#usage) to add the caller workflow, enable Trusted Publishing, and dispatch a release. Command overrides and all input defaults are documented in the [workflow reference](actions/release.md).
 
-Both approaches invoke all callbacks in dry-run mode. The supplied classes perform local commits, builds, and tags while suppressing uploads and remote pushes. Custom code must honor the release context's dry-run flag. See [RELEASING.md](../RELEASING.md) before recovering from partial publication; never automatically retry an accepted upload or move a release tag.
+Both approaches publish when dispatched. Validate and build locally before authorizing a release. See [RELEASING.md](../RELEASING.md) before recovering from partial publication; never automatically retry an accepted upload or move a release tag.
 
 ## Configuration
 
@@ -101,7 +101,7 @@ Both approaches invoke all callbacks in dry-run mode. The supplied classes perfo
 
 The reusable workflow provides the GitHub Actions environment for release callbacks, including setup, validation, authentication, and artifact preservation. Use its `with:` inputs to choose the gemspec, expected version, Ruby version, commands, and commit identity. Pin the workflow to a reviewed release or commit instead of `master` when available.
 
-- [Release Workflow](actions/release.md): All inputs, defaults, permissions, commands, dry runs, and recovery artifacts.
+- [Release Workflow](actions/release.md): All inputs, defaults, permissions, commands, and recovery artifacts.
 - [`Workflow::Context`](workflow/context.md): Ruby context capture and prepared-version checks used by the action workflow.
 - [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md): Owner-bound OIDC authentication for first publication with a pending trusted publisher.
 
@@ -119,10 +119,10 @@ Version objects read, set, and increment the version stored in project files. Co
 
 ### Release Callbacks
 
-Callbacks define project-specific preparation, publication, and next development iteration work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. All callbacks run in dry-run mode. The supplied classes skip remote writes, but custom callback code must be safe and trusted.
+Callbacks define project-specific preparation, publication, and next development iteration work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. Custom callback code executes with release privileges and must be trusted.
 
 - [`Tasks`](tasks.md): Registers `before_release`, `publish`, and `after_release` callbacks and their Rake tasks.
-- [`Release`](release.md): Immutable version, date, and dry-run context passed to callbacks.
+- [`Release`](release.md): Immutable version and date context passed to callbacks.
 
 ### Changelog Objects
 
@@ -134,13 +134,13 @@ Changelog objects prepare release headings and open the next development section
 
 ### Package Objects
 
-Package objects build, verify, and publish the exact release artifact. They perform local builds in dry runs without uploading.
+Package objects build, verify, and publish the exact release artifact.
 
 - [`Package::RubyGem`](package/ruby_gem.md): Gem construction, artifact verification, and RubyGems publication.
 
 ### Source Control Objects
 
-Source control objects manage release history independently of the repository's hosting provider. They perform local commits and tags in dry runs without pushing.
+Source control objects manage release history independently of the repository's hosting provider.
 
 - [`SourceControl::Git`](source_control/git.md): Release and next development iteration commits, tags, recovery bundles, branch checks, and atomic release pushes.
 

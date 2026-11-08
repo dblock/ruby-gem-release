@@ -48,13 +48,6 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
     expect(Open3).to have_received(:capture3).once
   end
 
-  it 'verifies the archive but does not run an uploader in dry-run mode', :aggregate_failures do
-    package.build!(release)
-    dry = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today, dry_run: true)
-    allow(Open3).to receive(:capture3).and_raise('Unexpected uploader')
-    expect(package.publish!(dry)).to end_with('release-fixture-1.2.3.gem')
-  end
-
   it 'rejects an archive whose version differs from the release' do
     expect { package.build!(release.with_version('2.0.0')) }.to raise_error(/Built version 1.2.3 does not match 2.0.0/)
   end

@@ -13,18 +13,22 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   let(:workflow) { YAML.load_file('.github/workflows/release.yml') }
   let(:environment) do
     {
-      'BUNDLE_GEMFILE' => File.expand_path('Gemfile'),
-      'RUBYLIB' => File.expand_path('lib'),
+      'BUNDLE_GEMFILE' => ENV.fetch('RELEASE_CONSUMER_GEMFILE', File.expand_path('Gemfile')),
+      'RUBYLIB' => ENV.fetch('RELEASE_CONSUMER_LIB', File.expand_path('lib')),
+      'RELEASE_TEST_LIB' => ENV.fetch('RELEASE_CONSUMER_LIB', File.expand_path('lib')),
+      'GEM_HOME' => ENV.fetch('RELEASE_CONSUMER_GEM_HOME', Gem.dir),
+      'GEM_PATH' => ENV.fetch('RELEASE_CONSUMER_GEM_PATH', Gem.path.join(File::PATH_SEPARATOR)),
       'RUNNER_TEMP' => directory,
       'GITHUB_ENV' => File.join(directory, 'environment'),
       'GITHUB_REPOSITORY' => 'owner/example',
       'DEFAULT_BRANCH' => 'master',
+      'GITHUB_REF' => 'refs/heads/master',
       'INPUT_VERSION' => '',
       'INPUT_GEMSPEC' => '',
       'GIT_USER_NAME' => 'Fixture',
       'GIT_USER_EMAIL' => 'fixture@example.com',
       'RUBYGEMS_OWNER' => '',
-      'DRY_RUN' => 'true'
+      'RELEASE_TEST_REMOTE' => remote
     }
   end
 
@@ -50,7 +54,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       end
     RUBY
     File.write(File.join(checkout, 'CHANGELOG.md'), consumer_changelog)
-    File.write(File.join(checkout, 'Rakefile'), "#{consumer_rakefile}\n#{remote_write_guard}")
+    File.write(File.join(checkout, 'Rakefile'), "#{consumer_rakefile}\n#{publication_stub}")
     run_git('init', '--bare', '--quiet', '-b', 'master', remote)
     run_git('init', '--quiet', '-b', 'master', checkout)
     run_git('-C', checkout, 'add', '.')
@@ -61,15 +65,28 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
   after { FileUtils.remove_entry(directory) }
 
-  def remote_write_guard
+  def publication_stub
     <<~RUBY
-      module RejectRemoteWrites
+      loaded = $LOADED_FEATURES.find { |path| path.end_with?('/ruby-gem-release/tasks.rb') }
+      expected = File.join(ENV.fetch('RELEASE_TEST_LIB'), 'ruby-gem-release/tasks.rb')
+      raise 'Consumer loaded the wrong release library: ' + loaded.to_s unless loaded && File.realpath(loaded) == File.realpath(expected)
+      module StubPublication
         def capture3(*command)
-          raise 'Unexpected remote write in dry run' if command.include?('push') || command.first == 'gh'
-          super
+          upload = command[0, 4] == [Gem.ruby, '-S', 'gem', 'push']
+          return super unless upload || command.first == 'gh'
+
+          tags, = super('git', '--git-dir', ENV.fetch('RELEASE_TEST_REMOTE'), 'tag')
+          raise 'Tag pushed before package publication' if upload && !tags.empty?
+          raise 'GitHub Release attempted before tag push' if !upload && tags.strip != 'v0.1.0'
+          File.open(File.join(ENV.fetch('RUNNER_TEMP'), 'publication.jsonl'), 'a') do |file|
+            file.puts JSON.generate(command)
+          end
+          status = Object.new
+          status.define_singleton_method(:success?) { true }
+          ['published', '', status]
         end
       end
-      Open3.singleton_class.prepend(RejectRemoteWrites)
+      Open3.singleton_class.prepend(StubPublication)
     RUBY
   end
 
@@ -105,8 +122,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   shared_examples 'a local release lifecycle' do |next_heading = '## [Unreleased]'|
-    it 'runs the documented callbacks, preserving the exact artifact without remote writes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
-      initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+    it 'runs the documented callbacks with real Git pushes and isolated package and hosting publication', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
       run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
       run_phase('Capture Release Context')
       run_phase('Prepare Release')
@@ -114,15 +130,24 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       run_phase('Publish Release')
       release_commit = run_git('-C', checkout, 'rev-parse', 'HEAD')
       expect(run_git('-C', checkout, 'rev-parse', 'v0.1.0')).to eq(release_commit)
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(release_commit)
+      expect(run_git('--git-dir', remote, 'rev-parse', 'v0.1.0')).to eq(release_commit)
       expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
       expect(File).to exist(File.join(directory, 'release.bundle'))
       run_phase('Prepare Next Development Iteration')
       expect(run_git('-C', checkout, 'log', '-1', '--format=%s')).to eq('Prepare next development iteration, 0.1.1')
       expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
       expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include(next_heading)
-      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
-      expect(run_git('--git-dir', remote, 'tag')).to eq('')
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(run_git('-C', checkout, 'rev-parse', 'HEAD'))
+      expect(run_git('--git-dir', remote, 'rev-parse', 'v0.1.0')).to eq(release_commit)
       expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+      artifact = File.join(directory, 'example-0.1.0.gem')
+      publications = File.readlines(File.join(directory, 'publication.jsonl')).map { |line| JSON.parse(line) }
+      expect(publications).to eq([
+                                   [Gem.ruby, '-S', 'gem', 'push', artifact],
+                                   ['gh', 'release', 'create', 'v0.1.0', '--repo', 'owner/example', '--verify-tag',
+                                    '--title', 'v0.1.0', '--generate-notes', artifact]
+                                 ])
     end
   end
 
@@ -148,6 +173,26 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     it_behaves_like 'a local release lifecycle'
   end
 
+  context 'when package publication fails' do
+    def publication_stub
+      super.sub('status.define_singleton_method(:success?) { true }', 'status.define_singleton_method(:success?) { false }')
+    end
+
+    it 'retains recovery artifacts without pushing the release', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise a failed publication in separate workflow processes.
+      initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+      run_phase('Capture Release Context')
+      run_phase('Prepare Release')
+      run_phase('Resolve Prepared Version')
+      expect { run_phase('Publish Release') }.to raise_error(/Package command failed/)
+      expect(File).to exist(File.join(directory, 'release.gem'))
+      expect(File).to exist(File.join(directory, 'release.json'))
+      expect(File).to exist(File.join(directory, 'release.bundle'))
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
+      expect(run_git('--git-dir', remote, 'tag')).to eq('')
+      expect(File.readlines(File.join(directory, 'publication.jsonl')).length).to eq(1)
+    end
+  end
+
   context 'with the composite action' do
     let(:workflow) { YAML.load_file('action.yml') }
 
@@ -161,21 +206,21 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
     it_behaves_like 'a local release lifecycle'
 
-    it 'uses string-valued dry-run gates and failure-aware artifact preservation', :aggregate_failures do
-      expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ inputs.dry-run == 'false' && inputs.rubygems-owner == '' }}")
-      expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ inputs.dry-run == 'false' && inputs.rubygems-owner != '' }}")
+    it 'selects owner-aware authentication and preserves artifacts after failures', :aggregate_failures do
+      expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ inputs.rubygems-owner == '' }}")
+      expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ inputs.rubygems-owner != '' }}")
       expect(steps.find { |item| item['name'] == 'Preserve Release Artifacts' }.fetch('if')).to include('always()')
     end
   end
 
-  it 'invokes publication in dry runs and preserves artifacts after a failed callback', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify failure-aware artifact preservation and the authentication gate.
+  it 'invokes publication and preserves artifacts after a failed callback', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify failure-aware artifact preservation and the authentication gate.
     steps = workflow.fetch('jobs').fetch('release').fetch('steps')
     publish = steps.find { |item| item['name'] == 'Publish Release' }
     artifacts = steps.find { |item| item['name'] == 'Preserve Release Artifacts' }
     expect(publish).not_to have_key('if')
     expect(artifacts.fetch('if')).to include('always()')
     expect(steps.index(artifacts)).to be > steps.index(publish)
-    expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ !inputs.dry-run && inputs.rubygems-owner == '' }}")
-    expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ !inputs.dry-run && inputs.rubygems-owner != '' }}")
+    expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ inputs.rubygems-owner == '' }}")
+    expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ inputs.rubygems-owner != '' }}")
   end
 end

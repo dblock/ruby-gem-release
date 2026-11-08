@@ -54,13 +54,6 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
     ENV['GITHUB_REPOSITORY'] = original if original
   end
 
-  it 'does not invoke gh for a dry-run release', :aggregate_failures do
-    dry = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today, dry_run: true)
-    publisher.publish!(dry, artifacts: [artifact])
-    expect(Open3).not_to have_received(:capture3)
-    expect(dry.with_version('2.0.0').with_next_version('2.0.1')).to be_dry_run
-  end
-
   it 'attaches the package-owned exact artifact' do
     package = instance_double(RubyGemRelease::Package::RubyGem, artifact: artifact)
     publisher.publish!(release, package: package)

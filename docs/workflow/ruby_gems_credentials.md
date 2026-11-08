@@ -12,6 +12,6 @@ Performs an owner-bound RubyGems Trusted Publishing exchange for a new gem's fir
 
 The task `release:workflow:credentials` reads `RUBYGEMS_OWNER`. GitHub Actions supplies `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, and `GITHUB_ENV`; the caller must grant `id-token: write`. It writes no stored API-key secret or local credential file.
 
-## Errors and Dry Runs
+## Errors
 
-Requests use HTTPS and bounded connection/read timeouts, without retries. Invalid IDs, failed requests, malformed JSON, and invalid tokens fail before credentials are exported. Response bodies are not included in errors because they may contain credentials. The workflow skips this task in dry runs; calling it directly requests credentials and is not a dry-run operation.
+Requests use HTTPS and bounded connection/read timeouts, without retries. Invalid IDs, failed requests, malformed JSON, and invalid tokens fail before credentials are exported. Response bodies are not included in errors because they may contain credentials.
