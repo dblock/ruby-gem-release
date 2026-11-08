@@ -19,7 +19,7 @@ Requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
 
 ### 1. Configure Your Gem
 
-Add `ruby-gem-release` (`~> 0.2.0`) to the development dependencies and install the standard workflow in your Rakefile. Choose your version file and changelog format explicitly:
+Add `ruby-gem-release` to the development dependencies and install the standard workflow in your Rakefile. Choose your version file and changelog format explicitly:
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'
