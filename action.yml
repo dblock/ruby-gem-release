@@ -39,18 +39,33 @@ inputs:
   bump:
     description: Command to prepare, commit, and push the next development iteration.
     default: bundle exec rake release:after_release
+  success:
+    description: Command to run after the release and next development iteration succeed.
+    default: bundle exec rake release:success
+  failure:
+    description: Command to run after a release job failure.
+    default: bundle exec rake release:failure
 
 runs:
   using: composite
   steps:
     - uses: actions/checkout@v7
+      id: checkout
       with:
         fetch-depth: 0
     - uses: ruby/setup-ruby@v1
+      id: setup_ruby
       with:
         ruby-version: ${{ inputs.ruby-version }}
         bundler-cache: true
+    - name: Enable Release Failure Callback
+      id: enable_failure_callback
+      shell: bash
+      run: |
+        rm -f "$RUNNER_TEMP/ruby-gem-release-failure.json"
+        echo 'enabled=true' >> "$GITHUB_OUTPUT"
     - name: Configure Release Inputs
+      id: configure_release_inputs
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.version }}
@@ -62,35 +77,43 @@ runs:
         TZ: ${{ inputs.timezone }}
       run: bundle exec rake release:workflow:configure
     - name: Capture Release Context
+      id: capture_release_context
       shell: bash
       run: bundle exec rake release:workflow:capture
     - name: Prepare Release
+      id: prepare_release
       shell: bash
       env:
         COMMAND: ${{ inputs.prepare }}
       run: bash -euo pipefail -c "$COMMAND"
     - name: Resolve Prepared Version
+      id: resolve_prepared_version
       shell: bash
       run: bundle exec rake release:workflow:resolve
     - name: Validate Release
+      id: validate_release
       shell: bash
       env:
         COMMAND: ${{ inputs.validate }}
       run: bash -euo pipefail -c "$COMMAND"
     - name: Authenticate to RubyGems
+      id: authenticate_rubygems
       if: ${{ inputs.rubygems-owner == '' }}
       uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
     - name: Authenticate Pending Publisher
+      id: authenticate_pending_publisher
       if: ${{ inputs.rubygems-owner != '' }}
       shell: bash
       run: bundle exec rake release:workflow:credentials
     - name: Publish Release
+      id: publish_release
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         COMMAND: ${{ inputs.publish }}
       run: bash -euo pipefail -c "$COMMAND"
     - name: Preserve Release Artifacts
+      id: preserve_release_artifacts
       if: ${{ always() && env.RELEASE_VERSION != '' }}
       uses: actions/upload-artifact@v7
       with:
@@ -102,7 +125,27 @@ runs:
         if-no-files-found: warn
         retention-days: 30
     - name: Prepare Next Development Iteration
+      id: prepare_next_development_iteration
       shell: bash
       env:
         COMMAND: ${{ inputs.bump }}
+      run: bash -euo pipefail -c "$COMMAND"
+    - name: Run Release Success Callback
+      id: release_success_callback
+      if: success()
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.success }}
+      run: bash -euo pipefail -c "$COMMAND"
+    - name: Determine Release Failure Phase
+      if: ${{ failure() && steps.enable_failure_callback.outcome == 'success' }}
+      shell: bash
+      env:
+        RELEASE_STEPS: ${{ toJSON(steps) }}
+      run: bundle exec rake release:workflow:failure_phase
+    - name: Run Release Failure Callback
+      if: ${{ failure() && steps.enable_failure_callback.outcome == 'success' }}
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.failure }}
       run: bash -euo pipefail -c "$COMMAND"

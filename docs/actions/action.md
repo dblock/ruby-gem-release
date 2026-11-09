@@ -56,6 +56,8 @@ The optional `version` input selects a release version in standard preparation. 
 
 The optional `timezone` input defaults to `UTC`; set `timezone: America/New_York` for Eastern Time, including daylight saving changes. This input requires gem and action version `0.3.0` or newer, rather than the older pinned example above. The action validates the identifier and exports `TZ`, affecting subsequent release steps and any later steps in the caller's job. See [Timezone](release.md#timezone) for date capture and service timestamp behavior.
 
+The optional `success` and `failure` command inputs default to `bundle exec rake release:success` and `bundle exec rake release:failure`. Success runs after publication and the next development iteration succeed. Failure runs after a failed phase inside the composite action once Ruby setup has completed and receives a `RubyGemRelease::ReleaseFailure` with a captured Ruby exception when available. It cannot observe or handle failures in caller steps that run outside the action. See [Success and Failure Callbacks](release.md#success-and-failure-callbacks).
+
 ## Trusted Publishing
 
 Register a RubyGems trusted publisher for the calling repository, its own workflow filename (`release.yml` above), and environment `release`. Leave the optional Workflow Repository fields blank: the composite action is a step in your workflow, not a reusable workflow from another repository.

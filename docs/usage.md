@@ -30,9 +30,11 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-This installs the before-release, publication, next development iteration, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development iteration commit.
+This installs the before-release, publication, next development iteration, success, failure, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development iteration commit.
 
 The default workflow releases the current version in your version file; it increments the patch version only afterward. Set the optional workflow `version` input to choose a different release version. The standard workflow calls your version object's `set!` method before preparing the changelog, preserving the initial version in the release context. Custom preparation callbacks retain control of their own file updates.
+
+Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` for notifications; success runs after the next development iteration succeeds, while failure receives a `RubyGemRelease::ReleaseFailure` with a phase, captured error when available, and optional release context.
 
 The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
@@ -91,6 +93,12 @@ RubyGemRelease::Tasks.install do |tasks|
     git.commit_next!(next_release)
     git.push!
   end
+  tasks.success { |release| puts "Published #{release.version}" }
+  tasks.failure do |failure|
+    version = failure.release&.version || 'version unavailable'
+    error = failure.error&.original_class || 'details unavailable'
+    warn "Release failed during #{failure.phase} for #{version}: #{error}"
+  end
 end
 ```
 
@@ -132,7 +140,7 @@ Version objects read, set, and increment the version stored in project files. Co
 
 Callbacks define project-specific preparation, publication, and next development iteration work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. Custom callback code executes with release privileges and must be trusted.
 
-- [`Tasks`](tasks.md): Registers `before_release`, `publish`, and `after_release` callbacks and their Rake tasks.
+- [`Tasks`](tasks.md): Registers preparation, publication, next-development-iteration, success, and failure callbacks and their Rake tasks.
 - [`Release`](release.md): Immutable version and date context passed to callbacks.
 
 ### Changelog Objects

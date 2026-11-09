@@ -15,7 +15,7 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
   after { FileUtils.remove_entry(directory) }
 
   [1, 3, 4, 5, 6].each do |level|
-    it "preserves level #{level} headings across release and next-section preparation" do # rubocop:disable RSpec/ExampleLength -- Exercise both phases and unchanged history.
+    it "preserves level #{level} headings across release and next-section preparation" do
       prefix = '#' * level
       history = "#{prefix} 0.9.0 (2026/11/06)\n\n* Older change.\n"
       File.write(path, "#{prefix} 1.0.0 (Next)\n\n* Change.\n* Your contribution here.\n\n#{history}")
@@ -43,7 +43,7 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     end
   end
 
-  it 'releases an Intridea section and opens the next section', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check both phases.
+  it 'releases an Intridea section and opens the next section', :aggregate_failures do
     File.write(path, "# Changelog\n\n## 1.0.0 (Next)\n\n- Change.\n- Your contribution here.\n")
     updater = described_class.new(path: path)
     updater.release!(release)
@@ -82,7 +82,7 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(File.binread(path)).to eq(content)
   end
 
-  it 'rejects missing or duplicate placeholders without modifying the file', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify both invalid inputs leave the file unchanged.
+  it 'rejects missing or duplicate placeholders without modifying the file', :aggregate_failures do
     ['', "- Your contribution here.\n- Your contribution here.\n"].each do |section|
       content = "## 1.0.0 (Next)\n\n#{section}"
       File.write(path, content)

@@ -1,3 +1,5 @@
+inherit_from: .rubocop_todo.yml
+
 inherit_mode:
   merge:
     - Include
@@ -49,9 +51,8 @@ YAML/Lint/DuplicateKey:
 Spellcheck:
   DictionaryFiles:
     en:
-      - gem:rubocop-spellcheck/data/en/en.dic
-      - .spellcheck.txt
-
+    - gem:rubocop-spellcheck/data/en/en.dic
+    - ".spellcheck.txt"
 Spellcheck/Spelling:
   Exclude:
     - LICENSE.txt
@@ -76,6 +77,24 @@ Naming/FileName:
   Enabled: false
 
 Metrics/BlockLength:
+  Enabled: false
+
+Metrics/ClassLength:
+  Enabled: false
+
+Metrics/ParameterLists:
+  Enabled: false
+
+RSpec/DescribeClass:
+  Enabled: false
+
+RSpec/ExampleLength:
+  Enabled: false
+
+RSpec/MultipleExpectations:
+  Enabled: false
+
+Style/HashExcept:
   Enabled: false
 
 Gemspec/RequiredRubyVersion:

@@ -45,7 +45,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     expect(File.read(environment_file)).to include("RELEASE_DATE=2026-11-08\n")
   end
 
-  it 'retains the captured calendar date when a later phase crosses midnight' do # rubocop:disable RSpec/ExampleLength -- Advance the clock only after gemspec loading and capture.
+  it 'retains the captured calendar date when a later phase crosses midnight' do
     ENV['TZ'] = 'America/New_York'
     allow(Time).to receive(:now).and_return(Time.utc(2026, 11, 8, 4, 30))
     described_class.new.capture!
@@ -54,7 +54,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     expect(File.readlines(environment_file).grep(/\ARELEASE_DATE=/)).to eq(["RELEASE_DATE=2026-11-07\n"])
   end
 
-  it 'uses the configured timezone across midnight and daylight saving changes', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check winter and summer dates for the same UTC clock time.
+  it 'uses the configured timezone across midnight and daylight saving changes', :aggregate_failures do
     ENV['TZ'] = 'America/New_York'
     [[Time.utc(2026, 11, 8, 4, 30), '2026-11-07'], [Time.utc(2026, 7, 8, 4, 30), '2026-07-08']].each do |instant, date|
       File.write(environment_file, '')
@@ -64,7 +64,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     end
   end
 
-  it 'rejects unknown timezones and traversal before configuring Git or exporting context', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check unsupported and unsafe timezone identifiers.
+  it 'rejects unknown timezones and traversal before configuring Git or exporting context', :aggregate_failures do
     ['Unknown/Zone', '../UTC', '', '-05:00'].each do |timezone|
       ENV['TZ'] = timezone
       expect { described_class.new.capture! }.to raise_error(ArgumentError, /timezone/)
@@ -103,7 +103,7 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     expect { described_class.new.resolve! }.to raise_error(/tag already exists/)
   end
 
-  it 'rejects an already published prepared version before staging or exporting it', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify custom version edits are checked before recording them.
+  it 'rejects an already published prepared version before staging or exporting it', :aggregate_failures do
     File.write('version.rb', "VERSION = '2.0.0'\n")
     http = instance_double(Net::HTTP)
     response = instance_double(Net::HTTPResponse, code: '200')

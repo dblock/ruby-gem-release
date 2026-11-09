@@ -6,7 +6,7 @@ require 'open3'
 require 'tmpdir'
 require 'rubygems/package'
 
-RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeClass -- Exercise the documented consumer through workflow commands.
+RSpec.describe 'Workflow release lifecycle' do
   let(:directory) { Dir.mktmpdir }
   let(:checkout) { File.join(directory, 'checkout') }
   let(:remote) { File.join(directory, 'remote.git') }
@@ -20,6 +20,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       'GEM_PATH' => ENV.fetch('RELEASE_CONSUMER_GEM_PATH', Gem.path.join(File::PATH_SEPARATOR)),
       'RUNNER_TEMP' => directory,
       'GITHUB_ENV' => File.join(directory, 'environment'),
+      'GITHUB_OUTPUT' => File.join(directory, 'output'),
       'GITHUB_REPOSITORY' => 'owner/example',
       'DEFAULT_BRANCH' => 'master',
       'GITHUB_REF' => 'refs/heads/master',
@@ -34,7 +35,20 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   def consumer_rakefile
-    File.read('examples/keep_a_changelog/Rakefile')
+    File.read('examples/keep_a_changelog/Rakefile').sub(
+      "  changelog: RubyGemRelease::Changelog::KeepAChangelog.new\n",
+      "  changelog: RubyGemRelease::Changelog::KeepAChangelog.new,\n  " \
+      "success: #{result_callback('success')},\n  " \
+      "failure: #{result_callback('failure')}\n"
+    )
+  end
+
+  def result_callback(name)
+    if name == 'success'
+      "->(release) { File.write(File.join(ENV.fetch('RUNNER_TEMP'), 'success.json'), JSON.generate([release.version, release.previous_version])) }"
+    else
+      "->(failure) { File.write(File.join(ENV.fetch('RUNNER_TEMP'), 'failure.json'), JSON.generate([failure.release&.version, failure.phase, failure.error&.message])) }"
+    end
   end
 
   def consumer_changelog
@@ -47,6 +61,8 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
 
   before do
     FileUtils.mkdir_p(File.join(checkout, 'lib/example'))
+    File.write(environment.fetch('GITHUB_ENV'), '')
+    File.write(environment.fetch('GITHUB_OUTPUT'), '')
     File.write(File.join(checkout, 'lib/example/version.rb'), "module Example\n  VERSION = '0.1.0'\nend\n")
     File.write(File.join(checkout, 'example.gemspec'), <<~RUBY)
       require_relative 'lib/example/version'
@@ -162,7 +178,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(capture).to be < prepare
     end
 
-    it 'rejects generated Bundler files before changing the version or changelog', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise the real preflight before any release callback.
+    it 'rejects generated Bundler files before changing the version or changelog', :aggregate_failures do
       generate_bundler_artifacts
       original = File.read(File.join(checkout, 'lib/example/version.rb'))
       expect do
@@ -176,7 +192,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
     end
 
-    it 'refuses generated Bundler files created after preparation without staging them', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify the separate publication process cannot sweep up validation output.
+    it 'refuses generated Bundler files created after preparation without staging them', :aggregate_failures do
       run_phase('Capture Release Context')
       run_phase('Prepare Release')
       run_phase('Resolve Prepared Version')
@@ -189,7 +205,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
     end
 
-    it 'rejects a published version before validation, committing, building, tagging, or uploading', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise version resolution in real consumer processes.
+    it 'rejects a published version before validation, committing, building, tagging, or uploading', :aggregate_failures do
       initial = run_git('-C', checkout, 'rev-parse', 'HEAD')
       run_phase('Capture Release Context')
       run_phase('Prepare Release')
@@ -203,7 +219,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
     end
 
-    it 'rechecks RubyGems before committing when the version appears after validation', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify the publication process repeats the preflight without writes.
+    it 'rechecks RubyGems before committing when the version appears after validation', :aggregate_failures do
       run_phase('Capture Release Context')
       run_phase('Prepare Release')
       run_phase('Resolve Prepared Version')
@@ -243,8 +259,9 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   shared_examples 'a local release lifecycle' do |next_heading = '## [Unreleased]'|
-    it 'runs the documented callbacks with real Git pushes and isolated package and hosting publication', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise separate workflow processes and a real consumer.
+    it 'runs the documented callbacks with real Git pushes and isolated package and hosting publication', :aggregate_failures do
       run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
+      run_phase('Enable Release Failure Callback')
       run_phase('Capture Release Context')
       run_phase('Prepare Release')
       run_phase('Resolve Prepared Version')
@@ -258,6 +275,8 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(Gem::Package.new(File.join(directory, 'release.gem')).spec.version.to_s).to eq('0.1.0')
       expect(File).to exist(File.join(directory, 'release.bundle'))
       run_phase('Prepare Next Development Iteration')
+      run_phase('Run Release Success Callback')
+      expect(JSON.parse(File.read(File.join(directory, 'success.json')))).to eq(%w[0.1.0 0.1.0])
       expect(run_git('-C', checkout, 'log', '-1', '--format=%s')).to eq('Prepare next development iteration, 0.1.1')
       expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.1'")
       expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include(next_heading)
@@ -283,7 +302,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       run_git('-C', checkout, 'push', '--quiet', 'origin', 'master')
     end
 
-    it 'stops preparation without changing files, building, tagging, or publishing', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify the failed preparation in real workflow processes.
+    it 'stops preparation without changing files, building, tagging, or publishing', :aggregate_failures do
       initial = run_git('-C', checkout, 'rev-parse', 'HEAD')
       run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
       run_phase('Capture Release Context')
@@ -300,7 +319,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   end
 
   shared_examples 'a selected release version' do
-    it 'releases the selected version and increments from it while retaining the checked-in version', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise both phases in separate processes and real Git remotes.
+    it 'releases the selected version and increments from it while retaining the checked-in version', :aggregate_failures do
       environment['INPUT_VERSION'] = '2.0.0'
       run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
       run_phase('Capture Release Context')
@@ -322,7 +341,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(environment.fetch('RELEASE_PREVIOUS_VERSION')).to eq('0.1.0')
     end
 
-    it 'rejects invalid selections before changing the version or changelog', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify invalid dispatch input leaves the real checkout unchanged.
+    it 'rejects invalid selections before changing the version or changelog', :aggregate_failures do
       environment['INPUT_VERSION'] = '02.0.0'
       expect { run_phase('Capture Release Context') }.to raise_error(/MAJOR.MINOR.PATCH/)
       expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.0'")
@@ -332,7 +351,26 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
   end
 
+  shared_examples 'invokes failure callbacks after a failed phase' do
+    it 'passes available release context and the failed phase to the failure callback', :aggregate_failures do
+      run_phase('Configure Release Inputs') if steps.any? { |item| item['name'] == 'Configure Release Inputs' }
+      run_phase('Enable Release Failure Callback')
+      run_phase('Capture Release Context')
+      run_phase('Prepare Release')
+      environment['RELEASE_TEST_VERSION_STATUS'] = '200'
+      expect { run_phase('Resolve Prepared Version') }.to raise_error(/already published/)
+      environment['RELEASE_STEPS'] = JSON.generate('resolve_prepared_version' => { 'outcome' => 'failure' })
+      run_phase('Determine Release Failure Phase')
+      run_phase('Run Release Failure Callback')
+      failure = JSON.parse(File.read(File.join(directory, 'failure.json')))
+      expect(failure.first(2)).to eq(['0.1.0', 'resolve_prepared_version'])
+      expect(failure.last).to include('already published')
+      expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
+    end
+  end
+
   it_behaves_like 'a local release lifecycle'
+  it_behaves_like 'invokes failure callbacks after a failed phase'
   it_behaves_like 'clean release preparation'
   it_behaves_like 'a selected release version'
   it_behaves_like 'rejects empty release notes', "## [Unreleased]\n\n### Fixed\n\n<!-- pending -->\n\n## [0.0.1] - 2026-11-07\n\n- Older notes.\n"
@@ -360,6 +398,11 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
   context 'with detailed manual callbacks' do
     def consumer_rakefile
       File.read('docs/usage.md').split('## Custom Callbacks').last[/```ruby\n(.*?)```/m, 1]
+          .sub(
+            "  tasks.success { |release| puts \"Published \#{release.version}\" }",
+            "  tasks.success(&#{result_callback('success')})"
+          )
+          .sub(/  tasks.failure do \|failure\|\n.*?\n  end/m, "  tasks.failure(&#{result_callback('failure')})")
     end
 
     it_behaves_like 'a local release lifecycle'
@@ -371,8 +414,9 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       super.sub('status.define_singleton_method(:success?) { true }', 'status.define_singleton_method(:success?) { false }')
     end
 
-    it 'retains recovery artifacts without pushing the release', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise a failed publication in separate workflow processes.
+    it 'retains recovery artifacts without pushing the release', :aggregate_failures do
       initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+      run_phase('Enable Release Failure Callback')
       run_phase('Capture Release Context')
       run_phase('Prepare Release')
       run_phase('Resolve Prepared Version')
@@ -383,6 +427,12 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
       expect(run_git('--git-dir', remote, 'tag')).to eq('')
       expect(File.readlines(File.join(directory, 'publication.jsonl')).length).to eq(1)
+      environment['RELEASE_STEPS'] = JSON.generate('publish_release' => { 'outcome' => 'failure' })
+      run_phase('Determine Release Failure Phase')
+      run_phase('Run Release Failure Callback')
+      failure = JSON.parse(File.read(File.join(directory, 'failure.json')))
+      expect(failure.first(2)).to eq(['0.1.0', 'publish_release'])
+      expect(failure.last).to include('Package command failed')
     end
   end
 
@@ -398,6 +448,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
 
     it_behaves_like 'a local release lifecycle'
+    it_behaves_like 'invokes failure callbacks after a failed phase'
     it_behaves_like 'clean release preparation'
     it_behaves_like 'a selected release version'
     it_behaves_like 'rejects empty release notes', "## [Unreleased]\n\n### Fixed\n\n<!-- pending -->\n\n## [0.0.1] - 2026-11-07\n\n- Older notes.\n"
@@ -424,7 +475,7 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     end
   end
 
-  it 'invokes publication and preserves artifacts after a failed callback', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify failure-aware artifact preservation and the authentication gate.
+  it 'invokes publication and preserves artifacts after a failed callback', :aggregate_failures do
     steps = workflow.fetch('jobs').fetch('release').fetch('steps')
     expect(workflow.dig('jobs', 'release', 'env', 'TZ')).to eq('${{ inputs.timezone }}')
     publish = steps.find { |item| item['name'] == 'Publish Release' }
@@ -434,5 +485,17 @@ RSpec.describe 'Workflow release lifecycle' do # rubocop:disable RSpec/DescribeC
     expect(steps.index(artifacts)).to be > steps.index(publish)
     expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ inputs.rubygems-owner == '' }}")
     expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ inputs.rubygems-owner != '' }}")
+    enable_failure = steps.find { |item| item['name'] == 'Enable Release Failure Callback' }
+    failure_phase = steps.find { |item| item['name'] == 'Determine Release Failure Phase' }
+    failure = steps.find { |item| item['name'] == 'Run Release Failure Callback' }
+    success = steps.find { |item| item['name'] == 'Run Release Success Callback' }
+    expect(steps.index(enable_failure)).to be < steps.index(steps.find { |item| item['name'] == 'Capture Release Context' })
+    expect(failure_phase.dig('env', 'RELEASE_STEPS')).to eq('${{ toJSON(steps) }}')
+    expect(failure_phase.fetch('run')).to eq('bundle exec rake release:workflow:failure_phase')
+    expect(steps.index(failure_phase)).to be < steps.index(failure)
+    expect(failure.fetch('if')).to include("failure() && steps.enable_failure_callback.outcome == 'success'")
+    expect(failure.dig('env', 'RELEASE_FAILURE_PHASE')).to be_nil
+    expect(success.fetch('if')).to eq('success()')
+    expect(steps.index(success)).to be > steps.index(steps.find { |item| item['name'] == 'Prepare Next Development Iteration' })
   end
 end

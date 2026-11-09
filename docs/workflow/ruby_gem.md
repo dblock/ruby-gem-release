@@ -26,10 +26,12 @@ The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github
 
 ## Install Tasks
 
-`install_tasks` registers preparation, publication, next development iteration, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
+`install_tasks` registers preparation, publication, next development iteration, success, failure, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
 
 Preparation updates the changelog with the explicitly read version. Publication checks RubyGems for the prepared version, commits release changes, builds once, tags locally, publishes the package, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
 
+Pass optional `success:` and `failure:` callbacks to the constructor for result notifications. Success receives the published release context after the next development iteration succeeds. Failure receives a `RubyGemRelease::ReleaseFailure` with `phase`, `error`, and optional `release` properties. A captured Ruby exception is reconstructed with its original class name, message, and stack trace; failures only reported by GitHub Actions have no `error`. A failure callback error does not turn a failed workflow into a successful one.
+
 ## Errors
 
-Errors propagate through the tasks and stop the sequence. The default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag publication. Every callback receives an immutable release context; overrides must preserve the publication order and artifact identity.
+Errors propagate through the tasks and stop the sequence. The default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag publication. Preparation, publication, next-development-iteration, and success callbacks receive an immutable release context; the failure callback receives it when available, or `nil` if context capture failed. Overrides must preserve the publication order and artifact identity.

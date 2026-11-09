@@ -6,7 +6,7 @@ require 'open3'
 require 'tmpdir'
 require 'ruby-gem-release/source_control/git'
 
-RSpec.describe 'Workflow Git identity' do # rubocop:disable RSpec/DescribeClass -- Execute workflow configuration.
+RSpec.describe 'Workflow Git identity' do
   let(:directory) { Dir.mktmpdir }
   let(:workflow) { YAML.load_file('.github/workflows/release.yml') }
 

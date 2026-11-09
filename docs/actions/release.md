@@ -19,6 +19,8 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 | `validate`       | String | `bundle exec rake`                             | Validate prepared release files before publication.                                                                                    |
 | `publish`        | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.                 |
 | `bump`           | String | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development iteration through the configured callback.                                              |
+| `success`        | String | `bundle exec rake release:success`             | Run after publication and the next development iteration succeed.                                                                      |
+| `failure`        | String | `bundle exec rake release:failure`             | Run after a release job failure, after Ruby setup.                                                                                     |
 | `git-user-name`  | String | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                         |
 | `git-user-email` | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                        |
 
@@ -41,6 +43,10 @@ The interfaces set `TZ` and capture the local calendar date once as `RELEASE_DAT
 Identifiers must resolve to files under the runner's `/usr/share/zoneinfo` directory. Unknown identifiers, empty values, fixed-offset strings, and traversal paths fail before release preparation or publication. Use a named timezone rather than a fixed offset so daylight saving changes are handled correctly.
 
 The `publish` input replaces the former `github-release` input and controls the whole publication sequence. To disable only GitHub Release creation, set `hosting: nil` in the standard workflow or omit `github.publish!` from manual callbacks rather than disabling `publish`.
+
+### Success and Failure Callbacks
+
+The `success` command runs after the publication and next development iteration phases succeed. The `failure` command runs after a failed phase once Ruby setup has completed; its callback receives a `RubyGemRelease::ReleaseFailure` with the failed phase, an exception captured from a Ruby task when available, and the optional release context. Failures reported only by GitHub Actions have no exception object. Both default to optional Rake callbacks and are no-ops when none are registered. Failure before Ruby setup or a job blocked by environment protection cannot invoke the callback.
 
 ## Permissions and Authentication
 
@@ -69,6 +75,7 @@ Commands run through `bash -euo pipefail`. Overrides replace the corresponding p
 | Variable                          | Availability     | Meaning                                                              |
 | ---                               | ---              | ---                                                                  |
 | `INPUT_VERSION`                   | All phases       | Optional selected release version.                                   |
+| `RELEASE_FAILURE_PHASE`           | Failure callback | Failed workflow step when available.                                 |
 | `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                              |
 | `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication. |
 | `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                      |

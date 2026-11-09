@@ -29,7 +29,7 @@ module RubyGemRelease
         uri = URI(ENV.fetch('ACTIONS_ID_TOKEN_REQUEST_URL'))
         raise ArgumentError, 'OIDC request URL must use HTTPS' unless uri.is_a?(URI::HTTPS)
 
-        query = URI.decode_www_form(uri.query || '').reject { |name, _value| name == 'audience' } # rubocop:disable Style/HashExcept -- Query pairs may contain duplicate keys.
+        query = URI.decode_www_form(uri.query || '').reject { |name, _value| name == 'audience' }
         uri.query = URI.encode_www_form(query + [['audience', 'rubygems.org']])
         request = Net::HTTP::Get.new(uri)
         request['Authorization'] = "Bearer #{ENV.fetch('ACTIONS_ID_TOKEN_REQUEST_TOKEN')}"

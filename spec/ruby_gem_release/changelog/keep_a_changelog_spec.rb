@@ -15,7 +15,7 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
   after { FileUtils.remove_entry(directory) }
 
   [1, 3, 6].each do |level|
-    it "preserves level #{level} headings across release and next-section preparation" do # rubocop:disable RSpec/ExampleLength -- Exercise both phases and unchanged history.
+    it "preserves level #{level} headings across release and next-section preparation" do
       prefix = '#' * level
       history = "#{prefix} [0.9.0] - 2026-11-06\n\n- Older change.\n"
       File.write(path, "#{prefix} [Unreleased]\n\n- Change.\n\n#{history}")
@@ -33,7 +33,7 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
     expect(File.read(path)).to eq(content)
   end
 
-  it 'releases Keep a Changelog and opens the next section', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check both phases.
+  it 'releases Keep a Changelog and opens the next section', :aggregate_failures do
     File.write(path, "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Feature.\n")
     updater = described_class.new(path: path)
     updater.release!(release)
@@ -50,7 +50,7 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
     expect(File.read(path)).to eq(content)
   end
 
-  it 'updates comparison references across both phases while preserving history', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify both phases and unchanged historical references.
+  it 'updates comparison references across both phases while preserving history', :aggregate_failures do
     historical = "[0.9.0]: https://github.com/example/gem/compare/v0.8.0...v0.9.0\n[docs]: https://example.com\n"
     File.write(path, "## [Unreleased]\n\n- Change.\n\n[Unreleased]: https://github.com/example/gem/compare/v0.9.0...master\n#{historical}")
     updater = described_class.new(path: path)

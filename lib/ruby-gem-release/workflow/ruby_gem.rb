@@ -8,12 +8,15 @@ require_relative '../hosting/github_release'
 module RubyGemRelease
   module Workflow
     class RubyGem
-      def initialize(version:, changelog:, package: Package::RubyGem.new, git: SourceControl::Git.new, hosting: Hosting::GitHubRelease.new)
+      def initialize(version:, changelog:, package: Package::RubyGem.new, git: SourceControl::Git.new, hosting: Hosting::GitHubRelease.new,
+                     success: nil, failure: nil)
         @version = version
         @changelog = changelog
         @package = package
         @git = git
         @hosting = hosting
+        @success = success
+        @failure = failure
       end
 
       def install_tasks
@@ -21,6 +24,8 @@ module RubyGemRelease
           tasks.before_release { |release| prepare_release(release) }
           tasks.publish { |release| publish(release) }
           tasks.after_release { |release| prepare_next(release) }
+          tasks.success(&@success) if @success
+          tasks.failure(&@failure) if @failure
         end
       end
 

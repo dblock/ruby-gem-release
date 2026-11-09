@@ -1,10 +1,10 @@
 # `RubyGemRelease::Tasks`
 
-Registers optional preparation, publication, and next development iteration callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
+Registers optional preparation, publication, next development iteration, success, and failure callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
 
 ## Install
 
-Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all three callback tasks are registered and do nothing. It also registers `release:workflow:capture` and `release:workflow:resolve` for [Workflow::Context](workflow/context.md) context checks.
+Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all five callback tasks are registered and do nothing. It also registers `release:workflow:capture`, `release:workflow:resolve`, and `release:workflow:failure_phase` for [Workflow::Context](workflow/context.md) checks.
 
 The composite action first invokes `release:workflow:configure` to validate and export its input environment for later steps. The reusable workflow supplies the same values through its job environment.
 
@@ -20,9 +20,19 @@ The default `prepare` command invokes `bundle exec rake release:before_release`.
 
 The default `bump` command invokes `bundle exec rake release:after_release`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
 
+## Success and Failure
+
+`tasks.success` runs only after publication and the next development iteration have succeeded. It receives the published [Release](release.md) context. Use it for success notifications after the release commits are pushed.
+
+The Actions interfaces invoke `tasks.failure` when release processing fails after Ruby and Bundler setup. It receives a `RubyGemRelease::ReleaseFailure` object with `phase`, `error`, and optional `release` properties. `error` is a reconstructed `RubyGemRelease::ReleaseFailure::CapturedError` with the original exception class name, message, and stack trace when a Ruby task captured it; failures reported only by GitHub Actions have `error: nil`. The original job remains failed if the failure callback also raises.
+
+`phase` is the failed GitHub Actions step ID, such as `publish_release`, or `unknown` when unavailable. When multiple steps fail, the step with a captured Ruby exception is preferred; otherwise, one of the failed steps is reported without assuming execution order.
+
+The reusable workflow and composite action run `bundle exec rake release:success` after a successful release and next development iteration, or `bundle exec rake release:failure` after a failed phase. Override the `success` or `failure` command input when a different command is needed. A failure before Ruby setup completes, or environment protection preventing the job from starting, cannot invoke the failure callback.
+
 ## Errors
 
-Each callback requires a block and can be registered only once. Exceptions fail the task. Custom code executes with release privileges and must be trusted. Required environment values must contain numeric versions and a date in `YYYY-MM-DD` format; missing values fail rather than guessing a version or date.
+Each registered callback requires a block and can be registered only once. Exceptions fail the task. Custom code executes with release privileges and must be trusted. Required environment values must contain numeric versions and a date in `YYYY-MM-DD` format; missing values fail rather than guessing a version or date.
 
 ## Publish
 

@@ -49,7 +49,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     git.tag!(context)
   end
 
-  it 'pushes the exact release commit and tag, then only the next commit', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise both local Git push boundaries.
+  it 'pushes the exact release commit and tag, then only the next commit', :aggregate_failures do
     allow(Open3).to receive(:capture3).and_call_original
     prepare_tag
     release_commit = git.head
@@ -89,7 +89,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect { git.tag!(release) }.to raise_error(/tag already exists/)
   end
 
-  it 'rejects a concurrent update before pushing the next development iteration commit' do # rubocop:disable RSpec/ExampleLength -- Publish locally before exercising the next-commit concurrency check.
+  it 'rejects a concurrent update before pushing the next development iteration commit' do
     prepare_tag
     git.push!
     git.stage_changes! { File.write('version', '1.2.4') }
@@ -117,7 +117,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(git.head).to eq(initial)
   end
 
-  it 'stages only callback edits, including unusual paths, additions, renames, and deletions', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise literal paths and both sides of a rename in a real index.
+  it 'stages only callback edits, including unusual paths, additions, renames, and deletions', :aggregate_failures do
     paths = ['README.md', "line\nbreak", ':glob', '-option']
     git.stage_changes! do
       paths.each { |path| File.write(path, 'custom release edit') }
@@ -138,7 +138,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(git.head).to eq(initial)
   end
 
-  it 'rejects unrelated late index changes without disturbing them', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify both the existing index and commit remain untouched.
+  it 'rejects unrelated late index changes without disturbing them', :aggregate_failures do
     git.stage_changes! { File.write('version', 'release edit') }
     File.write('unrelated', 'late output')
     command('add', 'unrelated')
@@ -162,7 +162,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(git.head).to eq(initial)
   end
 
-  it 'commits custom version, changelog, and README preparation across Git instances', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Exercise custom file conventions across separate Git objects.
+  it 'commits custom version, changelog, and README preparation across Git instances', :aggregate_failures do
     git.stage_changes! do
       File.write('version', '2.0.0')
       File.write('CHANGELOG.md', 'custom release notes')

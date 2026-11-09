@@ -1,9 +1,7 @@
 Bundler
 changelog
-Coveralls
 dblock
 gemspec
-GitHub
 HTTPS
 JSON
 LCOV
@@ -16,7 +14,6 @@ PRs
 Rakefile
 README
 rebase
-reviewable
 ruleset
 rulesets
 RSpec

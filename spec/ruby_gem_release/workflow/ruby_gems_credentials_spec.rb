@@ -37,7 +37,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
     end
   end
 
-  it 'exchanges an owner-bound token and masks credentials before exporting them', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify both HTTP requests and credential export.
+  it 'exchanges an owner-bound token and masks credentials before exporting them', :aggregate_failures do
     expect { described_class.new(owner: '123').configure! }
       .to output("::add-mask::test-oidc-token\n::add-mask::test-api-key\n").to_stdout
     expect(requests.first.path).to eq('/token?existing=value&audience=rubygems.org')

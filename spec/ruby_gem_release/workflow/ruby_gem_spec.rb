@@ -60,7 +60,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     %w[before_release publish after_release].each { |phase| Rake::Task["release:#{phase}"].invoke }
   end
 
-  it 'wires default objects in the existing release order without running during installation', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check the complete lifecycle sequence.
+  it 'wires default objects in the existing release order without running during installation', :aggregate_failures do
     install
     expect(events).to be_empty
     run_callbacks
@@ -71,7 +71,23 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
                          ])
   end
 
-  it 'preserves the initial context across version copies', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check preparation and next development iteration contexts.
+  it 'runs configured success and failure callbacks with the appropriate release context', :aggregate_failures do
+    received = []
+    install = described_class.new(
+      version: version,
+      changelog: objects.fetch(:changelog),
+      success: ->(release) { received << [:success, release] },
+      failure: ->(failure) { received << [:failure, failure] }
+    )
+    install.install_tasks
+    Rake::Task['release:success'].invoke
+    Rake::Task['release:failure'].invoke
+    expect(received.map(&:first)).to eq(%i[success failure])
+    expect(received.first.last).to have_attributes(version: '2.0.0', previous_version: '1.2.3')
+    expect(received.last.last).to have_attributes(phase: 'unknown', error: nil, release: have_attributes(version: '2.0.0', previous_version: '1.2.3'))
+  end
+
+  it 'preserves the initial context across version copies', :aggregate_failures do
     received = []
     allow(objects.fetch(:changelog)).to receive(:release!) { |release| received << release }
     allow(objects.fetch(:changelog)).to receive(:prepare_next!) { |release| received << release }
@@ -85,7 +101,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(objects.fetch(:hosting)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
   end
 
-  it 'sets a selected version before preparing the changelog and preserves the previous version', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify setter ordering and the copied changelog context.
+  it 'sets a selected version before preparing the changelog and preserves the previous version', :aggregate_failures do
     ENV['INPUT_VERSION'] = '3.0.0'
     allow(version).to receive(:set!).with('3.0.0') { events << :set }
     allow(version).to receive(:read).and_return('3.0.0')
@@ -95,7 +111,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(objects.fetch(:changelog)).to have_received(:release!).with(have_attributes(version: '3.0.0', previous_version: '1.2.3'))
   end
 
-  it 'sets a selected version even when changelog updates are disabled', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check version selection independently of changelog updates.
+  it 'sets a selected version even when changelog updates are disabled', :aggregate_failures do
     ENV['INPUT_VERSION'] = '3.0.0'
     allow(version).to receive(:set!).with('3.0.0')
     described_class.new(version: version, changelog: nil).install_tasks
@@ -104,7 +120,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(objects.fetch(:changelog)).not_to have_received(:release!)
   end
 
-  it 'rejects invalid selected versions before invoking the setter or changelog', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Verify invalid input fails before callbacks or file edits.
+  it 'rejects invalid selected versions before invoking the setter or changelog', :aggregate_failures do
     ENV['INPUT_VERSION'] = '03.0.0'
     allow(version).to receive(:set!)
     install
@@ -120,7 +136,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect { Rake::Task['release:before_release'].invoke }.to raise_error(ArgumentError, /must implement set!/)
   end
 
-  it 'uses supplied publication objects instead of constructing defaults', :aggregate_failures do # rubocop:disable RSpec/ExampleLength -- Check all three injectable defaults.
+  it 'uses supplied publication objects instead of constructing defaults', :aggregate_failures do
     install(**objects.except(:changelog))
     Rake::Task['release:publish'].invoke
     expect(RubyGemRelease::Package::RubyGem).not_to have_received(:new)
