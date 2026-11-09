@@ -36,6 +36,11 @@ RSpec.describe ReleaseVersion do
     expect(File.read(readme_file)).to include('release.yml@v1.2.3')
   end
 
+  it 'repeats a bump from the same release without changing the version or pins again' do
+    2.times { expect(version.increment!(from: '1.2.3')).to eq('1.2.4') }
+    expect(File.read(readme_file)).to include('release.yml@v1.2.3', 'ruby-gem-release@v1.2.3')
+  end
+
   it 'fails before incrementing if README cannot be read', :aggregate_failures do
     File.delete(readme_file)
     expect { version.increment! }.to raise_error(Errno::ENOENT)

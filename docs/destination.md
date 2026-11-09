@@ -6,9 +6,11 @@ The base for package registry destinations. A destination owns registry authenti
 
 Implement `check_version!(name:, version:)` to reject versions that cannot be published, propagating registry lookup failures instead of treating them as absence.
 
-Implement `publish!(release, package:)` to obtain the verified artifact through `package.artifact(release)`, verify its identity, perform the final registry availability check, and publish that exact artifact without rebuilding. Do not retry an ambiguous upload automatically.
+Implement read-only `published?(release, package:)`: return true only when the registry proves that the exact archive is present, false only for confirmed absence, and raise on mismatches or unverifiable responses. The base raises rather than assuming success.
 
-The standard workflow checks the configured destination before committing, builds once, tags locally, publishes to the registry, pushes the commit and tag atomically, and then creates the optional hosted release. A destination failure stops before the Git push and hosted release; recovery artifacts remain available.
+Implement `publish!(release, package:)` to verify existing publication first, skip an exact match, and upload only a confirmed missing artifact through `package.artifact(release)`. Never rebuild, overwrite, or blindly retry an ambiguous upload.
+
+The standard workflow commits, builds reproducibly, tags locally, verifies or publishes to the registry, pushes commit and tag atomically, and updates the optional hosted release. A destination failure stops before the Git push and hosted release; artifacts remain available for manual inspection.
 
 ## Authentication
 

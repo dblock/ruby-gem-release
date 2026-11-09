@@ -40,12 +40,9 @@ module PortableConsumer
   class Provider < RubyGemRelease::ExecutionProvider
     def export(values)
       super
-      File.write(fetch('CONSUMER_ENVIRONMENT'), JSON.generate(values))
-    end
-
-    def output(values)
-      super
-      File.write(fetch('CONSUMER_OUTPUT'), JSON.generate(outputs))
+      path = fetch('CONSUMER_ENVIRONMENT')
+      previous = File.file?(path) ? JSON.parse(File.read(path)) : {}
+      File.write(path, JSON.generate(previous.merge(values)))
     end
 
     def failed_steps
@@ -63,16 +60,39 @@ module PortableConsumer
     end
 
     def publish!(release, package:)
+      return if published?(release, package: package)
+
       path = package.artifact(release)
       PortableConsumer.record('publish', path: path, sha256: Digest::SHA256.file(path).hexdigest, tags: PortableConsumer.remote_tags)
       raise 'Registry rejected release' if ENV['CONSUMER_FAIL_PUBLICATION'] == 'true'
+
+      File.write(File.join(ENV.fetch('RELEASE_TEST_REMOTE'), 'registry.json'), JSON.generate(sha: Digest::SHA256.file(path).hexdigest))
+    end
+
+    def published?(release, package:)
+      path = File.join(ENV.fetch('RELEASE_TEST_REMOTE'), 'registry.json')
+      return false unless File.file?(path)
+      raise 'Published checksum differs' unless JSON.parse(File.read(path)).fetch('sha') == Digest::SHA256.file(package.artifact(release)).hexdigest
+
+      true
     end
   end
 
   class Hosting
     def publish!(release, package:)
+      return if published?(release, package: package)
+
       path = package.artifact(release)
       PortableConsumer.record('hosting', path: path, sha256: Digest::SHA256.file(path).hexdigest, tags: PortableConsumer.remote_tags, notes: release.notes)
+      File.write(File.join(ENV.fetch('RELEASE_TEST_REMOTE'), 'hosting.json'), JSON.generate(sha: Digest::SHA256.file(path).hexdigest))
+    end
+
+    def published?(release, package:)
+      path = File.join(ENV.fetch('RELEASE_TEST_REMOTE'), 'hosting.json')
+      return false unless File.file?(path)
+      raise 'Hosted checksum differs' unless JSON.parse(File.read(path)).fetch('sha') == Digest::SHA256.file(package.artifact(release)).hexdigest
+
+      true
     end
   end
 
@@ -86,8 +106,9 @@ module PortableConsumer
 
   module LocalCommands
     def capture3(*command)
-      ruby = command.first == Gem.ruby && (command[1] == '-rrubygems' || command[1, 3] == %w[-S gem build])
-      raise 'Unexpected external command' unless command.first == 'git' || ruby
+      arguments = command.first.is_a?(Hash) ? command.drop(1) : command
+      ruby = arguments.first == Gem.ruby && (arguments[1] == '-rrubygems' || arguments[1, 3] == %w[-S gem build])
+      raise 'Unexpected external command' unless arguments.first == 'git' || ruby
 
       super
     end

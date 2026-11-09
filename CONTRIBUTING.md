@@ -14,11 +14,13 @@ RuboCop includes Markdown prose checks with `rubocop-prose`, Ruby code block che
 
 ## Tests
 
+Idempotence is required for every release action, including custom callbacks. Reconcile each task's own outputs using its current checkout and inputs; replace mutable outputs, but reject immutable checksum or tag conflicts. Cover response-lost success, repetition, and conflicts. Do not add recovery flags, artifact discovery, state restoration, or a completion journal.
+
 RSpec examples live in `spec/`; add focused examples for release-task behavior and use real consumers to execute the reusable workflow and composite action's callback commands. Specs write HTML and LCOV coverage reports under `coverage/`, which CI uploads to Coveralls.
 
 Run focused source tests with `bundle exec rake spec:unit`, which excludes `spec/integration/`. This includes in-process Rake coverage of documented configurations, timezone and version behavior, and lightweight YAML and shell-contract checks without creating consumer repositories. The Test workflow runs this task; installed-gem CI runs `bundle exec rake spec:integration` so consumer integration is not repeated against source in CI. `bundle exec rake spec` and the default task still run the complete suite locally.
 
-Consumer integration specs live in `spec/integration/`. Keep a small real-process matrix covering both Actions interfaces' success, failure/recovery, skip, custom registry, and credential propagation. Preserve the provider-neutral consumers across separate processes: they verify environment transport, private state, and installed-library loading. Stub orchestration boundaries in focused specs, not these smoke tests. Existing domain specs cover detailed format, version, timezone, Git, and authentication edge cases without repeating whole release pipelines.
+Consumer integration specs live in `spec/integration/`. Keep a small real-process matrix covering both Actions interfaces' success, failure/recovery, empty-release rejection, custom registry, and credential propagation. Preserve the provider-neutral consumers across separate processes: they verify environment transport, private state, and installed-library loading. Stub orchestration boundaries in focused specs, not these smoke tests. Existing domain specs cover detailed format, version, timezone, Git, and authentication edge cases without repeating whole release pipelines.
 
 Profile integration examples with `bundle exec rake spec:integration SPEC_OPTS='--profile 15 --seed 12345'`. Compare before and after on the same machine and Ruby, including subprocess counts when changing the harness; do not enforce environment-dependent timing thresholds.
 

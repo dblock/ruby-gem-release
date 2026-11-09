@@ -12,7 +12,7 @@ RSpec.describe 'Documented release configurations' do
   let(:objects) do
     {
       git: instance_double(RubyGemRelease::SourceControl::Git, check_tag!: nil, commit!: nil, tag!: nil, push!: nil, commit_next!: nil),
-      package: instance_double(RubyGemRelease::Package::RubyGem, name: 'example', build!: nil),
+      package: instance_double(RubyGemRelease::Package::RubyGem, name: 'example', build!: nil, built?: false),
       destination: instance_double(RubyGemRelease::Destination::RubyGems, authentication: nil, authenticate!: nil, check_version!: nil, publish!: nil),
       hosting: instance_double(RubyGemRelease::Hosting::GitHubRelease, publish!: nil)
     }

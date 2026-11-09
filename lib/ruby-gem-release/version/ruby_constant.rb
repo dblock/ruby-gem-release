@@ -27,14 +27,18 @@ module RubyGemRelease
         value
       end
 
-      def increment!(part: :patch)
-        parts = parse(read)
+      def increment!(part: :patch, from: read)
+        set!(next_version(part: part, from: from))
+      end
+
+      def next_version(part: :patch, from: read)
+        parts = parse(from)
         index = { 'major' => 0, 'minor' => 1, 'patch' => 2 }.fetch(part.to_s) do
           raise ArgumentError, 'bump part must be major, minor, or patch'
         end
         parts[index] += 1
         ((index + 1)...parts.size).each { |i| parts[i] = 0 }
-        set!(parts.join('.'))
+        parts.join('.')
       end
 
       private

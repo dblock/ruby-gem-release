@@ -19,11 +19,11 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-The root Rakefile also installs development tasks; those are unrelated to release customization. The standard validation still skips publication when the pending changelog contains no release notes.
+The root Rakefile also installs development tasks; those are unrelated to release customization. Standard validation fails when there are no pending notes or existing heading for the selected release.
 
 ## 2. Extend Only the Version Update
 
-The project-local `ReleaseVersion` subclasses `Version::RubyConstant`, inheriting `read` and `set!`. Its constructor accepts an additional `readme_path:`. Its `increment!` implementation reads the version just released, replaces this repository's action and reusable-workflow version pins in the README, calls `super` to increment the version file, writes the README, and returns the next version.
+The project-local `ReleaseVersion` subclasses `Version::RubyConstant`, inheriting `read` and `set!`. Its constructor accepts an additional `readme_path:`. Its `increment!(from:)` implementation pins this repository's action and reusable workflow to the supplied release version, calls `super` to calculate the next version from that same input, writes the README, and returns the next version. Repetition leaves both files unchanged.
 
 For example, publishing `0.5.0` results in README references to `v0.5.0` and a development version of `0.5.1`. These are deliberately different values.
 

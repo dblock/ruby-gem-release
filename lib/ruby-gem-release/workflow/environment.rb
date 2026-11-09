@@ -29,7 +29,7 @@ module RubyGemRelease
         git.check_clean!
         package ||= Package::RubyGem.new(gemspec: @provider.fetch('INPUT_GEMSPEC', @provider.fetch('GEMSPEC', '')) || '', directory: @provider.directory)
         release = initial_release(package)
-        git.check_current!(release)
+        git.check_current!(release, allow_ancestor: true)
         @provider.export(captured_values(package, git, release))
       end
 
@@ -38,8 +38,6 @@ module RubyGemRelease
         authentication = authentication_for(destination)
         version = prepared_version(package, analysis)
         git = SourceControl::Git.new(directory: @provider.directory)
-        git.check_tag!(version)
-        destination.check_version!(name: package.name, version: version)
         git.stage_changes!
         @provider.export('RELEASE_VERSION' => version, 'RELEASE_AUTHENTICATION' => authentication)
       end
@@ -54,10 +52,17 @@ module RubyGemRelease
       end
 
       def captured_values(package, git, release)
+        commit = git.head
         state = State.create!(directory: @provider.directory) if @provider.directory
         { 'TZ' => @provider.fetch('TZ', 'UTC'), 'GEMSPEC' => package.respond_to?(:gemspec) ? package.gemspec.to_s : '', 'RELEASE_PREVIOUS_VERSION' => release.version,
           'RELEASE_DIRECTORY' => @provider.directory.to_s,
-          'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => git.head, 'RELEASE_STATE' => state.to_s }
+          'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => commit, 'RELEASE_STATE' => state.to_s,
+          'SOURCE_DATE_EPOCH' => source_date_epoch(git, commit) }
+      end
+
+      def source_date_epoch(git, commit)
+        value = @provider.fetch('SOURCE_DATE_EPOCH', '').strip
+        value.empty? ? git.timestamp(commit) : value
       end
 
       def prepared_version(package, analysis)

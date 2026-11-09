@@ -36,7 +36,7 @@ The default releases the checked-in version; optional `version` selects another 
 
 Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` for notifications; success receives an execution context after the next development iteration succeeds, while failure receives a `RubyGemRelease::ReleaseFailure` with a phase, captured error when available, and execution context.
 
-Before edits, `release:validate` checks pending notes; an empty section skips even with an explicit version. Override with a `validate:` lambda returning exactly `true` or `false`; exceptions fail. Without a changelog, validation proceeds.
+Before edits, `release:validate` requires pending notes or an existing heading for the selected release. Otherwise it raises, even with an explicit version. Override with a `validate:` lambda that raises on failure; returning `false` also fails. Without a changelog, validation passes.
 
 The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
@@ -59,7 +59,7 @@ Set `changelog: nil` for projects without a changelog; version incrementing and 
 This is the full equivalent of the standard workflow. Keep this ordering to preserve artifact identity, concurrency checks, and package-before-tag publication:
 
 ```ruby
-require 'ruby-gem-release/tasks'
+require 'ruby-gem-release/workflow/ruby_gem'
 require 'ruby-gem-release/changelog'
 require 'ruby-gem-release/hosting/github_release'
 require 'ruby-gem-release/package/ruby_gem'
@@ -69,12 +69,14 @@ require 'ruby-gem-release/source_control/git'
 provider = RubyGemRelease::ExecutionProvider.current
 package = RubyGemRelease::Package::RubyGem.new(directory: provider.directory)
 destination = RubyGemRelease::Destination::RubyGems.new
-RubyGemRelease::Tasks.install(package: package, destination: destination, provider: provider) do |tasks|
-  version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
-  changelog = RubyGemRelease::Changelog::KeepAChangelog.new
-  git = RubyGemRelease::SourceControl::Git.new(directory: provider.directory)
-  github = RubyGemRelease::Hosting::GitHubRelease.new
-  tasks.validate { |_ctx| changelog.pending? }
+version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
+changelog = RubyGemRelease::Changelog::KeepAChangelog.new
+git = RubyGemRelease::SourceControl::Git.new(directory: provider.directory)
+github = RubyGemRelease::Hosting::GitHubRelease.new
+workflow = RubyGemRelease::Workflow::RubyGem.new(version: version, changelog: changelog, package: package, destination: destination,
+                                                 git: git, hosting: github, provider: provider)
+RubyGemRelease::Tasks.install(workflow: workflow, package: package, destination: destination, provider: provider) do |tasks|
+  tasks.validate { |ctx| changelog.released?(ctx.release.version) || changelog.pending? }
   tasks.prepare do |ctx|
     release = ctx.release
     git.stage_changes! do
@@ -84,7 +86,6 @@ RubyGemRelease::Tasks.install(package: package, destination: destination, provid
   end
   tasks.publish do |ctx|
     release = ctx.release
-    destination.check_version!(name: package.name, version: release.version)
     git.commit!(release)
     package.build!(release)
     git.tag!(release)
@@ -96,7 +97,7 @@ RubyGemRelease::Tasks.install(package: package, destination: destination, provid
     release = ctx.release
     next_release = nil
     git.stage_changes! do
-      next_release = release.with_next_version(version.increment!)
+      next_release = release.with_next_version(version.increment!(from: release.version))
       changelog.prepare_next!(next_release)
     end
     git.commit_next!(next_release)
@@ -116,13 +117,13 @@ Callbacks receive an [`ExecutionContext`](execution_context.md) containing an im
 
 Wrap trusted preparation edits in `git.stage_changes!`. Resolution also stages custom `prepare` command outputs before testing. Publication never stages: later working-tree or index changes fail rather than entering the release commit.
 
-Check `destination.check_version!` before committing. Resolution checks the prepared version, and RubyGems checks the built artifact again before upload; only HTTP 404 permits proceeding. See [Check Version](destination/ruby_gems.md#check-version).
+Pass the configured `workflow:` so `release:workflow:checkpoint` can build and preserve artifacts before publication. Each publishing task enforces its own postcondition; an already accepted exact archive succeeds only on matching checksum. See [reruns](../RELEASING.md#verify-and-recover).
 
 ## Actions Setup
 
 Follow [Usage](../README.md#usage) to add the caller workflow, enable Trusted Publishing, and dispatch a release. Command overrides and all input defaults are documented in the [workflow reference](actions/release.md).
 
-Both approaches publish when dispatched unless release validation skips successfully. Test and build locally before authorizing a release. See [RELEASING.md](../RELEASING.md) before recovering from partial publication; never automatically retry an accepted upload or move a release tag.
+Both approaches publish when dispatched unless validation fails. All custom commands must be idempotent for the current checkout and inputs and preserve the [rerun contract](../RELEASING.md#verify-and-recover); never overwrite an immutable registry version or move a release tag.
 
 ## Configuration
 

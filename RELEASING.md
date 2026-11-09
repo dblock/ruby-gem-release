@@ -48,13 +48,13 @@ Only after explicit authorization, successful validation, and confirmed setup:
 gh workflow run publish.yml --ref master
 ```
 
-Every dispatch requests publication unless validation skips. Required environment reviewers approve before the job starts. After publication, `ReleaseVersion` updates README pins to the released tag while incrementing the development version; these edits belong to the next-development commit, not the release tag.
+Every dispatch requests publication; nothing to release is a validation error. Required environment reviewers approve before the job starts. After publication, `ReleaseVersion` updates README pins to the released tag while incrementing the development version; these edits belong to the next-development commit, not the release tag.
 
 ### Releasing a Consumer Project
 
 Use the [README setup](README.md#usage), dispatch its caller on the default branch, and approve the environment when required. For an explicit version, pass `-f version=1.2.3` to that caller's `gh workflow run` command.
 
-The pipeline captures the initial version and date once, validates, prepares, resolves the selected package, tests, authenticates, publishes, and optionally bumps. Publication commits, builds once, tags and creates a recovery bundle, uploads the exact gem, pushes commit and tag atomically, then creates the hosted release. See [Actions inputs](docs/actions/release.md) for overrides and [Git preparation](docs/source_control/git.md#clean-checkout-and-preparation) for custom edits.
+The pipeline captures context, validates, prepares, resolves, and tests. A checkpoint commits, builds, tags locally, and creates a recovery bundle; artifact preservation must succeed before external publication. Publication verifies or uploads the gem, pushes commit and tag atomically, then updates the hosted release. Finally, it optionally bumps. See [Actions inputs](docs/actions/release.md) and [Git preparation](docs/source_control/git.md#clean-checkout-and-preparation).
 
 Never invoke publication as a preview. Custom commands execute with release privileges and must be trusted; callers bypassing `release:publish` own authentication.
 
@@ -68,12 +68,14 @@ The owner must accept the Marketplace Developer Agreement. Edit the new GitHub R
 
 Verify the RubyGems version, tag commit, GitHub Release and attached archive, and next development commit when enabled. Never overwrite published versions or move release tags.
 
-Registry upload precedes the atomic Git push. A concurrent branch update or network failure can leave a published gem without a remote tag. Before retrying any failed or timed-out upload, check RubyGems: the server may have accepted it.
+Rerun with the same source commit and inputs, including the release date. Each task reconciles its own outputs; there are no recovery flags, artifact discovery, restored context, or completion journal. A newly queued workflow uses its current checkout and inputs, not an automatically selected older unfinished release.
 
-- **Gem published, remote refs missing:** Do not rerun the workflow. Recover the exact release commit and tag from the preserved bundle, verify their identity against the published artifact, reconcile concurrent changes without rewriting history, and push only the missing refs. Coordinate if the default branch advanced.
-- **Tag exists, hosted release missing:** Create the GitHub Release from that tag and attach the preserved gem without republishing.
-- **Release complete, development bump failed:** Verify the published version and branch, then complete only the missing development iteration.
+Builds overwrite local artifacts reproducibly. Capture exports the committer timestamp of the source commit as `SOURCE_DATE_EPOCH`, unless explicitly supplied; it controls the gemspec date and archive timestamps. Generated release commits do not change it. Stable toolchains, gemspecs, generated files, and signing inputs remain the caller's responsibility. RubyGems accepts an existing version only when its SHA256 matches; a differing or unavailable checksum fails.
 
-Actions preserves available `release.gem`, `release.json`, and `release.bundle` files after the publication callback, including on failure, for 30 days. Runner loss during the callback can prevent preservation; download available files promptly. Compare the manifest digest and archive with the publication before completing recovery. A new `Package::RubyGem` using the recovered directory can verify and reopen the archive without rebuilding.
+Git reuses matching release and development trees without moving tags or rewinding remote descendants. Development bumps calculate from the supplied release version, so repetition does not increment twice. GitHub replaces differing release metadata and assets; unspecified platform-generated notes are retained.
+
+Actions preserves `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` before publication for 30 days. These are for manual inspection, not automatic restoration. Conflicting checksums or tags and unrelated branch advancement require investigation; do not overwrite immutable releases.
+
+All custom commands and callbacks must be idempotent too. Notifications need receiver-side readback or a stable key such as `"release/example/1.2.3/success"`, never a run ID. They may execute again; without receiver support, exactly-once delivery and automatic detection of an unfinished notification are impossible. Release reconciliation proves package, Git, hosting, and development completion, not arbitrary external callback completion.
 
 To disable hosted releases intentionally, use `hosting: nil` or omit the hosting call in manual callbacks—not the entire publication callback.

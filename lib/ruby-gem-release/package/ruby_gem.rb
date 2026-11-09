@@ -28,10 +28,17 @@ module RubyGemRelease
 
       def build!(release)
         FileUtils.mkdir_p(@directory)
-        run(Gem.ruby, '-S', 'gem', 'build', @gemspec, '--output', archive)
+        run({ 'SOURCE_DATE_EPOCH' => source_date_epoch }, Gem.ruby, '-S', 'gem', 'build', @gemspec, '--output', archive)
         @manifest = build_manifest(release)
         File.write(manifest_path, JSON.generate(@manifest))
         artifact(release)
+      end
+
+      def built?(release)
+        return false unless File.exist?(archive) || File.exist?(manifest_path)
+
+        verified_manifest(release)
+        true
       end
 
       def artifact(release)
@@ -44,6 +51,11 @@ module RubyGemRelease
       end
 
       private
+
+      def source_date_epoch
+        value = ENV.fetch('SOURCE_DATE_EPOCH', '').strip
+        value.empty? ? '315619200' : value
+      end
 
       def specification
         script = 'spec = Gem::Specification.load(ARGV.fetch(0)); abort "Cannot load gemspec" unless spec; puts JSON.generate(name: spec.name, version: spec.version.to_s)'
@@ -62,7 +74,13 @@ module RubyGemRelease
         raise 'Package version does not match release' unless manifest.fetch('version') == release.version
         raise 'Built artifact changed; refusing publication' unless Digest::SHA256.file(archive).hexdigest == manifest.fetch('sha256')
 
+        verify_metadata!(manifest, release)
         manifest
+      end
+
+      def verify_metadata!(manifest, release)
+        spec = Gem::Package.new(archive).spec
+        raise 'Artifact metadata differs from manifest' unless spec.name == manifest.fetch('name') && spec.version.to_s == release.version
       end
 
       def archive

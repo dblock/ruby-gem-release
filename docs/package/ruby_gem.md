@@ -20,11 +20,15 @@ The optional `directory:` defaults to a nonempty `RELEASE_DIRECTORY` or a new te
 
 ## Build
 
-`build!(release)` builds `release.gem` once, checks its version, and records its name, version, and checksum in `release.json`. It returns the package filename. Call it after the release commit and before tagging; `Git#tag!` rejects build mutations in the checkout.
+`build!(release)` overwrites `release.gem`, checks its version, and records its name, version, and checksum in `release.json`. It returns the package filename. Call it after the release commit and before tagging; `Git#tag!` rejects build mutations in the checkout.
+
+Builds use `SOURCE_DATE_EPOCH` for the gemspec date and archive timestamps. Workflow capture supplies the committer timestamp of the original source commit, not the generated release commit; an explicit value takes precedence. Direct builds without capture or an override retain RubyGems' fixed default `1980-01-02T00:00:00Z`.
+
+Reproduce a release from the same source commit: equivalent files in another commit can have a different timestamp. Toolchains, generated files, gemspecs, and signing inputs must also remain stable. No previous archive is needed; partial output is overwritten. `built?(release)` verifies an existing archive and manifest without building.
 
 ## Artifact
 
-`artifact(release)` verifies the preserved version and digest and returns a copy named `NAME-VERSION.gem`. Registry destinations and hosted releases use that exact archive without rebuilding. A new instance using the same directory can reopen it for recovery.
+`artifact(release)` verifies the built name, version, and digest and returns a copy named `NAME-VERSION.gem`. Registry destinations and hosted releases use those exact bytes.
 
 ## Errors
 

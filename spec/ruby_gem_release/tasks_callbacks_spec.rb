@@ -23,21 +23,19 @@ RSpec.describe RubyGemRelease::Tasks do
     expect(Rake::Task.task_defined?('release:version:read')).to be(false)
   end
 
-  [true, false].each do |proceed|
-    it "exports the explicit #{proceed} validation decision with the selected release context" do
-      Dir.mktmpdir do |directory|
-        ENV['GITHUB_ACTIONS'] = 'true'
-        ENV['GITHUB_OUTPUT'] = File.join(directory, 'output')
-        ENV['INPUT_VERSION'] = '3.0.0'
-        described_class.install do |tasks|
-          tasks.validate do |ctx|
-            expect(ctx.release).to have_attributes(version: '3.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
-            proceed
-          end
+  it 'validates the selected release context without producing a decision output' do
+    Dir.mktmpdir do |directory|
+      ENV['GITHUB_ACTIONS'] = 'true'
+      ENV['GITHUB_OUTPUT'] = File.join(directory, 'output')
+      ENV['INPUT_VERSION'] = '3.0.0'
+      described_class.install do |tasks|
+        tasks.validate do |ctx|
+          expect(ctx.release).to have_attributes(version: '3.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
+          nil
         end
-        Rake::Task['release:validate'].invoke
-        expect(File.read(ENV.fetch('GITHUB_OUTPUT'))).to eq("proceed=#{proceed}\n")
       end
+      Rake::Task['release:validate'].invoke
+      expect(File).not_to exist(ENV.fetch('GITHUB_OUTPUT'))
     end
   end
 
@@ -46,9 +44,9 @@ RSpec.describe RubyGemRelease::Tasks do
     expect { Rake::Task['release:validate'].invoke }.to output("Release validation passed.\n").to_stdout
   end
 
-  it 'rejects an implicit nil validation decision' do
+  it 'accepts a validator that completes normally without a return value' do
     described_class.install { |tasks| tasks.validate { nil } }
-    expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /must return true or false/)
+    expect { Rake::Task['release:validate'].invoke }.to output("Release validation passed.\n").to_stdout
   end
 
   it 'delivers validation exceptions to the failure callback' do
@@ -280,7 +278,7 @@ RSpec.describe RubyGemRelease::Tasks do
     expect(received).to be_an_instance_of(RubyGemRelease::ExecutionContext)
   end
 
-  it 'uses the injected provider for release inputs, validation output, and context creation' do
+  it 'rejects false validation results through the injected provider without emitting a skip' do
     values = ENV.to_h.merge('GITHUB_ACTIONS' => 'true', 'INPUT_VERSION' => '3.0.0', 'RELEASE_STEPS' => 'not JSON')
     provider = RubyGemRelease::ExecutionProvider.new(environment: values)
     received = nil
@@ -290,8 +288,8 @@ RSpec.describe RubyGemRelease::Tasks do
         false
       end
     end
-    Rake::Task['release:validate'].invoke
-    expect(provider.outputs).to eq('proceed' => 'false')
+    expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /validation failed/)
+    expect(provider.outputs).to be_empty
     expect(received).to be_an_instance_of(RubyGemRelease::ExecutionContext)
     expect(received.release.version).to eq('3.0.0')
   end

@@ -20,7 +20,7 @@ module RubyGemRelease
 
         def stage_changes!
           if block_given?
-            check_clean!
+            verify!
             yield
           end
           paths = changed_paths

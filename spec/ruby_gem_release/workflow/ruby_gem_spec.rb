@@ -10,7 +10,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   let(:objects) do
     {
       changelog: instance_double(RubyGemRelease::Changelog::KeepAChangelog),
-      package: instance_double(RubyGemRelease::Package::RubyGem),
+      package: instance_double(RubyGemRelease::Package::RubyGem, built?: false),
       destination: instance_double(RubyGemRelease::Destination::RubyGems),
       git: instance_double(RubyGemRelease::SourceControl::Git),
       hosting: instance_double(RubyGemRelease::Hosting::GitHubRelease)
@@ -40,7 +40,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
       '2.0.1'
     end
     record_operations(:changelog, %i[release! prepare_next!])
-    allow(objects.fetch(:changelog)).to receive(:pending?).and_return(true)
+    allow(objects.fetch(:changelog)).to receive_messages(pending?: true, released?: false)
     record_operations(:package, [:build!])
     allow(objects.fetch(:package)).to receive(:name).and_return('example')
     record_operations(:destination, %i[authenticate! check_version! publish!])
@@ -68,10 +68,32 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     %w[validate prepare publish bump].each { |phase| Rake::Task["release:#{phase}"].invoke }
   end
 
-  it 'skips empty pending notes without invoking release operations' do
+  it 'rejects empty pending notes without invoking release operations' do
     allow(objects.fetch(:changelog)).to receive(:pending?).and_return(false)
     install
-    expect { Rake::Task['release:validate'].invoke }.to output("Release skipped: nothing to release.\n").to_stdout
+    expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /Nothing to release/)
+    expect(events).to be_empty
+  end
+
+  it 'checkpoints the exact release before publication or authentication' do
+    install
+    Rake::Task['release:workflow:checkpoint'].invoke
+    expect(events).to eq([%i[git commit!], %i[package build!], %i[git tag!]])
+  end
+
+  it 'repeats the bump from the release version without consulting recorded completion' do
+    install
+    2.times do
+      Rake::Task['release:bump'].reenable
+      Rake::Task['release:bump'].invoke
+    end
+    expect(version).to have_received(:increment!).with(from: '2.0.0').twice
+    expect(objects.fetch(:git)).to have_received(:commit_next!).twice
+  end
+
+  it 'rejects an Actions checkpoint without a configured workflow' do
+    RubyGemRelease::Tasks.install
+    expect { Rake::Task['release:workflow:checkpoint'].invoke }.to raise_error(/must implement checkpoint!/)
     expect(events).to be_empty
   end
 
@@ -81,7 +103,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
       received = ctx.release
       false
     })
-    expect { Rake::Task['release:validate'].invoke }.to output("Release skipped: nothing to release.\n").to_stdout
+    expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /validation failed/)
     expect(received).to have_attributes(version: '1.2.3')
     expect(objects.fetch(:changelog)).not_to have_received(:pending?)
   end
@@ -91,7 +113,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(events).to be_empty
     run_callbacks
     expect(events).to eq([
-                           :read, %i[changelog release!], %i[destination authenticate!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!],
+                           :read, %i[changelog release!], %i[destination authenticate!], %i[git commit!], %i[package build!], %i[git tag!],
                            %i[destination publish!], %i[git push!], %i[hosting publish!],
                            :increment, %i[changelog prepare_next!], %i[git commit_next!], %i[git push!]
                          ])
@@ -217,7 +239,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   it 'disables hosted releases without skipping package publication', :aggregate_failures do
     install(hosting: nil)
     Rake::Task['release:publish'].invoke
-    expect(events).to eq([%i[destination authenticate!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!], %i[destination publish!], %i[git push!]])
+    expect(events).to eq([%i[destination authenticate!], %i[git commit!], %i[package build!], %i[git tag!], %i[destination publish!], %i[git push!]])
     expect(RubyGemRelease::Hosting::GitHubRelease).not_to have_received(:new)
   end
 
@@ -232,22 +254,23 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:package)).to receive(:build!).and_raise('build failed')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('build failed')
-    expect(events).to eq([%i[destination authenticate!], %i[destination check_version!], %i[git commit!]])
+    expect(events).to eq([%i[destination authenticate!], %i[git commit!]])
   end
 
   it 'stops before pushing or creating a hosted release when the registry destination fails' do
     allow(objects.fetch(:destination)).to receive(:publish!).and_raise('registry unavailable')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('registry unavailable')
-    expect(events).to eq([%i[destination authenticate!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!]])
+    expect(events).to eq([%i[destination authenticate!], %i[git commit!], %i[package build!], %i[git tag!]])
     expect(objects.fetch(:destination)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
   end
 
-  it 'checks the exact release version before committing, building, or tagging', :aggregate_failures do
+  it 'lets publication verify existing versions by checksum instead of rejecting duplicates in preflight' do
     allow(objects.fetch(:destination)).to receive(:check_version!).with(name: 'example', version: '2.0.0').and_raise('already published')
     install
-    expect { Rake::Task['release:publish'].invoke }.to raise_error('already published')
-    expect(events).to eq([%i[destination authenticate!]])
+    Rake::Task['release:publish'].invoke
+    expect(objects.fetch(:destination)).not_to have_received(:check_version!)
+    expect(objects.fetch(:destination)).to have_received(:publish!)
   end
 
   it 'stops before publication operations when destination authentication fails' do

@@ -11,7 +11,20 @@ module RubyGemRelease
       end
 
       def release!(release)
+        validate_release(release.version, release.date)
+        return if released?(release.version)
+
         update_release(version: release.version, date: release.date)
+      end
+
+      def released?(version)
+        validate_version(version)
+        return false unless File.file?(@path)
+
+        matches = heading_positions(File.read(@path), release_pattern(version))
+        raise ArgumentError, "duplicate release headings in #{@path}" if matches.size > 1
+
+        matches.one?
       end
 
       def prepare_next!(release)

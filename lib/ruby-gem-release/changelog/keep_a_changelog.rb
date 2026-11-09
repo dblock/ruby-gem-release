@@ -7,6 +7,10 @@ module RubyGemRelease
 
       private
 
+      def release_pattern(version)
+        /\A\#{1,6} \[#{Regexp.escape(version)}\] - \d{4}-\d{2}-\d{2}\z/
+      end
+
       def unreleased_notes(content, separator)
         reference = unreleased_reference(content)
         comparison(reference[2]) if reference
@@ -30,11 +34,12 @@ module RubyGemRelease
         validate_version(released_version)
         content = File.read(@path)
         separator = newline(content)
-        pattern = /\A\#{1,6} \[#{Regexp.escape(released_version)}\] - \d{4}-\d{2}-\d{2}\z/
-        position = heading(content, pattern)
+        position = heading(content, release_pattern(released_version))
         prefix = heading_prefix(content, position)
-        check_absent(content, UNRELEASED, 'unreleased heading already exists')
         check_next_reference(content, released_version)
+        return if heading_positions(content, UNRELEASED).one?
+
+        check_absent(content, UNRELEASED, 'duplicate unreleased headings')
 
         File.write(@path, content.insert(position, ["#{prefix} [Unreleased]", '', ''].join(separator)))
       end

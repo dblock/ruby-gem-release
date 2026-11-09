@@ -49,6 +49,15 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     git.tag!(ctx)
   end
 
+  it 'reads a selected source commit committer timestamp independently of its author date and later commits' do
+    ENV.update('GIT_AUTHOR_DATE' => '2000-01-01T00:00:00Z', 'GIT_COMMITTER_DATE' => '2002-03-04T05:06:07Z')
+    command('commit', '--quiet', '--allow-empty', '-m', 'Source')
+    source = git.head
+    ENV['GIT_COMMITTER_DATE'] = '2003-01-01T00:00:00Z'
+    command('commit', '--quiet', '--allow-empty', '-m', 'Later')
+    expect(git.timestamp(source)).to eq(Time.utc(2002, 3, 4, 5, 6, 7).to_i.to_s)
+  end
+
   it 'pushes the exact release commit and tag, then only the next commit', :aggregate_failures do
     allow(Open3).to receive(:capture3).and_call_original
     prepare_tag
@@ -57,6 +66,8 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(Open3).to have_received(:capture3).with('git', 'push', '--atomic', 'origin', 'HEAD:refs/heads/master', 'refs/tags/v1.2.3')
     expect(command('--git-dir', remote, 'rev-parse', 'master')).to eq(release_commit)
     expect(command('--git-dir', remote, 'rev-parse', 'v1.2.3')).to eq(release_commit)
+    expect(git.published?(release.version, commit: release_commit)).to be(true)
+    expect { git.published?(release.version, commit: initial) }.to raise_error(/points at another commit/)
     expect(File).to exist(File.join(directory, 'release.bundle'))
     git.stage_changes! { File.write('version', '1.2.4') }
     git.commit_next!(release.with_next_version('1.2.4'))
@@ -84,9 +95,74 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect { git.push! }.to raise_error(/branch advanced/)
   end
 
-  it 'rejects existing tags without overwriting them' do
+  it 'reuses matching tags and does not repeat completed pushes' do
     prepare_tag
-    expect { git.tag!(release) }.to raise_error(/tag already exists/)
+    released = git.head
+    git.tag!(release)
+    git.push!
+    allow(Open3).to receive(:capture3).and_call_original
+    git.push!
+    expect(command('--git-dir', remote, 'rev-parse', 'v1.2.3')).to eq(released)
+    expect(Open3).not_to have_received(:capture3).with('git', 'push', any_args)
+  end
+
+  it 'reuses an immutable release commit only when repeated preparation produces its exact tree' do
+    prepare_tag
+    released = git.head
+    git.push!
+    command('switch', '--detach', initial)
+    expect { git.check_current!(release, allow_ancestor: true) }.not_to raise_error
+    expect { git.check_current!(release) }.to raise_error(/branch advanced/)
+    2.times { git.stage_changes! { File.write('version', 'release files') } }
+    git.commit!(release)
+    expect(git.head).to eq(released)
+    expect(command('status', '--porcelain')).to eq('')
+    command('switch', '--detach', initial)
+    git.stage_changes! { File.write('version', 'different contents') }
+    expect { git.commit!(release) }.to raise_error(/differs from the intended tree/)
+    expect(git.tag_commit(release.version)).to eq(released)
+  end
+
+  it 'rejects a conflicting tag without changing it' do
+    prepare_tag
+    released = git.head
+    File.write('version', 'another release')
+    command('commit', '--quiet', '-am', 'Conflicting release')
+    expect { git.tag!(release) }.to raise_error(/tag already exists at another commit/)
+    expect(command('rev-parse', 'v1.2.3')).to eq(released)
+  end
+
+  it 'reuses a pushed development commit only when the intended version and entire tree match' do
+    prepare_tag
+    released = git.head
+    git.push!
+    next_release = release.with_next_version('1.2.4')
+    git.stage_changes! { File.write('version', '1.2.4') }
+    git.commit_next!(next_release)
+    iteration = git.head
+    git.push!
+    command('switch', '--detach', released)
+    resumed = described_class.new(branch: 'master', directory: directory)
+    resumed.stage_changes! { File.write('version', '1.2.4') }
+    resumed.commit_next!(next_release)
+    resumed.push!
+    expect(resumed.head).to eq(iteration)
+    expect(command('status', '--porcelain')).to eq('')
+    command('switch', '--detach', released)
+    resumed.stage_changes! { File.write('version', 'different contents') }
+    expect { resumed.commit_next!(next_release) }.to raise_error(/differs from the intended changes/)
+    expect(resumed.head).to eq(released)
+  end
+
+  it 'does not rewind a branch that already contains the release' do
+    prepare_tag
+    released = git.head
+    git.push!
+    advance_remote
+    advanced = command('--git-dir', remote, 'rev-parse', 'master')
+    git.push!(release)
+    expect(command('--git-dir', remote, 'rev-parse', 'master')).to eq(advanced)
+    expect(command('--git-dir', remote, 'rev-parse', 'v1.2.3')).to eq(released)
   end
 
   it 'rejects a concurrent update before pushing the next development iteration commit' do
@@ -133,6 +209,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
   it 'never stages or commits unrelated late files', :aggregate_failures do
     git.stage_changes! { File.write('version', 'release edit') }
     File.write('unrelated', 'late output')
+    expect { git.stage_changes! { raise 'must not run another callback over unexpected changes' } }.to raise_error(/commit refused.*"unrelated"/m)
     expect { git.commit!(release) }.to raise_error(/commit refused.*"unrelated"/m)
     expect(command('diff', '--cached', '--name-only')).to eq('version')
     expect(git.head).to eq(initial)

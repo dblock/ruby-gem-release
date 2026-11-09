@@ -2,13 +2,15 @@
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [DESIGN.md](DESIGN.md). This project provides GitHub Actions interfaces and Ruby release tasks, not a general-purpose release service.
 
+Every release action and callback must be idempotent for the same checkout and inputs. Reconcile its own outputs: rebuild reproducibly, accept published gems only on matching checksums, preserve immutable Git tags, and replace mutable hosted notes/assets. Test accepted-but-response-lost outcomes. Preserve artifacts before publication for manual inspection; do not introduce recovery flags, artifact discovery, state restoration, or a completion journal.
+
 The reusable workflow belongs in `.github/workflows/`, the gem API and Rake tasks belong in `lib/` and `tasks/`, and focused RSpec examples belong in `spec/`. Support Ruby 3.3 and newer; use public RubyGems, Rake, GitHub Actions, and RubyGems Trusted Publishing interfaces.
 
 Keep release orchestration reusable while leaving project-specific preparation and version bump commands configurable by the calling repository. Test task behavior with focused unit tests and execute both interfaces' callback commands in real consumers with local Git remotes and isolated package and hosting publication. Consumer tests do not validate live Actions authentication or artifact uploads; never dispatch a publishing workflow from PR CI.
 
 Keep orchestration permutations and YAML assertions in focused source specs (`bundle exec rake spec:unit`). Keep real-process smoke coverage in `spec/integration/`, including the portable consumers; do not stub their transport or installed-gem loading. CI runs source tests and installed-gem integration separately, without repeating the full integration suite against source. Profile before and after changes to the harness instead of assuming a speedup.
 
-Keep semantic releases opt-in. Calculate from reachable released tags, not development versions; persist one immutable decision across processes, preserve it when recording the next version, and never reanalyze during preparation or publication. Preserve manual workflow defaults and publication guards. Semantic consumer fixtures must verify success, failure, and skipping against the installed artifact without real publication.
+Keep semantic releases opt-in. Calculate from reachable released tags, not development versions; persist one immutable decision across processes, preserve it when recording the next version, and never reanalyze during preparation or publication. Preserve manual workflow defaults and publication guards. Semantic consumer fixtures must verify success, publication failure, and empty-release rejection against the installed artifact without real publication.
 
 The root `action.yml` exposes the same Ruby tasks as a composite action. Keep both interfaces consistent without making version-pinned workflows depend on moving action references. Action callers own job permissions, runner, environment, and concurrency. Preserve authentication selection and failure-aware artifact preservation; run installed-artifact consumer CI and `actionlint .github/workflows/*.yml examples/.github/workflows/*.yml` when changing YAML interfaces.
 

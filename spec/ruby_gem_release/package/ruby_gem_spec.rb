@@ -11,10 +11,12 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
   let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today) }
 
   around do |example|
-    original = ENV.delete('GEMSPEC')
+    original = ENV.to_h
+    ENV.delete('GEMSPEC')
+    ENV.delete('SOURCE_DATE_EPOCH')
     Dir.chdir(directory) { example.run }
   ensure
-    ENV['GEMSPEC'] = original if original
+    ENV.replace(original)
     FileUtils.remove_entry(directory)
   end
 
@@ -44,6 +46,27 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
     expect(package.name).to eq('release-fixture')
     File.write('fixture.gemspec', File.read('fixture.gemspec').sub('release-fixture', 'renamed-fixture'))
     expect(package.name).to eq('renamed-fixture')
+  end
+
+  it 'rebuilds reproducibly with a fixed timestamp instead of depending on a previous archive' do
+    allow(Open3).to receive(:capture3).and_call_original
+    path = package.build!(release)
+    digest = Digest::SHA256.file(path).hexdigest
+    File.write(File.join(artifacts, 'release.gem'), 'partial output')
+    File.write(File.join(artifacts, 'release.json'), 'partial output')
+    reopened = described_class.new(gemspec: 'fixture.gemspec', directory: artifacts)
+    expect(reopened.build!(release)).to eq(path)
+    expect(Digest::SHA256.file(path).hexdigest).to eq(digest)
+    expect(Open3).to have_received(:capture3).with(hash_including('SOURCE_DATE_EPOCH' => '315619200'), Gem.ruby, '-S', 'gem', 'build', anything, '--output', anything).twice
+  end
+
+  it 'refuses a manifest naming another gem even when its checksum matches' do
+    package.build!(release)
+    path = File.join(artifacts, 'release.json')
+    manifest = JSON.parse(File.read(path)).merge('name' => 'different-gem')
+    File.write(path, JSON.generate(manifest))
+    reopened = described_class.new(gemspec: 'fixture.gemspec', directory: artifacts)
+    expect { reopened.artifact(release) }.to raise_error(/metadata differs/)
   end
 
   it 'rejects an archive whose version differs from the release' do

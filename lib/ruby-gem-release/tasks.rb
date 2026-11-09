@@ -82,18 +82,16 @@ module RubyGemRelease
     private
 
     def install_validate_task
-      desc 'Decide whether to proceed with the release'
+      desc 'Validate release preconditions'
       task :validate do
         with_failure_capture('release:validate') { validate_release }
       end
     end
 
     def validate_release
-      proceed = @validate ? @validate.call(context('release:validate', preparing: true)) : true
-      raise ArgumentError, 'validate must return true or false' unless [true, false].include?(proceed)
+      raise ArgumentError, 'Release validation failed: callback returned false' if @validate && @validate.call(context('release:validate', preparing: true)) == false
 
-      puts(proceed ? 'Release validation passed.' : 'Release skipped: nothing to release.')
-      @provider.output('proceed' => proceed.to_s)
+      puts 'Release validation passed.'
     end
 
     def install_workflow_tasks
@@ -109,11 +107,22 @@ module RubyGemRelease
     end
 
     def install_workflow_context_tasks
+      install_checkpoint_task
       task(:configure) { with_failure_capture('release:workflow:configure') { Workflow::Environment.new(provider: @provider).configure! } }
       task(:capture) { with_failure_capture('release:workflow:capture') { Workflow::Environment.new(provider: @provider).capture!(package: @package) } }
       task(:resolve) do
         with_failure_capture('release:workflow:resolve') do
           Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination, analysis: state.analysis)
+        end
+      end
+    end
+
+    def install_checkpoint_task
+      task(:checkpoint) do
+        with_failure_capture('release:workflow:checkpoint') do
+          raise 'Workflow must implement checkpoint! before publication' unless @workflow
+
+          @workflow.checkpoint!(context('release:workflow:checkpoint'))
         end
       end
     end
@@ -125,7 +134,7 @@ module RubyGemRelease
           next unless @publish
 
           ctx = context('release:publish')
-          @destination.authenticate!(provider: @provider)
+          @destination.authenticate!(provider: @provider) unless @workflow&.published?(ctx.release)
           @publish.call(ctx)
         end
       end

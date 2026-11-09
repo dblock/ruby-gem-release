@@ -44,7 +44,7 @@ jobs:
           rubygems-owner: ${{ inputs.rubygems-owner }}
 ```
 
-The action checks out the calling repository with full history and sets up Ruby with Bundler caching. It exports and validates inputs, captures the initial version, validates whether to release, invokes preparation, resolves the prepared version, tests, authenticates, publishes, preserves recovery artifacts, and prepares the next development iteration. Publication must run from the default branch at its current remote commit. Use a GitHub-hosted Ubuntu runner, matching the reusable workflow's supported execution environment.
+The action checks out the calling repository with full history and sets up Ruby with Bundler caching. It configures inputs, captures context, validates, prepares, resolves, tests, checkpoints and preserves artifacts, publishes, and prepares the next development iteration. Commands always run and own their idempotence. Immutable conflicts and unrelated branch advancement fail before publication. Use a GitHub-hosted Ubuntu runner, matching the reusable workflow's supported execution environment.
 
 ## Inputs and Environment
 
@@ -52,7 +52,7 @@ Inputs, command defaults, callback semantics, and exported environment variables
 
 Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `release:workflow:configure` rejects line breaks before exporting any values. Override commands execute with release privileges and must be trusted.
 
-The `validate` command now decides whether to release before preparation; the previous post-preparation `validate` command is renamed to `test`. Empty pending changelog notes skip successfully by default, with no downstream release operations or result callbacks. The action exposes a `skipped` output so caller steps can distinguish that outcome. Custom validation commands must emit one explicit `proceed=true` or `proceed=false` decision to `GITHUB_OUTPUT`. See [Release Validation and Skipping](release.md#release-validation-and-skipping) for the contract and migration.
+`validate` checks preconditions before preparation and must exit nonzero on failure, including when there is nothing to release. Failure handling runs; downstream release operations do not. No decision output or `skipped` output is exposed. Move former post-preparation validation commands to `test:`. See [Release Validation](release.md#release-validation).
 
 The optional `version` input selects a release version in standard preparation. The configured version object must implement `set!`; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples and migration from assertion-only behavior.
 
@@ -72,4 +72,4 @@ For first publication, register a pending trusted publisher and supply its numer
 
 With the sample, dispatch a first release using `gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID`, replacing `YOUR_ACCOUNT_ID` with your numeric account ID. For subsequent releases, omit `rubygems-owner`. Validate locally before authorizing publication.
 
-Recovery artifacts are preserved after the publication callback, even when it fails. Failed callbacks prevent the next development iteration phase. The exact-artifact guarantees and unavoidable publication-before-push recovery window are unchanged; follow [Verify and Recover](../../RELEASING.md#verify-and-recover) rather than blindly retrying a failed release.
+Recovery artifacts must be preserved before publication. Capture reconciles an unfinished release before selecting new work, including on a fresh workflow run. Failed callbacks prevent later phases; conflicts and missing evidence fail safely. See [Verify and Recover](../../RELEASING.md#verify-and-recover).

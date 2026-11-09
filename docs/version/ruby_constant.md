@@ -27,3 +27,5 @@ The required `constant:` argument names the Ruby constant, such as `'VERSION'`. 
 ## Increment
 
 `version.increment!` writes and returns the next patch version. Use `part: :minor` or `part: :major` to increment those components and reset lower ones.
+
+Pass `from: release.version` to `increment!` to write the same development version on every attempt instead of incrementing the current file twice. `next_version(part: :patch, from: read)` computes that value without editing files.

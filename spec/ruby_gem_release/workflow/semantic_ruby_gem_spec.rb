@@ -11,9 +11,9 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
   let(:provider) { RubyGemRelease::ExecutionProvider.new(environment: values) }
   let(:components) do
     {
-      version: instance_double(RubyGemRelease::Version::RubyConstant, set!: nil, increment!: '1.3.1'),
+      version: instance_double(RubyGemRelease::Version::RubyConstant, set!: nil, increment!: '1.3.1', next_version: '1.3.1'),
       git: instance_double(RubyGemRelease::SourceControl::Git, commit!: nil, tag!: nil, push!: nil, commit_next!: nil),
-      package: instance_double(RubyGemRelease::Package::RubyGem, name: 'example', build!: nil),
+      package: instance_double(RubyGemRelease::Package::RubyGem, name: 'example', build!: nil, built?: false),
       destination: instance_double(RubyGemRelease::Destination, authenticate!: nil, check_version!: nil, publish!: nil),
       changelog: instance_double(RubyGemRelease::Changelog::Generated, release!: nil, prepare_next!: nil)
     }
@@ -65,15 +65,14 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
     expect(received.analysis.to_h).to eq(decision.to_h)
   end
 
-  it 'skips without consulting handwritten notes and blocks downstream operations on a no-release decision' do
+  it 'rejects a no-release decision without consulting handwritten notes or invoking downstream operations' do
     skipped = RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [], release_type: nil, version: nil, notes: nil)
     allow(semantic).to receive(:analyze).and_return(skipped)
     install
-    invoke('validate')
-    expect(provider.outputs).to eq('proceed' => 'false')
+    expect { invoke('validate') }.to raise_error(ArgumentError, /Nothing to release/)
+    expect(provider.outputs).to be_empty
     Rake::Task['release:validate'].reenable
-    invoke('validate')
-    expect(provider.outputs).to eq('proceed' => 'false')
+    expect { invoke('validate') }.to raise_error(ArgumentError, /Nothing to release/)
     expect(semantic).to have_received(:analyze).once
     %w[prepare publish bump success].each do |task|
       expect { invoke(task) }.to raise_error(ArgumentError, /semantic/)

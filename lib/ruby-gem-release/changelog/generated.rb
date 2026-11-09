@@ -9,13 +9,25 @@ module RubyGemRelease
         check_generated_notes(release)
         content = File.exist?(@path) ? File.read(@path) : "# Changelog\n"
         separator = newline(content)
-        check_absent(content, /\A## #{Regexp.escape(release.version)}(?: |\z)/, 'release already exists')
+        return verify_notes(content, release) if released?(release.version)
+
         File.write(@path, insert_release(content, release, separator))
       end
 
       def prepare_next!(_release); end
 
       private
+
+      def release_pattern(version)
+        /\A## #{Regexp.escape(version)}(?: |\z)/
+      end
+
+      def verify_notes(content, release)
+        position = heading(content, release_pattern(release.version))
+        finish = section_end_position(content, position, 2)
+        notes = content[line_end(content, position, newline(content))...finish].strip.gsub("\r\n", "\n")
+        raise ArgumentError, 'existing generated release notes differ' unless notes == release.notes.strip
+      end
 
       def check_generated_notes(release)
         validate_release(release.version, release.date)

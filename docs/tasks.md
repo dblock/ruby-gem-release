@@ -4,7 +4,7 @@ Registers optional validation, preparation, publication, next development iterat
 
 ## Install
 
-Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, validation proceeds and the other five callback tasks do nothing. It also registers `release:workflow:capture`, `release:workflow:resolve`, and `release:workflow:failure_phase` for workflow context and failure checks.
+Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, validation proceeds and the other five callback tasks do nothing. Workflow tasks include `capture`, `resolve`, `checkpoint`, and `failure_phase`. Actions configurations must pass a configured `workflow:`: its checkpoint creates the archive, digest manifest, commit, and tag before artifact preservation and publication.
 
 The composite action first invokes `release:workflow:configure` to validate and export its input environment for later steps. The reusable workflow supplies the same values through its job environment.
 
@@ -12,11 +12,11 @@ The provider constructs callback contexts: by default, the provider-neutral `Exe
 
 ## Validate
 
-`tasks.validate` decides whether to release after context capture and before preparation edits. It receives an [ExecutionContext](execution_context.md) containing the same initial or explicitly selected release value as `prepare`. Return exactly `true` to proceed or `false` to skip successfully; missing or other return values raise an error. Exceptions fail the release and reach the failure callback with phase `validate_release`. Without a callback, validation proceeds.
+`tasks.validate` checks release preconditions after context capture and before preparation edits. It receives an [ExecutionContext](execution_context.md) containing the same initial or explicitly selected release value as `prepare`. Raise on invalid state; normal completion, including `nil`, succeeds. Returning `false` also fails rather than skipping. Without a callback, validation passes.
 
-The `release:validate` task prints the decision and exports `proceed=true` or `proceed=false` through its provider. The GitHub provider writes `GITHUB_OUTPUT` when available; the base retains the decision in `outputs`. A successful skip gates all subsequent release steps, including tests, authentication, publication, artifact upload, next development iteration preparation, and the success callback. Neither result callback runs for a skip. The task itself does not prevent separately invoked Rake tasks from running.
+Validation errors reach the failure callback with phase `validate_release`. Both Actions interfaces stop downstream release operations through normal failure handling; there is no decision output or successful skip. Separately invoked Rake tasks remain independent.
 
-The standard workflow registers a pending-changelog check automatically. Custom callbacks can use another read-only release decision:
+Every invocation runs the configured callbacks; there are no recovery flags or restored context. Default validation accepts the selected version's existing changelog section or pending notes; custom commands must provide equivalent idempotence:
 
 ```ruby
 RubyGemRelease::Tasks.install do |tasks|
@@ -32,7 +32,7 @@ The default `prepare` command invokes `bundle exec rake release:prepare`. The ta
 
 ## Bump
 
-`tasks.bump` prepares the next development iteration after publication. In `ctx.release`, `version` contains the published version, `previous_version` retains the initial version, and `next_version` starts as `nil`. Explicitly increment the version and retain the updated value with `next_release = ctx.release.with_next_version(version.increment!)` before preparing the next changelog section.
+`tasks.bump` prepares the next development iteration after publication. In `ctx.release`, `version` contains the published version and `previous_version` retains the initial version. Use `next_release = ctx.release.with_next_version(version.increment!(from: ctx.release.version))` before preparing the next changelog section, so repetition writes the same version rather than incrementing twice.
 
 The default `bump` command invokes `bundle exec rake release:bump`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
 
@@ -54,7 +54,7 @@ Each registered callback requires a block and can be registered only once. Excep
 
 ## Publish
 
-`tasks.publish` registers the complete release sequence before `bump`. The default `publish` command invokes `bundle exec rake release:publish`, passing an execution context whose [Release](release.md) is built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE`. Before the callback runs, the task calls the configured destination's `authenticate!(provider:)` hook. Authentication exceptions are captured as publication failures, and no authentication occurs when no callback is registered.
+`tasks.publish` registers publication before `bump`. The default invokes `bundle exec rake release:publish` with the saved release context. It authenticates through the destination only when the workflow cannot verify an exact existing publication. Authentication exceptions are captured as publication failures; absent callbacks do not authenticate.
 
 The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.
 

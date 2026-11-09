@@ -12,6 +12,10 @@ module RubyGemRelease
       raise NotImplementedError, "#{self.class} must implement publish!"
     end
 
+    def published?(_release, **)
+      raise ArgumentError, "#{self.class} must implement published? to verify recovery"
+    end
+
     def authentication
       nil
     end

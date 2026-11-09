@@ -16,7 +16,7 @@ changelog = RubyGemRelease::Changelog::KeepAChangelog.new(path: 'CHANGELOG.md')
 
 ## Release
 
-The standard workflow first checks `pending?` during `release:validate`; empty or structural-only sections skip successfully without writing. Invalid headings or comparison references still fail.
+During `release:validate`, empty or structural-only notes fail unless the selected release already has a heading. Invalid headings or comparison references also fail.
 
 `changelog.release!(release)` replaces the single Unreleased heading using the [Release](../release.md) version and date. Missing or duplicate headings, or an existing release heading, fail without writing the file.
 
@@ -24,7 +24,7 @@ An empty Unreleased section, including category headings, comments, or compariso
 
 ## Prepare Next
 
-`changelog.prepare_next!(release)` inserts an Unreleased section above the section for `release.version`. It requires a valid `release.next_version`, exactly one matching release section, and no existing Unreleased section.
+`changelog.prepare_next!(release)` inserts an Unreleased section above the section for `release.version`. It requires a valid `release.next_version` and exactly one matching release section, and reuses an existing Unreleased section. `release!` likewise reuses the selected version's existing release heading.
 
 ## Reference Links
 

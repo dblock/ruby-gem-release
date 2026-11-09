@@ -31,7 +31,10 @@ RSpec.describe RubyGemRelease::Changelog::Generated do
     expect(content).to start_with("#{prefix}## 1.2.3 (2026/11/09)\r\n")
     expect(content).to end_with(history)
     expect(content).not_to match(/(?<!\r)\n/)
-    expect { described_class.new.release!(release) }.to raise_error(ArgumentError, /already exists/)
+    described_class.new.release!(release)
+    expect(File.read('CHANGELOG.md')).to eq(content)
+    conflicting = RubyGemRelease::Release.new(version: release.version, previous_version: release.previous_version, date: release.date, notes: 'Different notes')
+    expect { described_class.new.release!(conflicting) }.to raise_error(ArgumentError, /notes differ/)
   end
 
   it 'rejects missing or content-free notes before writing a file' do

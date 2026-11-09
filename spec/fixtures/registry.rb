@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'digest'
 require 'json'
 require 'rubygems/package'
 require 'ruby-gem-release/destination'
@@ -16,11 +17,33 @@ class FixtureRegistry < RubyGemRelease::Destination
   end
 
   def publish!(release, package:)
+    return if published?(release, package: package)
+
     raise 'Registry authentication was not run before publication' unless ENV['FIXTURE_REGISTRY_TOKEN'] == 'fixture-registry-token'
 
-    path = package.artifact(release)
+    record_publication(package.artifact(release))
+  end
+
+  def published?(release, package:)
+    check_version!(name: package.name, version: release.version)
+    return false unless File.file?(publication_path)
+
+    publication = JSON.parse(File.read(publication_path))
+    return false unless publication.fetch('version') == release.version
+    raise 'Registry checksum differs' unless publication.fetch('sha256') == Digest::SHA256.file(package.artifact(release)).hexdigest
+
+    true
+  end
+
+  private
+
+  def record_publication(path)
     spec = Gem::Package.new(path).spec
-    check_version!(name: spec.name, version: spec.version.to_s)
+    File.write(publication_path, JSON.generate(name: spec.name, version: spec.version.to_s, sha256: Digest::SHA256.file(path).hexdigest))
     File.write(File.join(ENV.fetch('RUNNER_TEMP'), 'registry-publish.json'), JSON.generate(path))
+  end
+
+  def publication_path
+    File.join(ENV.fetch('RELEASE_TEST_SERVICE_DIRECTORY', ENV.fetch('RUNNER_TEMP')), 'registry-metadata.json')
   end
 end

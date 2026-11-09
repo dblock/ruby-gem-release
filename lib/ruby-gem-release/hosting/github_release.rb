@@ -2,6 +2,7 @@
 
 require 'open3'
 require 'tempfile'
+require_relative 'github_release/existing'
 
 module RubyGemRelease
   module Hosting
@@ -14,29 +15,68 @@ module RubyGemRelease
       end
 
       def publish!(release, package: nil, artifacts: [])
-        version = release.version
-        raise ArgumentError, 'release version must be MAJOR.MINOR.PATCH' unless version.is_a?(String) && /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z/.match?(version)
+        paths = release_paths(release, package, artifacts)
+        existing = Existing.new(repository: @repository)
+        missing = existing.missing(release, paths)
+        return upload_missing(release, existing, missing) if existing.exists?
 
-        tag = "v#{version}"
-        paths = artifact_paths(package ? [package.artifact(release)] : artifacts)
+        tag = "v#{release.version}"
         output, error, status = create_release(tag, paths, release.notes)
         raise "GitHub Release creation failed: #{error.strip}" unless status.success?
 
         output.strip
       end
 
+      def published?(release, package: nil, artifacts: [])
+        paths = release_paths(release, package, artifacts)
+        existing = Existing.new(repository: @repository)
+        missing = existing.missing(release, paths)
+        existing.exists? && !existing.changed?(release) && missing.empty?
+      end
+
       private
 
-      def create_release(tag, paths, notes)
-        return Open3.capture3(*command(tag), '--generate-notes', *paths) if notes.nil?
+      def release_paths(release, package, artifacts)
+        version = release.version
+        raise ArgumentError, 'release version must be MAJOR.MINOR.PATCH' unless version.is_a?(String) && /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z/.match?(version)
+        raise ArgumentError, 'release notes must not be empty' if release.notes && release.notes.strip.empty?
 
-        raise ArgumentError, 'release notes must not be empty' if notes.strip.empty?
+        artifact_paths(package ? [package.artifact(release)] : artifacts)
+      end
+
+      def upload_missing(release, existing, paths)
+        edit_release(release) if existing.changed?(release)
+        unless paths.empty?
+          command = ['gh', 'release', 'upload', "v#{release.version}", '--clobber']
+          command.push('--repo', @repository) if @repository
+          _output, error, status = Open3.capture3(*command, *paths)
+          raise "GitHub asset upload failed: #{error.strip}" unless status.success?
+        end
+        existing.url
+      end
+
+      def create_release(tag, paths, notes)
+        arguments = command(tag)
+        arguments << '--generate-notes' if notes.nil?
+        run_with_notes(arguments, notes, paths)
+      end
+
+      def run_with_notes(arguments, notes, paths = [])
+        return Open3.capture3(*arguments, *paths) if notes.nil?
 
         Tempfile.create(['ruby-gem-release-notes-', '.md']) do |file|
           file.write(notes)
           file.close
-          Open3.capture3(*command(tag), '--notes-file', file.path, *paths)
+          Open3.capture3(*arguments, '--notes-file', file.path, *paths)
         end
+      end
+
+      def edit_release(release)
+        tag = "v#{release.version}"
+        arguments = ['gh', 'release', 'edit', tag, '--title', tag, '--draft=false', '--prerelease=false']
+        arguments.push('--repo', @repository) if @repository
+        _output, error, status = run_with_notes(arguments, release.notes)
+        raise "GitHub Release update failed: #{error.strip}" unless status.success?
       end
 
       def command(tag)

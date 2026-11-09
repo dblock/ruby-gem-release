@@ -30,4 +30,4 @@ The standard workflow records it after the next development iteration is committ
 
 ## With Next Development Iteration
 
-`release.with_next_version(version.increment!)` returns a new context containing the supplied version for the next development iteration, preserving every other field and leaving the original unchanged.
+`release.with_next_version(version.increment!(from: release.version))` returns a new context containing the next development version, preserving every other field and leaving the original unchanged.

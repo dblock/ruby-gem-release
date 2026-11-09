@@ -7,7 +7,10 @@ require 'tmpdir'
 RSpec.describe RubyGemRelease::Workflow::Environment do
   let(:directory) { Dir.mktmpdir }
   let(:environment_file) { File.join(directory, 'environment') }
-  let(:git) { instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_clean!: nil, check_current!: nil, check_tag!: nil, stage_changes!: nil, head: 'initial-commit') }
+  let(:git) do
+    instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_clean!: nil, check_current!: nil, check_tag!: nil,
+                                                        stage_changes!: nil, head: 'initial-commit', timestamp: '1794054896')
+  end
 
   around do |example|
     original = ENV.to_h
@@ -15,6 +18,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     ENV.delete('GEMSPEC')
     ENV.delete('INPUT_GEMSPEC')
     ENV.delete('TZ')
+    ENV.delete('SOURCE_DATE_EPOCH')
     Dir.chdir(directory) { example.run }
   ensure
     ENV.replace(original)
@@ -47,6 +51,20 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     second = File.readlines(environment_file, chomp: true).grep(/\ARELEASE_STATE=/).last.delete_prefix('RELEASE_STATE=')
     expect(first).not_to eq(second)
     expect(RubyGemRelease::Workflow::State.new(path: second).next_version).to be_nil
+  end
+
+  it 'exports the captured source commit timestamp rather than the workflow time' do
+    ENV['SOURCE_DATE_EPOCH'] = ' '
+    described_class.new.capture!
+    expect(File.read(environment_file)).to include("SOURCE_DATE_EPOCH=1794054896\n")
+    expect(git).to have_received(:timestamp).with('initial-commit')
+  end
+
+  it 'preserves an explicitly supplied source timestamp without consulting Git timestamps' do
+    ENV['SOURCE_DATE_EPOCH'] = ' 1700000000 '
+    described_class.new.capture!
+    expect(File.read(environment_file)).to include("SOURCE_DATE_EPOCH=1700000000\n")
+    expect(git).not_to have_received(:timestamp)
   end
 
   it 'defaults the calendar date to UTC rather than the server timezone' do
@@ -119,26 +137,20 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     expect(File.read(environment_file)).to eq('')
   end
 
-  it 'rejects an existing tag before recording the prepared version' do
+  it 'leaves existing tags and publication checks to the publishing tasks' do
     allow(git).to receive(:check_tag!).and_raise('Release tag already exists')
-    expect { described_class.new.resolve! }.to raise_error(/tag already exists/)
-  end
-
-  it 'rejects an already published prepared version before staging or exporting it', :aggregate_failures do
     File.write('version.rb', "VERSION = '2.0.0'\n")
-    http = instance_double(Net::HTTP)
-    response = instance_double(Net::HTTPResponse, code: '200')
-    allow(Net::HTTP).to receive(:start).and_yield(http)
-    allow(http).to receive(:get).with('/api/v2/rubygems/fixture/versions/2.0.0.json').and_return(response)
-    expect { described_class.new.resolve! }.to raise_error(/fixture 2.0.0.*already published/)
-    expect(git).not_to have_received(:stage_changes!)
-    expect(File.read(environment_file)).to eq('')
+    described_class.new.resolve!
+    expect(git).not_to have_received(:check_tag!)
+    expect(Net::HTTP).not_to have_received(:start)
+    expect(git).to have_received(:stage_changes!)
+    expect(File.read(environment_file)).to include("RELEASE_VERSION=2.0.0\n")
   end
 
-  it 'uses the supplied destination for version checks without contacting RubyGems or enabling its authentication' do
+  it 'uses the supplied destination authentication policy without contacting RubyGems' do
     destination = instance_double(RubyGemRelease::Destination, check_version!: nil, authentication: nil)
     described_class.new.resolve!(destination: destination)
-    expect(destination).to have_received(:check_version!).with(name: 'fixture', version: '1.2.3')
+    expect(destination).not_to have_received(:check_version!)
     expect(Net::HTTP).not_to have_received(:start)
     expect(File.read(environment_file)).to include("RELEASE_VERSION=1.2.3\n", "RELEASE_AUTHENTICATION=\n")
   end
@@ -161,7 +173,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
       described_class.new(provider: provider).capture!(package: package)
       expect(values).to include('GEMSPEC' => package.gemspec, 'RELEASE_PREVIOUS_VERSION' => '1.2.3')
       expect(git).to have_received(:check_clean!)
-      expect(git).to have_received(:check_current!).with(have_attributes(version: '1.2.3'))
+      expect(git).to have_received(:check_current!).with(have_attributes(version: '1.2.3'), allow_ancestor: true)
     end
 
     it 'captures custom package metadata without requiring a gemspec accessor' do
@@ -182,7 +194,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
       expect(values).to include('RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_VERSION' => '2.0.0', 'RELEASE_DIRECTORY' => directory)
       expect(File).to exist(values.fetch('RELEASE_STATE'))
       expect(git).to have_received(:configure!).with(name: 'ruby-gem-release', email: 'ruby-gem-release@localhost')
-      expect(destination).to have_received(:check_version!).with(name: 'fixture', version: '2.0.0')
+      expect(destination).not_to have_received(:check_version!)
       expect(Net::HTTP).not_to have_received(:start)
       expect(File.read(environment_file)).to eq('')
     end

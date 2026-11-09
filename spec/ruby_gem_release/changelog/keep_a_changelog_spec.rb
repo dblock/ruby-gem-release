@@ -39,6 +39,8 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
       File.write(path, "#{prefix} [Unreleased]\n\n- Change.\n\n#{history}")
       updater = described_class.new(path: path)
       updater.release!(release)
+      updater.release!(release)
+      updater.prepare_next!(next_release)
       updater.prepare_next!(next_release)
       expect(File.read(path)).to eq("#{prefix} [Unreleased]\n\n#{prefix} [1.0.0] - 2026-11-07\n\n- Change.\n\n#{history}")
     end
@@ -159,11 +161,17 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
     expect(File.read(path)).to include("```markdown\n## [Unreleased]\n```\n\n## [1.0.0] - 2026-11-07")
   end
 
-  it 'rejects duplicate release headings without modifying the file', :aggregate_failures do
+  it 'reuses an existing release heading without changing its date or duplicating it' do
     content = "## [Unreleased]\n\n## [1.0.0] - 2026-01-01\n"
     File.write(path, content)
-    expect { described_class.new(path: path).release!(release) }
-      .to raise_error(ArgumentError, /already exists/)
+    described_class.new(path: path).release!(release)
+    expect(File.read(path)).to eq(content)
+  end
+
+  it 'rejects genuinely duplicated release headings without modifying the file' do
+    content = "## [1.0.0] - 2026-01-01\n\n## [1.0.0] - 2026-01-02\n"
+    File.write(path, content)
+    expect { described_class.new(path: path).release!(release) }.to raise_error(ArgumentError, /duplicate/)
     expect(File.read(path)).to eq(content)
   end
 end

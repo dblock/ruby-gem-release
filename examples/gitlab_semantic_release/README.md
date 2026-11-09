@@ -38,20 +38,20 @@ The pipeline owns a complete checkout with tags, dependencies, tests, authorized
 
 Validation discovers the highest reachable stable release tag, analyzes subsequent Conventional Commits, selects a version, and generates notes once. Its immutable decision is persisted in the private versioned state and exposed as `ctx.analysis` in later callbacks. Do not export the selection as `INPUT_VERSION` or reanalyze it in another process.
 
-The selected version is based on the last release, not the checked-in development version. An explicit version can override analysis and force a release; otherwise, non-releasable commits skip successfully. Preparation calls the version object's `set!` method and writes a generated changelog by default.
+The selected version is based on the last release, not the checked-in development version. An explicit version can override analysis and force a release; otherwise, no releasable commits is a validation error. Preparation calls the version object's `set!` method and writes a generated changelog by default.
 
 See the [semantic workflow reference](../../docs/workflow/semantic_ruby_gem.md) for first-release configuration, custom rules and providers, optional changelog updates, and `bump: true`. Development bumps are disabled by default for this workflow.
 
 ## 4. Implement GitLab Hosting
 
-`GitLabRelease#publish!(release, package:)` replaces only hosted-release creation. Use `release.notes` for the persisted generated body and `package.artifact(release)` for the verified archive. Do not regenerate notes or rebuild the gem.
+`GitLabRelease#publish!(release, package:)` replaces only hosting. Use `release.notes` for the captured body and `package.artifact(release)` for the verified archive. Implement `published?` to verify metadata and asset bytes; publication may replace mutable notes/assets but must reject immutable tag conflicts. Do not regenerate notes or rebuild inside hosting.
 
-The standard publication callback still checks the registry, commits, builds once, tags locally, uploads the exact gem, pushes the commit and tag atomically, and then invokes hosting. Registry failure prevents the push and hosted release; publication failures retain recovery files.
+The standard publication callback commits, builds reproducibly, tags locally, verifies or uploads the exact gem, pushes commit and tag atomically, then invokes hosting. Registry failure prevents the push and hosted release; artifacts remain available for manual inspection.
 
 ## 5. Supply the Pipeline and Authentication
 
-Invoke capture, validation, preparation, resolution, project tests, publication, bump, and success in that order. Read the transported `proceed` output after validation and stop successfully when it is `false`, without invoking downstream phases or success callbacks. The bump task is a no-op unless enabled. On failure, identify the phase and invoke failure handling; preserve the gem, digest manifest, and recovery bundle even if publication fails.
+Invoke capture, validation, preparation, resolution, project tests, checkpoint, required artifact upload, publication, bump, and success in that order. Stop on any failed command, including empty-release validation, and invoke failure handling rather than downstream release operations. Every command must be idempotent using the current checkout and inputs; do not restore an older workflow's context. The bump task is a no-op unless enabled. Retain artifacts for manual inspection.
 
 Publication authenticates through the configured destination. For RubyGems, implement compatible identity-token acquisition and configure a trusted publisher supported by the actual platform, or supply protected preconfigured credentials with an explicit destination authentication policy. Neither this scaffold nor a GitLab identity token alone establishes registry trust.
 
-Before enabling real publication, test the completed adapters across separate processes using local Git remotes and isolated registry and hosting boundaries, following the [provider-neutral consumer tests](../../spec/integration/workflow_portable_release_spec.rb). Verify skipping, selected versions, generated notes, exact-artifact publication, recovery, and failure callbacks without contacting production services.
+Before enabling real publication, test the completed adapters across separate processes using local Git remotes and isolated registry and hosting boundaries, following the [provider-neutral consumer tests](../../spec/integration/workflow_portable_release_spec.rb). Verify empty-release rejection, selected versions, generated notes, exact-artifact publication, reruns, and failure callbacks without contacting production services.

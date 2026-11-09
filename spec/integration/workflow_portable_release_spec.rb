@@ -7,7 +7,7 @@ require 'rubygems/package'
 
 RSpec.describe 'Provider-neutral release lifecycle' do
   let(:directory) { Dir.mktmpdir }
-  let(:checkout) { File.join(directory, 'checkout') }
+  let(:runner) { { checkout: 'checkout' } }
   let(:remote) { File.join(directory, 'remote.git') }
   let(:environment) do
     ENV.to_h.slice('PATH', 'HOME', 'TMPDIR', 'LANG').merge(
@@ -19,11 +19,14 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       'GIT_CONFIG_NOSYSTEM' => '1', 'GIT_CONFIG_GLOBAL' => File::NULL,
       'RELEASE_DIRECTORY' => File.join(directory, 'artifacts'),
       'CONSUMER_ENVIRONMENT' => File.join(directory, 'environment.json'),
-      'CONSUMER_OUTPUT' => File.join(directory, 'output.json'),
       'RELEASE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master',
       'INPUT_VERSION' => '0.2.0', 'INPUT_GEMSPEC' => 'example.gemspec',
       'RELEASE_TEST_REMOTE' => remote, 'TZ' => 'UTC'
     )
+  end
+
+  def checkout
+    File.join(directory, runner.fetch(:checkout))
   end
 
   before do
@@ -72,8 +75,21 @@ RSpec.describe 'Provider-neutral release lifecycle' do
   def prepare_release
     run_task('release:workflow:capture')
     run_task('release:validate')
-    expect(JSON.parse(File.read(environment.fetch('CONSUMER_OUTPUT')))).to eq('proceed' => 'true')
-    %w[release:prepare release:workflow:resolve test].each { |name| run_task(name) }
+    %w[release:prepare release:workflow:resolve test release:workflow:checkpoint].each { |name| run_task(name) }
+  end
+
+  def fresh_runner
+    runner[:checkout] = 'fresh-checkout'
+    run_git('clone', '--quiet', remote, checkout)
+    environment['RELEASE_DIRECTORY'] = File.join(directory, 'fresh-artifacts')
+    reset_invocation
+  end
+
+  def reset_invocation
+    FileUtils.mkdir_p(environment.fetch('RELEASE_DIRECTORY'))
+    %w[RELEASE_STATE RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE RELEASE_INITIAL_COMMIT
+       CONSUMER_FAIL_PUBLICATION CONSUMER_FORBID_ANALYSIS GEMSPEC].each { |key| environment.delete(key) }
+    File.delete(environment.fetch('CONSUMER_ENVIRONMENT')) if File.file?(environment.fetch('CONSUMER_ENVIRONMENT'))
   end
 
   def artifact(name)
@@ -112,7 +128,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
                                'context_class' => 'RubyGemRelease::ExecutionContext', 'step' => 'release:success',
                                'provider' => 'PortableConsumer::Provider', 'run' => nil, 'steps' => {})
     invocations = events.select { |event| event['event'] == 'invocation' }
-    expect(invocations.map { |event| event.fetch('task') }).to eq(%w[release:workflow:capture release:validate release:prepare release:workflow:resolve test release:publish release:bump release:success])
+    expect(invocations.map { |event| event.fetch('task') }).to eq(%w[release:workflow:capture release:validate release:prepare release:workflow:resolve test release:workflow:checkpoint release:publish release:bump release:success])
     expect(invocations.map { |event| event.fetch('pid') }.uniq.size).to eq(invocations.size)
   end
 
@@ -131,6 +147,11 @@ RSpec.describe 'Provider-neutral release lifecycle' do
                                'version' => '0.2.0', 'next_version' => nil, 'context_class' => 'RubyGemRelease::ExecutionContext',
                                'provider' => 'PortableConsumer::Provider')
     expect(events.map { |event| event.fetch('event') }).not_to include('hosting', 'success')
+    fresh_runner
+    prepare_release
+    run_task('release:publish')
+    run_task('release:bump')
+    expect(run_git('--git-dir', remote, 'show', 'master:lib/example/version.rb')).to include("VERSION = '0.2.1'")
   end
 
   context 'with semantic releases' do
@@ -154,9 +175,8 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       run_git('-C', checkout, 'push', '--quiet', 'origin', 'master')
       run_task('release:workflow:capture')
       run_task('release:validate')
-      expect(JSON.parse(File.read(environment.fetch('CONSUMER_OUTPUT')))).to eq('proceed' => 'true')
       environment['CONSUMER_FORBID_ANALYSIS'] = 'true'
-      %w[release:prepare release:workflow:resolve test].each { |name| run_task(name) }
+      %w[release:prepare release:workflow:resolve test release:workflow:checkpoint].each { |name| run_task(name) }
     end
 
     it 'persists one decision across processes, publishes generated notes, and leaves development bumps disabled' do
@@ -177,14 +197,13 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       expect(hosted).to include('notes' => decision.fetch('notes'), 'tags' => %w[v0.4.0 v0.5.0])
       expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include(decision.fetch('notes'))
       expect(Gem::Package.new(artifact('release.gem')).spec.version.to_s).to eq('0.5.0')
-      expect(events.select { |event| event['event'] == 'invocation' }.map { |event| event.fetch('pid') }.uniq.size).to eq(8)
+      expect(events.select { |event| event['event'] == 'invocation' }.map { |event| event.fetch('pid') }.uniq.size).to eq(9)
     end
 
-    it 'skips across processes without preparation, authentication, publication, bumping, or success notification' do
+    it 'fails validation across processes without preparation, authentication, publication, bumping, or success notification' do
       initial = run_git('--git-dir', remote, 'rev-parse', 'master')
       run_task('release:workflow:capture')
-      run_task('release:validate')
-      expect(JSON.parse(File.read(environment.fetch('CONSUMER_OUTPUT')))).to eq('proceed' => 'false')
+      expect { run_task('release:validate') }.to raise_error(/Nothing to release/)
       decision = RubyGemRelease::Workflow::State.new(path: environment.fetch('RELEASE_STATE')).analysis
       expect(decision).not_to be_release
       expect(decision.last_release.fetch('version')).to eq('0.4.0')
@@ -192,6 +211,10 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
       expect(events.map { |event| event.fetch('event') }).to eq(%w[invocation invocation analysis])
       expect(File).not_to exist(artifact('release.gem'))
+      run_task('release:workflow:failure_phase')
+      run_task('release:failure')
+      failure = events.find { |event| event['event'] == 'failure' }
+      expect(failure).to include('phase' => 'release:validate', 'error' => 'Nothing to release: no release-eligible commits')
     end
 
     it 'delivers the persisted decision and publication failure to a later process without pushing' do
@@ -209,6 +232,15 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       expect(run_git('--git-dir', remote, 'tag')).to eq('v0.4.0')
       %w[release.gem release.json release.bundle].each { |name| expect(File).to exist(artifact(name)) }
       expect(events.map { |event| event.fetch('event') }).not_to include('hosting', 'success')
+      decision = failure.fetch('analysis')
+      fresh_runner
+      prepare_release
+      run_task('release:publish')
+      run_task('release:bump')
+      run_task('release:success')
+      expect(events.count { |event| event['event'] == 'analysis' }).to eq(1)
+      expect(events.find { |event| event['event'] == 'success' }.fetch('analysis')).to eq(decision)
+      expect(run_git('--git-dir', remote, 'show', 'v0.5.0:lib/example/version.rb')).to include("VERSION = '0.5.0'")
     end
   end
 end

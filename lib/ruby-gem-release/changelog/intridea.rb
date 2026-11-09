@@ -40,13 +40,19 @@ module RubyGemRelease
         pattern = %r{\A\#{1,6} #{Regexp.escape(released_version)} \(\d{4}/\d{2}/\d{2}\)\z}
         position = heading(content, pattern)
         prefix = heading_prefix(content, position)
+        return if heading_positions(content, /\A\#{1,6} #{Regexp.escape(version)} \(Next\)\z/).one?
+
         check_absent(content, UNRELEASED, 'unreleased heading already exists')
 
         File.write(@path, content.insert(position, ["#{prefix} #{version} (Next)", '', @placeholder, '', ''].join(separator)))
       end
 
       def check_release_absent(content, version)
-        check_absent(content, %r{\A\#{1,6} #{Regexp.escape(version)} \(\d{4}/\d{2}/\d{2}\)\z}, 'release heading already exists')
+        check_absent(content, release_pattern(version), 'release heading already exists')
+      end
+
+      def release_pattern(version)
+        %r{\A\#{1,6} #{Regexp.escape(version)} \(\d{4}/\d{2}/\d{2}\)\z}
       end
 
       def release_notes(section, separator, version)

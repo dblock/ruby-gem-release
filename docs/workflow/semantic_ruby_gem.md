@@ -52,7 +52,7 @@ semantic = RubyGemRelease::SemanticRelease.new(analyzer: analyzer)
 
 Supported selectors are `type`, `scope`, and `subject` strings, plus boolean `breaking` and `revert` selectors. A rule matches when all its selectors match. Matching custom rules replace defaults for that commit; the highest positive match wins, or `false` suppresses it if there is no positive match. Unmatched commits fall back to defaults. Use `release: :major`, `:minor`, `:patch`, or `false`.
 
-No releasable commits means `proceed=false`, without downstream operations or notifications. Handwritten pending notes do not affect selection. Optional `validate:` can veto a release; its context is the starting snapshot, while subsequent tasks see newly recorded analysis.
+No releasable commits raises a validation error before downstream operations; the failure callback reports it. Handwritten pending notes do not affect selection. Optional `validate:` raises on invalid state; returning `false` also fails. Its context is the starting snapshot, while subsequent tasks see newly recorded analysis.
 
 ## Notes and Changelog
 
@@ -70,7 +70,7 @@ With default `bump: false`, the installed bump task does nothing and `release.ne
 
 ## State and Callbacks
 
-Validation records one immutable `SemanticRelease::Decision` through `ctx.record_analysis!`. Its fields are `head`, `last_release`, `commits`, `release_type`, `version`, `notes`, and `explicit_version`. `last_release` is `nil` or a frozen hash with string keys `tag`, `version`, and `commit`. `commits` retains the full analyzed range as frozen hashes with `sha` and complete `message`, including commits canceled for release analysis. A skipped decision has `nil` release type, version, and notes.
+Validation records one immutable `SemanticRelease::Decision` through `ctx.record_analysis!`. Its fields are `head`, `last_release`, `commits`, `release_type`, `version`, `notes`, and `explicit_version`. `last_release` is `nil` or a frozen hash with string keys `tag`, `version`, and `commit`. `commits` retains the full analyzed range as frozen hashes with `sha` and complete `message`, including commits canceled for release analysis. A no-release decision has `nil` release type, version, and notes.
 
 Later contexts expose persisted analysis without rerunning providers or mutating earlier snapshots. Private JSON supports schema 2 and legacy schema 1 next-version data; recording a bump preserves analysis. Corrupt state fails closed. Failure reporting warns and omits unreadable state without hiding the original error.
 
@@ -93,4 +93,4 @@ Preserve `RELEASE_STATE` and captured inputs across processes. Changed `RELEASE_
 
 The Ruby implementation follows stable-release behavior from [semantic-release v25.0.9](https://github.com/semantic-release/semantic-release/tree/v25.0.9), [commit-analyzer v13.0.1](https://github.com/semantic-release/commit-analyzer/tree/v13.0.1), and [release-notes-generator v14.1.1](https://github.com/semantic-release/release-notes-generator/tree/v14.1.1), including highest reachable stable version, first release `1.0.0`, Conventional Commits severity, custom-rule fallback, and revert cancellation. It is not a port of their JavaScript plugin system, presets, or note templates and adds no Node dependency.
 
-Prereleases, maintenance branches, distribution channels, alternate tag formats, and additional CI-platform adapters are outside this first implementation. Existing clean-checkout, duplicate-version, concurrency, preparation, and exact-artifact checks remain intact. Unlike the upstream tag-push ordering, this project continues to upload the verified package before atomically pushing its release commit and tag; review [recovery instructions](../../RELEASING.md) before retrying a failed publication.
+Prereleases, maintenance branches, distribution channels, alternate tag formats, and additional CI-platform adapters are outside this first implementation. Clean-checkout, concurrency, preparation, and exact-artifact checks remain; an already-published version succeeds only on matching SHA256. Unlike upstream, this project verifies or uploads the package before atomically pushing commit and tag. Reruns use the [current checkout and inputs](../../RELEASING.md#verify-and-recover), not restored analysis.

@@ -24,6 +24,11 @@ RSpec.describe RubyGemRelease::Version::RubyConstant do
     expect(File.read(version_file)).to eq("module Example\n  VERSION = '2.0.0'\nend\n")
   end
 
+  it 'repeats an increment from a fixed release version without incrementing twice' do
+    2.times { expect(version.increment!(from: '1.2.3')).to eq('1.2.4') }
+    expect(version.read).to eq('1.2.4')
+  end
+
   it 'rejects invalid versions without changing the file', :aggregate_failures do
     original = File.read(version_file)
     expect { version.set!('1.02.3') }.to raise_error(ArgumentError, /invalid version/)
@@ -33,6 +38,8 @@ RSpec.describe RubyGemRelease::Version::RubyConstant do
   %w[patch minor major].zip(%w[1.2.4 1.3.0 2.0.0]).each do |part, version|
     it "increments #{part} and resets lower components", :aggregate_failures do
       strategy = described_class.new(path: version_file, constant: 'VERSION')
+      expect(strategy.next_version(part: part)).to eq(version)
+      expect(File.read(version_file)).to include("VERSION = '1.2.3'")
       expect(strategy.increment!(part: part)).to eq(version)
       expect(File.read(version_file)).to include("VERSION = '#{version}'")
     end

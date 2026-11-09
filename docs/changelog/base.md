@@ -10,13 +10,13 @@ Shared implementation for [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_
 
 `pending?` reads the current unreleased section without writing files. It returns `true` when actual notes exist and `false` for an empty or structural-only section, ignoring historical notes and the configured `Intridea` placeholder. Missing or duplicate release headings, invalid line endings, malformed comparison links, and missing or duplicate placeholders raise errors rather than reporting no changes.
 
-The standard workflow calls this predicate during `release:validate`, before preparation. Empty pending notes skip the release successfully; directly invoking `release!` below still rejects them.
+Default validation requires an existing selected release or pending notes; otherwise it raises.
 
 ## Release
 
-`release!(release)` delegates the release version and date to the concrete format implementation.
+`released?(version)` returns whether that version has a release heading; duplicates raise. `release!(release)` reuses an existing heading unchanged, or delegates the version and date to the concrete format implementation.
 
-Both built-in formats reject empty release notes before writing the file, with no opt-out. Only the current release section counts, ending at the next heading of equal or shallower depth. Blank lines, category headings, HTML comments or blocks, reference definitions, and the configured `Intridea` contribution placeholder are not release notes. Text, lists, quotes, and code with content count as notes. The error identifies the version and changelog path and asks you to add notes before retrying.
+New releases require nonempty notes. Only the current section counts, ending at the next heading of equal or shallower depth. Blank lines, category headings, HTML comments or blocks, reference definitions, and the configured `Intridea` contribution placeholder are not notes. Text, lists, quotes, and code with content count. Errors identify the version and changelog path.
 
 ## Prepare Next
 

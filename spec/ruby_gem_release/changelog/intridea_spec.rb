@@ -40,6 +40,8 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
       File.write(path, "#{prefix} 1.0.0 (Next)\n\n* Change.\n* Your contribution here.\n\n#{history}")
       updater = described_class.new(path: path, placeholder: '* Your contribution here.')
       updater.release!(release)
+      updater.release!(release)
+      updater.prepare_next!(next_release)
       updater.prepare_next!(next_release)
       expect(File.read(path)).to eq("#{prefix} 1.0.1 (Next)\n\n* Your contribution here.\n\n#{prefix} 1.0.0 (2026/11/07)\n\n* Change.\n\n#{history}")
     end
