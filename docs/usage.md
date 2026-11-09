@@ -42,7 +42,7 @@ The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and art
 
 ## Object Overrides
 
-Supply your own `package:`, `destination:`, `git:`, or `hosting:` object to customize an implementation without changing the release sequence. Packages own construction and verification; registry destinations own availability checks and uploads. For example, disable GitHub Release creation while retaining RubyGems publication:
+Supply your own `package:`, `destination:`, `git:`, `hosting:`, or `provider:` object to customize an implementation without changing the release sequence. Packages own construction and verification; registry destinations own availability checks and uploads; execution providers own platform services independently of release hosting. For example, disable GitHub Release creation while retaining RubyGems publication:
 
 ```ruby
 RubyGemRelease::Workflow::RubyGem.new(
@@ -66,18 +66,19 @@ require 'ruby-gem-release/package/ruby_gem'
 require 'ruby-gem-release/destination/ruby_gems'
 require 'ruby-gem-release/source_control/git'
 
-package = RubyGemRelease::Package::RubyGem.new
+provider = RubyGemRelease::ExecutionProvider.current
+package = RubyGemRelease::Package::RubyGem.new(directory: provider.directory)
 destination = RubyGemRelease::Destination::RubyGems.new
-RubyGemRelease::Tasks.install(package: package, destination: destination) do |tasks|
+RubyGemRelease::Tasks.install(package: package, destination: destination, provider: provider) do |tasks|
   version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
   changelog = RubyGemRelease::Changelog::KeepAChangelog.new
-  git = RubyGemRelease::SourceControl::Git.new
+  git = RubyGemRelease::SourceControl::Git.new(directory: provider.directory)
   github = RubyGemRelease::Hosting::GitHubRelease.new
   tasks.validate { |_ctx| changelog.pending? }
   tasks.prepare do |ctx|
     release = ctx.release
     git.stage_changes! do
-      version.set!(release.version) unless ENV.fetch('INPUT_VERSION', '').empty?
+      version.set!(release.version) unless provider.fetch('INPUT_VERSION', '').empty?
       changelog.release!(release.with_version(version.read))
     end
   end
@@ -151,6 +152,7 @@ Callbacks define project-specific preparation, publication, and next development
 
 - [`Tasks`](tasks.md): Registers preparation, publication, next-development-iteration, success, and failure callbacks and their Rake tasks.
 - [`ExecutionContext`](execution_context.md): Release data, current step, observed steps, configured workflow, and run metadata.
+- [`ExecutionProvider`](execution_provider.md): Execution-platform services, with a GitHub Actions implementation and a provider-neutral base.
 - [`Release`](release.md): Immutable version and date value used by release operations.
 
 ### Changelog Objects

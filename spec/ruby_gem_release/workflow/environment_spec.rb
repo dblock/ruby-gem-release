@@ -11,7 +11,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
 
   around do |example|
     original = ENV.to_h
-    ENV.update('GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'GITHUB_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RUNNER_TEMP' => directory)
+    ENV.update('GITHUB_ACTIONS' => 'true', 'GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'GITHUB_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RUNNER_TEMP' => directory)
     ENV.delete('GEMSPEC')
     ENV.delete('INPUT_GEMSPEC')
     ENV.delete('TZ')
@@ -138,6 +138,33 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     expect(destination).not_to have_received(:check_version!)
     expect(git).not_to have_received(:stage_changes!)
     expect(File.read(environment_file)).to eq('')
+  end
+
+  context 'with a provider-neutral environment' do
+    let(:values) { { 'RELEASE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RELEASE_DIRECTORY' => directory } }
+    let(:provider) { RubyGemRelease::ExecutionProvider.new(environment: values) }
+
+    it 'captures and resolves without using Actions files or RubyGems' do
+      File.write('other.gemspec', "raise 'unselected gemspec must not load'\n")
+      values['INPUT_GEMSPEC'] = 'fixture.gemspec'
+      destination = instance_double(RubyGemRelease::Destination, check_version!: nil, authentication: nil)
+      instance = described_class.new(provider: provider)
+      instance.capture!
+      File.write('version.rb', "VERSION = '2.0.0'\n")
+      instance.resolve!(destination: destination)
+      expect(values).to include('RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_VERSION' => '2.0.0', 'RELEASE_DIRECTORY' => directory)
+      expect(File).to exist(values.fetch('RELEASE_STATE'))
+      expect(git).to have_received(:configure!).with(name: 'ruby-gem-release', email: 'ruby-gem-release@localhost')
+      expect(destination).to have_received(:check_version!).with(name: 'fixture', version: '2.0.0')
+      expect(Net::HTTP).not_to have_received(:start)
+      expect(File.read(environment_file)).to eq('')
+    end
+
+    it 'checks the provider ref rather than an unrelated GitHub ref' do
+      values['RELEASE_REF'] = 'refs/heads/topic'
+      expect { described_class.new(provider: provider).capture! }.to raise_error(/default branch/)
+      expect(git).not_to have_received(:configure!)
+    end
   end
 
   context 'when configuring composite action inputs' do

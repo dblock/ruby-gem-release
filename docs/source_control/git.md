@@ -4,11 +4,11 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Branch and Remote
 
-`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the recovery bundle and preparation index snapshot location; it defaults to `RUNNER_TEMP` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do.
+`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the recovery bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DIRECTORY` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
 
 ## Configure
 
-`configure!(name:, email:)` sets checkout-local identity. Defaults are `github-actions[bot]` and `github-actions[bot]@users.noreply.github.com`; blank values or line breaks fail. The workflow calls this with its identity inputs.
+`configure!(name:, email:)` sets checkout-local identity. Direct-call defaults are `ruby-gem-release` and `ruby-gem-release@localhost`; blank values or line breaks fail. Context capture supplies the execution provider's identity, retaining the existing GitHub bot defaults on Actions.
 
 ## Head
 

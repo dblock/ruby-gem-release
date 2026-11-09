@@ -92,6 +92,7 @@ Commands run through `bash -euo pipefail`. Overrides replace the corresponding p
 | `RELEASE_STEP_ID`                 | Commands         | Current enclosing Actions step ID.                                      |
 | `RELEASE_STEPS`                   | Commands         | JSON snapshot of previously observed Actions steps.                     |
 | `RELEASE_STATE`                   | After capture    | Private invocation-specific state file for callback data.               |
+| `RELEASE_DIRECTORY`               | After capture    | Provider directory; maps to `RUNNER_TEMP` on Actions.                   |
 | `RELEASE_AUTHENTICATION`          | After resolution | Destination authentication strategy, or empty for existing credentials. |
 | `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                                 |
 | `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication.    |

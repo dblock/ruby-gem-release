@@ -168,6 +168,17 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(objects.fetch(:changelog)).not_to have_received(:release!)
   end
 
+  it 'passes its execution provider to tasks and uses its selected version during preparation' do
+    provider = RubyGemRelease::ExecutionProvider.new(environment: ENV.to_h.merge('INPUT_VERSION' => '3.0.0', 'INPUT_GEMSPEC' => 'selected.gemspec'))
+    allow(version).to receive(:set!).with('3.0.0')
+    instance = described_class.new(version: version, changelog: nil, provider: provider)
+    instance.install_tasks
+    Rake::Task['release:prepare'].invoke
+    expect(version).to have_received(:set!).with('3.0.0')
+    expect(RubyGemRelease::Package::RubyGem).to have_received(:new).with(gemspec: 'selected.gemspec', directory: nil)
+    expect(instance.provider).to equal(provider)
+  end
+
   it 'rejects invalid selected versions before invoking the setter or changelog', :aggregate_failures do
     ENV['INPUT_VERSION'] = '03.0.0'
     allow(version).to receive(:set!)

@@ -11,10 +11,11 @@ module RubyGemRelease
       def initialize(branch: nil, remote: 'origin', directory: nil)
         @remote = remote
         @branch = branch || ENV.fetch('DEFAULT_BRANCH', nil)
-        @directory = directory || ENV['RUNNER_TEMP'] || Dir.mktmpdir('ruby-gem-release-git-')
+        directory ||= ENV.fetch('RELEASE_DIRECTORY', nil)
+        @directory = directory.to_s.empty? ? Dir.mktmpdir('ruby-gem-release-git-') : directory
       end
 
-      def configure!(name: 'github-actions[bot]', email: 'github-actions[bot]@users.noreply.github.com')
+      def configure!(name: 'ruby-gem-release', email: 'ruby-gem-release@localhost')
         [name, email].each do |value|
           raise ArgumentError, 'Git identity must be nonempty and contain no line breaks' unless value.is_a?(String) && !value.strip.empty? && !value.match?(/[\r\n]/)
         end

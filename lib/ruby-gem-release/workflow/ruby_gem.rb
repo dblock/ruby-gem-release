@@ -9,10 +9,12 @@ require_relative '../hosting/github_release'
 module RubyGemRelease
   module Workflow
     class RubyGem
-      attr_reader :version, :changelog, :package, :destination, :git, :hosting
+      attr_reader :version, :changelog, :package, :destination, :git, :hosting, :provider
 
-      def initialize(version:, changelog:, package: Package::RubyGem.new, destination: Destination::RubyGems.new,
-                     git: SourceControl::Git.new, hosting: Hosting::GitHubRelease.new,
+      def initialize(version:, changelog:, provider: ExecutionProvider.current,
+                     package: Package::RubyGem.new(gemspec: provider.fetch('GEMSPEC', provider.fetch('INPUT_GEMSPEC', '')) || '', directory: provider.directory),
+                     destination: Destination::RubyGems.new,
+                     git: SourceControl::Git.new(directory: provider.directory), hosting: Hosting::GitHubRelease.new,
                      validate: nil, success: nil, failure: nil)
         @version = version
         @changelog = changelog
@@ -20,13 +22,14 @@ module RubyGemRelease
         @destination = destination
         @git = git
         @hosting = hosting
+        @provider = provider
         @validate = validate
         @success = success
         @failure = failure
       end
 
       def install_tasks
-        Tasks.install(workflow: self, package: @package, destination: @destination) do |tasks|
+        Tasks.install(workflow: self, package: @package, destination: @destination, provider: @provider) do |tasks|
           tasks.validate { |ctx| validate_release(ctx) }
           tasks.prepare { |ctx| prepare_release(ctx.release) }
           tasks.publish { |ctx| publish(ctx.release) }
@@ -46,7 +49,7 @@ module RubyGemRelease
 
       def prepare_release(release)
         @git.stage_changes! do
-          select_version!(release.version) unless ENV.fetch('INPUT_VERSION', '').empty?
+          select_version!(release.version) unless @provider.fetch('INPUT_VERSION', '').empty?
           @changelog&.release!(release.with_version(@version.read))
         end
       end

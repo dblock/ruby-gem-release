@@ -1,6 +1,6 @@
 # `RubyGemRelease::Tasks`
 
-Registers optional validation, preparation, publication, next development iteration, success, and failure callbacks in the Rakefile. `Tasks.install` accepts optional `workflow:`, `package:`, and `destination:` objects and yields the configuration object; it registers no version tasks and requires no version strategy. The package is resolved lazily when omitted, and the destination defaults to RubyGems. Pass the same package and destination used by manual publication callbacks so prepared-version checks and authentication agree. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
+Registers optional validation, preparation, publication, next development iteration, success, and failure callbacks in the Rakefile. `Tasks.install` accepts optional `workflow:`, `package:`, `destination:`, and `provider:` objects and yields the configuration object; it registers no version tasks and requires no version strategy. The package is resolved lazily when omitted, the destination defaults to RubyGems, and the [execution provider](execution_provider.md) is selected automatically. Pass the same package and destination used by manual publication callbacks so prepared-version checks and authentication agree. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
 
 ## Install
 
@@ -8,13 +8,13 @@ Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without
 
 The composite action first invokes `release:workflow:configure` to validate and export its input environment for later steps. The reusable workflow supplies the same values through its job environment.
 
-Callbacks receive the provider-neutral `ExecutionContext` locally or its [`GitHub`](execution_context/github.md) subclass when `GITHUB_ACTIONS=true`. GitHub-specific step statuses and run fields are not part of the local context.
+The provider constructs callback contexts: by default, the provider-neutral `ExecutionContext` locally or its [`GitHub`](execution_context/github.md) subclass on Actions. Explicit `provider:` injection overrides automatic detection. GitHub-specific step statuses and run fields are not part of the local context.
 
 ## Validate
 
 `tasks.validate` decides whether to release after context capture and before preparation edits. It receives an [ExecutionContext](execution_context.md) containing the same initial or explicitly selected release value as `prepare`. Return exactly `true` to proceed or `false` to skip successfully; missing or other return values raise an error. Exceptions fail the release and reach the failure callback with phase `validate_release`. Without a callback, validation proceeds.
 
-The `release:validate` task prints the decision and, when `GITHUB_OUTPUT` is available, writes `proceed=true` or `proceed=false` for the Actions validation step. A successful skip gates all subsequent release steps, including tests, authentication, publication, artifact upload, next development iteration preparation, and the success callback. Neither result callback runs for a skip. The task itself does not prevent separately invoked Rake tasks from running.
+The `release:validate` task prints the decision and exports `proceed=true` or `proceed=false` through its provider. The GitHub provider writes `GITHUB_OUTPUT` when available; the base retains the decision in `outputs`. A successful skip gates all subsequent release steps, including tests, authentication, publication, artifact upload, next development iteration preparation, and the success callback. Neither result callback runs for a skip. The task itself does not prevent separately invoked Rake tasks from running.
 
 The standard workflow registers a pending-changelog check automatically. Custom callbacks can use another read-only release decision:
 

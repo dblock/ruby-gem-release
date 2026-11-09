@@ -2,7 +2,7 @@
 
 Validation, preparation, publication, next development iteration, and success callbacks receive an execution context. Failure callbacks receive a `ReleaseFailure` whose `context` has the same interface. This provider-neutral base owns release data, workflow access, and explicit state recording. It is a frozen snapshot, not a workflow runner or a general-purpose mutable data store.
 
-Tasks select [`ExecutionContext::GitHub`](execution_context/github.md) when `GITHUB_ACTIONS=true`; otherwise they use this base. The base does not read GitHub environment values or interpret Actions statuses. Provider-specific metadata and step details belong to subclasses.
+The configured [execution provider](execution_provider.md) constructs contexts. Automatic selection uses [`ExecutionContext::GitHub`](execution_context/github.md) on Actions and this base elsewhere; explicit provider injection overrides detection. The base does not read GitHub environment values or interpret Actions statuses. Provider-specific metadata and step details belong to subclasses; platform I/O belongs to execution providers.
 
 ```ruby
 tasks.prepare do |ctx|

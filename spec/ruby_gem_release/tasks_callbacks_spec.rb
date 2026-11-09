@@ -26,6 +26,7 @@ RSpec.describe RubyGemRelease::Tasks do
   [true, false].each do |proceed|
     it "exports the explicit #{proceed} validation decision with the selected release context" do
       Dir.mktmpdir do |directory|
+        ENV['GITHUB_ACTIONS'] = 'true'
         ENV['GITHUB_OUTPUT'] = File.join(directory, 'output')
         ENV['INPUT_VERSION'] = '3.0.0'
         described_class.install do |tasks|
@@ -232,6 +233,40 @@ RSpec.describe RubyGemRelease::Tasks do
     expect(received.step.id).to eq('release:success')
     expect(received.workflow).to be_nil
     expect(received).to be_an_instance_of(RubyGemRelease::ExecutionContext)
+  end
+
+  it 'uses the injected provider for release inputs, validation output, and context creation' do
+    values = ENV.to_h.merge('GITHUB_ACTIONS' => 'true', 'INPUT_VERSION' => '3.0.0', 'RELEASE_STEPS' => 'not JSON')
+    provider = RubyGemRelease::ExecutionProvider.new(environment: values)
+    received = nil
+    described_class.install(provider: provider) do |tasks|
+      tasks.validate do |ctx|
+        received = ctx
+        false
+      end
+    end
+    Rake::Task['release:validate'].invoke
+    expect(provider.outputs).to eq('proceed' => 'false')
+    expect(received).to be_an_instance_of(RubyGemRelease::ExecutionContext)
+    expect(received.release.version).to eq('3.0.0')
+  end
+
+  it 'captures and delivers failures through an injected provider without Actions transport' do
+    Dir.mktmpdir do |directory|
+      provider = RubyGemRelease::ExecutionProvider.new(environment: ENV.to_h.merge('RELEASE_DIRECTORY' => directory))
+      allow(provider).to receive(:failed_steps).and_return(['release:publish'])
+      received = nil
+      described_class.install(provider: provider) do |tasks|
+        tasks.publish { raise 'custom provider failure' }
+        tasks.failure { |failure| received = failure }
+      end
+      expect { Rake::Task['release:publish'].invoke }.to raise_error('custom provider failure')
+      Rake::Task['release:workflow:failure_phase'].invoke
+      Rake::Task['release:failure'].invoke
+      expect(received).to have_attributes(phase: 'release:publish', error: have_attributes(message: 'custom provider failure'))
+      expect(received.context).to be_an_instance_of(RubyGemRelease::ExecutionContext)
+      expect(File.stat(File.join(directory, 'ruby-gem-release-failure.json')).mode & 0o777).to eq(0o600)
+    end
   end
 
   it 'reports corrupt state failures without losing execution metadata or replacing the original error' do

@@ -24,7 +24,11 @@ The same package and destination are supplied to prepared-version resolution and
 
 ## Git
 
-The optional `git:` defaults to [`SourceControl::Git`](../source_control/git.md). It implements `commit!`, `tag!`, `push!`, and `commit_next!`. Branch and artifact-directory defaults come from the workflow environment or checkout. Git identity is configured by the Actions context checks; task installation alone does not alter Git configuration.
+The optional `git:` defaults to [`SourceControl::Git`](../source_control/git.md). It implements `commit!`, `tag!`, `push!`, and `commit_next!`. Branch defaults come from the workflow environment or checkout. Default package and Git objects share the execution provider's directory. Git identity is configured during context capture; task installation alone does not alter Git configuration.
+
+## Execution Provider
+
+The optional `provider:` defaults to [`ExecutionProvider.current`](../execution_provider.md). It supplies inputs, environment and output transport, execution contexts, temporary storage, and platform-specific authentication services. The same provider is passed to the installed tasks and context checks. Execution providers do not select hosting or registry destinations; no GitLab implementation is included.
 
 ## Hosting
 
@@ -38,7 +42,7 @@ Preparation updates the changelog with the explicitly read version. Publication 
 
 Pass optional `success:` and `failure:` callbacks to the constructor for result notifications. Success receives an [ExecutionContext](../execution_context.md) with the published release and recorded next development version after the next development iteration succeeds. Failure receives a `RubyGemRelease::ReleaseFailure` with `phase`, `error`, and `context` properties; `failure.context.release` may be absent. A captured Ruby exception is reconstructed with its original class name, message, and stack trace; failures only reported by GitHub Actions have no `error`. A failure callback error does not turn a failed workflow into a successful one.
 
-Callbacks can access this configured workflow through `ctx.workflow`. Public readers expose the configured `version`, `changelog`, `package`, `destination`, `git`, and `hosting` objects; they are reconstructed through the Rakefile in each Ruby process, not serialized across Actions steps.
+Callbacks can access this configured workflow through `ctx.workflow`. Public readers expose the configured `version`, `changelog`, `package`, `destination`, `git`, `hosting`, and `provider` objects; they are reconstructed through the Rakefile in each Ruby process, not serialized across Actions steps.
 
 ## Errors
 

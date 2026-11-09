@@ -1,6 +1,6 @@
 # `RubyGemRelease::ExecutionContext::GitHub`
 
-Extends the provider-neutral [`ExecutionContext`](../execution_context.md) with GitHub Actions step snapshots and run metadata. Tasks select this subclass when `GITHUB_ACTIONS=true`, including for failure callbacks. The inherited release, workflow, and state interface is unchanged.
+Extends the provider-neutral [`ExecutionContext`](../execution_context.md) with GitHub Actions step snapshots and run metadata. The [GitHub execution provider](../execution_provider/github.md) constructs this subclass, including for failure callbacks. The inherited release, workflow, and state interface is unchanged.
 
 ## Steps
 

@@ -6,6 +6,7 @@
 - [#29](https://github.com/dblock/ruby-gem-release/pull/29): Add release validation callbacks and successful skipping for empty pending notes, rename the prepared-release test command input from `validate` to `test` (breaking change), and document migration in [UPGRADING.md](UPGRADING.md) - [@dblock](https://github.com/dblock).
 - [#30](https://github.com/dblock/ruby-gem-release/pull/30): Rename preparation and next development iteration callbacks and Rake tasks to `prepare` and `bump`, matching the Actions command inputs (breaking change) - [@dblock](https://github.com/dblock).
 - [#31](https://github.com/dblock/ruby-gem-release/pull/31): Pass provider-specific execution contexts to callbacks with step history, workflow access, run metadata, and next development version propagation; separate registry destinations from package construction with a RubyGems implementation (breaking change) - [@dblock](https://github.com/dblock).
+- [#32](https://github.com/dblock/ruby-gem-release/pull/32): Separate execution-platform services into a provider-neutral base and GitHub implementation, delegate environment and failure transport, and separate identity-token acquisition from the RubyGems exchange (breaking change) - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

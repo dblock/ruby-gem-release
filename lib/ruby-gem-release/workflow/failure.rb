@@ -2,33 +2,33 @@
 
 require 'json'
 require_relative '../release_failure'
+require_relative '../execution_provider'
 
 module RubyGemRelease
   module Workflow
     class Failure
       class << self
-        def phase!
-          steps = JSON.parse(ENV.fetch('RELEASE_STEPS'))
-          failed = steps.select { |_, step| step['outcome'] == 'failure' }.keys
-          phase = failed.find { |step| error_for(step) } || failed.first || 'unknown'
-          File.open(ENV.fetch('GITHUB_ENV'), 'a') { |file| file.puts "RELEASE_FAILURE_PHASE=#{phase}" }
+        def phase!(provider: ExecutionProvider.current)
+          failed = provider.failed_steps
+          phase = failed.find { |step| error_for(step, provider: provider) } || failed.first || 'unknown'
+          provider.export('RELEASE_FAILURE_PHASE' => phase)
         end
 
-        def capture!(phase, error)
-          return if ENV.fetch('RUNNER_TEMP', '').empty?
+        def capture!(phase, error, provider: ExecutionProvider.current)
+          return unless provider.directory
 
           captured_error = ReleaseFailure::CapturedError.capture(error)
-          File.open(failure_file, 'w', 0o600) do |file|
+          File.open(failure_file(provider), 'w', 0o600) do |file|
             file.write(JSON.generate('phase' => phase, 'error' => captured_error.to_h))
           end
         rescue StandardError => e
           warn "Unable to capture release error details: #{e.message}"
         end
 
-        def error_for(phase)
-          return if ENV.fetch('RUNNER_TEMP', '').empty?
+        def error_for(phase, provider: ExecutionProvider.current)
+          return unless provider.directory
 
-          failure = JSON.parse(File.read(failure_file))
+          failure = JSON.parse(File.read(failure_file(provider)))
           return unless failure.fetch('phase') == phase
 
           ReleaseFailure::CapturedError.from_h(failure.fetch('error'))
@@ -38,8 +38,8 @@ module RubyGemRelease
 
         private
 
-        def failure_file
-          File.join(ENV.fetch('RUNNER_TEMP'), 'ruby-gem-release-failure.json')
+        def failure_file(provider)
+          File.join(provider.directory, 'ruby-gem-release-failure.json')
         end
       end
     end

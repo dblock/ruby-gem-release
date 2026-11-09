@@ -2,7 +2,9 @@ Bundler
 changelog
 dblock
 ExecutionContext
+ExecutionProvider
 gemspec
+GitLab
 HTTPS
 JSON
 LCOV

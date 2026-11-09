@@ -6,14 +6,13 @@ require 'tmpdir'
 
 RSpec.describe RubyGemRelease::Workflow::Failure do
   around do |example|
-    original = ENV.to_h.slice('RUNNER_TEMP', 'GITHUB_ENV', 'RELEASE_STEPS')
+    original = ENV.to_h
     directory = Dir.mktmpdir
-    ENV.update('RUNNER_TEMP' => directory, 'GITHUB_ENV' => File.join(directory, 'environment'))
+    ENV.update('GITHUB_ACTIONS' => 'true', 'RUNNER_TEMP' => directory, 'GITHUB_ENV' => File.join(directory, 'environment'))
     File.write(ENV.fetch('GITHUB_ENV'), '')
     example.run
   ensure
-    %w[RUNNER_TEMP GITHUB_ENV RELEASE_STEPS].each { |key| ENV.delete(key) }
-    ENV.update(original)
+    ENV.replace(original)
     FileUtils.remove_entry(directory)
   end
 

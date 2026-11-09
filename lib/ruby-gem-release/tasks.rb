@@ -3,8 +3,7 @@
 require 'rake'
 require_relative 'release'
 require_relative 'release_failure'
-require_relative 'execution_context'
-require_relative 'execution_context/github'
+require_relative 'execution_provider'
 require_relative 'version/ruby_constant'
 require_relative 'workflow/environment'
 require_relative 'workflow/failure'
@@ -15,16 +14,17 @@ module RubyGemRelease
   class Tasks
     include Rake::DSL
 
-    def self.install(workflow: nil, package: nil, destination: Destination::RubyGems.new)
-      instance = new(workflow: workflow, package: package, destination: destination)
+    def self.install(workflow: nil, package: nil, destination: Destination::RubyGems.new, provider: ExecutionProvider.current)
+      instance = new(workflow: workflow, package: package, destination: destination, provider: provider)
       yield instance if block_given?
       instance.install
     end
 
-    def initialize(workflow: nil, package: nil, destination: Destination::RubyGems.new)
+    def initialize(workflow: nil, package: nil, destination: Destination::RubyGems.new, provider: ExecutionProvider.current)
       @workflow = workflow
       @package = package
       @destination = destination
+      @provider = provider
     end
 
     def install
@@ -93,27 +93,27 @@ module RubyGemRelease
       raise ArgumentError, 'validate must return true or false' unless [true, false].include?(proceed)
 
       puts(proceed ? 'Release validation passed.' : 'Release skipped: nothing to release.')
-      File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') { |file| file.puts "proceed=#{proceed}" } if ENV['GITHUB_OUTPUT']
+      @provider.output('proceed' => proceed.to_s)
     end
 
     def install_workflow_tasks
       namespace :workflow do
         install_workflow_context_tasks
-        task(:failure_phase) { Workflow::Failure.phase! }
+        task(:failure_phase) { Workflow::Failure.phase!(provider: @provider) }
         task(:credentials) do
           with_failure_capture('release:workflow:credentials') do
-            Workflow::RubyGemsCredentials.new(owner: ENV.fetch('RUBYGEMS_OWNER')).configure!
+            Workflow::RubyGemsCredentials.new(owner: @provider.fetch('RUBYGEMS_OWNER'), provider: @provider).configure!
           end
         end
       end
     end
 
     def install_workflow_context_tasks
-      task(:configure) { with_failure_capture('release:workflow:configure') { Workflow::Environment.new.configure! } }
-      task(:capture) { with_failure_capture('release:workflow:capture') { Workflow::Environment.new.capture! } }
+      task(:configure) { with_failure_capture('release:workflow:configure') { Workflow::Environment.new(provider: @provider).configure! } }
+      task(:capture) { with_failure_capture('release:workflow:capture') { Workflow::Environment.new(provider: @provider).capture! } }
       task(:resolve) do
         with_failure_capture('release:workflow:resolve') do
-          Workflow::Environment.new.resolve!(package: @package || Package::RubyGem.new, destination: @destination)
+          Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination)
         end
       end
     end
@@ -162,15 +162,11 @@ module RubyGemRelease
     end
 
     def context(task, preparing: false)
-      execution_context_class.new(release: release_context(preparing: preparing), task: task, state: state, workflow: @workflow)
-    end
-
-    def execution_context_class
-      ENV['GITHUB_ACTIONS'] == 'true' ? ExecutionContext::GitHub : ExecutionContext
+      @provider.context(release: release_context(preparing: preparing), task: task, state: state, workflow: @workflow)
     end
 
     def state
-      path = ENV.fetch('RELEASE_STATE', nil)
+      path = @provider.fetch('RELEASE_STATE', nil)
       if !defined?(@state) || @state_path != path
         @state_path = path
         @state = Workflow::State.new(path: path)
@@ -179,9 +175,9 @@ module RubyGemRelease
     end
 
     def release_context(preparing: false)
-      previous_version = ENV.fetch('RELEASE_PREVIOUS_VERSION')
-      version = preparing ? preparation_version(previous_version) : ENV.fetch('RELEASE_VERSION')
-      date = ENV.fetch('RELEASE_DATE')
+      previous_version = @provider.fetch('RELEASE_PREVIOUS_VERSION')
+      version = preparing ? preparation_version(previous_version) : @provider.fetch('RELEASE_VERSION')
+      date = @provider.fetch('RELEASE_DATE')
       validate_context_versions(version, previous_version)
       raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
@@ -189,23 +185,23 @@ module RubyGemRelease
     end
 
     def preparation_version(previous_version)
-      selected = ENV.fetch('INPUT_VERSION', '')
+      selected = @provider.fetch('INPUT_VERSION', '')
       selected.empty? ? previous_version : selected
     end
 
     def failure_context
-      phase = ENV.fetch('RELEASE_FAILURE_PHASE', 'unknown')
-      error = Workflow::Failure.error_for(phase) unless phase == 'unknown'
-      execution = execution_context_class.new(release: failure_release_context, task: 'release:failure', state: state, workflow: @workflow)
+      phase = @provider.fetch('RELEASE_FAILURE_PHASE', 'unknown')
+      error = Workflow::Failure.error_for(phase, provider: @provider) unless phase == 'unknown'
+      execution = @provider.context(release: failure_release_context, task: 'release:failure', state: state, workflow: @workflow)
       ReleaseFailure.new(phase: phase, error: error, context: execution)
     end
 
     def failure_release_context
-      previous_version = ENV.fetch('RELEASE_PREVIOUS_VERSION', nil)
-      date = ENV.fetch('RELEASE_DATE', '')
+      previous_version = @provider.fetch('RELEASE_PREVIOUS_VERSION', nil)
+      date = @provider.fetch('RELEASE_DATE', '')
       return unless previous_version && date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      version = ENV.fetch('RELEASE_VERSION', '')
+      version = @provider.fetch('RELEASE_VERSION', '')
       version = preparation_version(previous_version) if version.empty?
       validate_context_versions(version, previous_version)
       Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: failure_next_version)
@@ -223,7 +219,7 @@ module RubyGemRelease
     def with_failure_capture(task)
       yield
     rescue StandardError => e
-      Workflow::Failure.capture!(execution_context_class.step_id(task), e)
+      Workflow::Failure.capture!(@provider.step_id(task), e, provider: @provider)
       raise
     end
 

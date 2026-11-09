@@ -4,6 +4,7 @@ Upgrade the gem and pinned workflow or action together. Apply the relevant chang
 
 ## Upgrading to 0.5.0 (Unreleased)
 
+- Git and package objects now use `RELEASE_DIRECTORY` instead of `RUNNER_TEMP`; direct Git identity defaults are provider-neutral. Standard Actions behavior is unchanged. Inject `provider:` to replace execution services independently of hosting and registry destinations. See [#32](https://github.com/dblock/ruby-gem-release/pull/32).
 - Move package version checks and publication to `Destination::RubyGems` using `check_version!(name:, version:)` and `publish!(release, package:)`. Configure `destination:` on the standard workflow, or pass `package:` and `destination:` to manual `Tasks.install`; custom packages now supply `name` as well. See [#31](https://github.com/dblock/ruby-gem-release/pull/31).
 - Callback arguments are now execution contexts: replace `release.version` with `ctx.release.version`, and `failure.release` with `failure.context.release`. Use `ctx.step`, `steps`, `workflow`, and `run` for execution metadata; custom bump callbacks must call `ctx.record_next_version!` to propagate their next version. Rename `Workflow::Context` to `Workflow::Environment`. See [#31](https://github.com/dblock/ruby-gem-release/pull/31).
 - Local callbacks receive `ExecutionContext` with a logical task ID and `run: nil`; GitHub Actions callbacks receive its `ExecutionContext::GitHub` subclass with Actions history and run metadata. See [#31](https://github.com/dblock/ruby-gem-release/pull/31).

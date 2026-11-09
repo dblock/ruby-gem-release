@@ -11,7 +11,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
 
   around do |example|
     original = ENV.to_h
-    ENV.update('GITHUB_ENV' => File.join(directory, 'environment'),
+    ENV.update('GITHUB_ACTIONS' => 'true', 'GITHUB_ENV' => File.join(directory, 'environment'),
                'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://example.com/token?existing=value',
                'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'test-request-token')
     example.run
@@ -57,12 +57,6 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
     expect(Net::HTTP).not_to have_received(:start)
   end
 
-  it 'replaces the audience without discarding repeated query parameters', :aggregate_failures do
-    ENV['ACTIONS_ID_TOKEN_REQUEST_URL'] = 'https://example.com/token?existing=first&audience=old&existing=second'
-    expect { described_class.new(owner: '123').configure! }.to output.to_stdout
-    expect(requests.first.path).to eq('/token?existing=first&existing=second&audience=rubygems.org')
-  end
-
   it 'does not leak failed response bodies or export credentials', :aggregate_failures do
     failure = Net::HTTPForbidden.new('1.1', '403', 'Forbidden')
     responses[0] = failure
@@ -77,11 +71,6 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
     expect(File).not_to exist(ENV.fetch('GITHUB_ENV'))
   end
 
-  it 'rejects an insecure token request endpoint before sending authorization' do
-    ENV['ACTIONS_ID_TOKEN_REQUEST_URL'] = 'http://example.com/token'
-    expect { described_class.new(owner: '123').configure! }.to raise_error(ArgumentError, /HTTPS/)
-  end
-
   it 'does not export credentials when the exchange is rejected', :aggregate_failures do
     responses[1] = Net::HTTPForbidden.new('1.1', '403', 'Forbidden')
     expect { described_class.new(owner: '123').configure! }.to raise_error(/HTTP 403/)
@@ -89,9 +78,15 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
     expect(requests.size).to eq(2)
   end
 
-  it 'rejects malformed JSON without exposing response content', :aggregate_failures do
-    allow(responses.first).to receive(:body).and_return('invalid-test-secret')
-    expect { described_class.new(owner: '123').configure! }.to raise_error('Credential response was not valid JSON')
+  it 'exchanges a token supplied by another execution provider without contacting GitHub' do
+    values = {}
+    provider = RubyGemRelease::ExecutionProvider.new(environment: values)
+    allow(provider).to receive(:oidc_token).with(audience: 'rubygems.org').and_return('custom-oidc-token')
+    responses.replace([success('rubygems_api_key' => 'custom-api-key')])
+    described_class.new(owner: '123', provider: provider).configure!
+    expect(requests.size).to eq(1)
+    expect(JSON.parse(requests.first.body)).to eq('jwt' => 'custom-oidc-token', 'owner' => '123')
+    expect(values).to include('GEM_HOST_API_KEY' => 'custom-api-key')
     expect(File).not_to exist(ENV.fetch('GITHUB_ENV'))
   end
 end

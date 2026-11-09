@@ -93,7 +93,7 @@ jobs:
         id: enable_failure_callback
         run: |
           rm -f "$RUNNER_TEMP/ruby-gem-release-failure.json"
-          for name in RELEASE_STATE RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE RELEASE_INITIAL_COMMIT RELEASE_FAILURE_PHASE RELEASE_AUTHENTICATION; do
+          for name in RELEASE_STATE RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE RELEASE_INITIAL_COMMIT RELEASE_FAILURE_PHASE RELEASE_AUTHENTICATION RELEASE_DIRECTORY; do
             printf '%s=\n' "$name" >> "$GITHUB_ENV"
           done
           echo 'enabled=true' >> "$GITHUB_OUTPUT"

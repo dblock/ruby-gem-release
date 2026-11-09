@@ -12,25 +12,21 @@ module RubyGemRelease
         environment.fetch('RELEASE_STEP_ID', task)
       end
 
+      def self.steps(environment: ENV)
+        attributes = JSON.parse(environment.fetch('RELEASE_STEPS', '{}'))
+        raise ArgumentError, 'release steps must be an object' unless attributes.is_a?(Hash)
+
+        attributes.to_h do |id, values|
+          raise ArgumentError, 'release step must be an object' unless values.is_a?(Hash)
+
+          [id.freeze, Step.new(id: id, outcome: values['outcome'], conclusion: values['conclusion'], outputs: values.fetch('outputs', {}))]
+        end.freeze
+      end
+
       def initialize(release:, task:, state:, workflow: nil, environment: ENV)
         super(release: release, task: task, state: state, workflow: workflow,
               step: Step.new(id: self.class.step_id(task, environment: environment)),
-              steps: parse_steps(environment.fetch('RELEASE_STEPS', '{}')), run: Run.new(environment: environment))
-      end
-
-      private
-
-      def parse_steps(json)
-        attributes = JSON.parse(json)
-        raise ArgumentError, 'release steps must be an object' unless attributes.is_a?(Hash)
-
-        attributes.to_h { |id, values| [id.freeze, Step.new(id: id, **step_attributes(values))] }.freeze
-      end
-
-      def step_attributes(values)
-        raise ArgumentError, 'release step must be an object' unless values.is_a?(Hash)
-
-        { outcome: values['outcome'], conclusion: values['conclusion'], outputs: values.fetch('outputs', {}) }
+              steps: self.class.steps(environment: environment), run: Run.new(environment: environment))
       end
     end
   end

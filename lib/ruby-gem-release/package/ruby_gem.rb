@@ -14,7 +14,8 @@ module RubyGemRelease
 
       def initialize(gemspec: nil, directory: nil)
         @gemspec = resolve_gemspec(gemspec || ENV.fetch('GEMSPEC', nil))
-        @directory = directory || ENV['RUNNER_TEMP'] || Dir.mktmpdir('ruby-gem-release-')
+        directory ||= ENV.fetch('RELEASE_DIRECTORY', nil)
+        @directory = directory.to_s.empty? ? Dir.mktmpdir('ruby-gem-release-') : directory
       end
 
       def version

@@ -3,38 +3,27 @@
 require 'net/http'
 require 'json'
 require 'uri'
+require_relative '../execution_provider'
 
 module RubyGemRelease
   module Workflow
     class RubyGemsCredentials
-      def initialize(owner:)
+      def initialize(owner:, provider: ExecutionProvider.current)
         raise ArgumentError, 'RubyGems owner must be a positive numeric account ID' unless /\A[1-9]\d*\z/.match?(owner.to_s)
 
         @owner = owner.to_s
+        @provider = provider
       end
 
       def configure!
-        token = oidc_token
-        mask(token)
+        token = @provider.oidc_token(audience: 'rubygems.org')
+        @provider.mask(token)
         key = exchange_token(token)
-        mask(key)
-        File.open(ENV.fetch('GITHUB_ENV'), 'a') do |file|
-          %w[RUBYGEMS_API_KEY BUNDLE_GEM__PUSH_KEY GEM_HOST_API_KEY].each { |name| file.puts "#{name}=#{key}" }
-        end
+        @provider.mask(key)
+        @provider.export(%w[RUBYGEMS_API_KEY BUNDLE_GEM__PUSH_KEY GEM_HOST_API_KEY].to_h { |name| [name, key] })
       end
 
       private
-
-      def oidc_token
-        uri = URI(ENV.fetch('ACTIONS_ID_TOKEN_REQUEST_URL'))
-        raise ArgumentError, 'OIDC request URL must use HTTPS' unless uri.is_a?(URI::HTTPS)
-
-        query = URI.decode_www_form(uri.query || '').reject { |name, _value| name == 'audience' }
-        uri.query = URI.encode_www_form(query + [['audience', 'rubygems.org']])
-        request = Net::HTTP::Get.new(uri)
-        request['Authorization'] = "Bearer #{ENV.fetch('ACTIONS_ID_TOKEN_REQUEST_TOKEN')}"
-        credential(response(uri, request), 'value')
-      end
 
       def exchange_token(token)
         uri = URI('https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token')
@@ -61,10 +50,6 @@ module RubyGemRelease
         raise 'Credential response did not contain a valid token' unless value.is_a?(String) && !value.empty? && !value.match?(/[\r\n]/)
 
         value
-      end
-
-      def mask(value)
-        puts "::add-mask::#{value.gsub('%', '%25')}"
       end
     end
   end
