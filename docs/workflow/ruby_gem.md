@@ -18,7 +18,7 @@ The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md)
 
 ## Destination
 
-The optional `destination:` defaults to [`Destination::RubyGems`](../destination/ruby_gems.md). A registry destination implements `check_version!(name:, version:)`, `publish!(release, package:)`, and `authentication`. Subclass [`Destination`](../destination.md) to inherit the default of preconfigured credentials. No additional registry implementation is provided.
+The optional `destination:` defaults to [`Destination::RubyGems`](../destination/ruby_gems.md). A registry destination implements `authenticate!(provider:)`, `check_version!(name:, version:)`, `publish!(release, package:)`, and `authentication`. Subclass [`Destination`](../destination.md) to inherit the default authentication hook that retains preconfigured credentials. No additional registry implementation is provided.
 
 The same package and destination are supplied to prepared-version resolution and publication. Custom destinations therefore do not run the default RubyGems version checks or authentication. Destination publication must preserve exact-artifact identity and stop before the Git push on failure.
 
@@ -38,7 +38,7 @@ The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github
 
 `install_tasks` registers preparation, publication, next development iteration, success, failure, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
 
-Preparation updates the changelog with the explicitly read version. Publication checks the destination for the prepared version, commits release changes, builds once, tags locally, publishes the package through the destination, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
+Preparation updates the changelog with the explicitly read version. The publication task first authenticates through the configured destination, then invokes the callback that checks the prepared version, commits release changes, builds once, tags locally, publishes the package through the destination, pushes the release commit and tag atomically, and publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
 
 Pass optional `success:` and `failure:` callbacks to the constructor for result notifications. Success receives an [ExecutionContext](../execution_context.md) with the published release and recorded next development version after the next development iteration succeeds. Failure receives a `RubyGemRelease::ReleaseFailure` with `phase`, `error`, and `context` properties; `failure.context.release` may be absent. A captured Ruby exception is reconstructed with its original class name, message, and stack trace; failures only reported by GitHub Actions have no `error`. A failure callback error does not turn a failed workflow into a successful one.
 

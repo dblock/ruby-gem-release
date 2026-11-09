@@ -102,7 +102,7 @@ module RubyGemRelease
         task(:failure_phase) { Workflow::Failure.phase!(provider: @provider) }
         task(:credentials) do
           with_failure_capture('release:workflow:credentials') do
-            Workflow::RubyGemsCredentials.new(owner: @provider.fetch('RUBYGEMS_OWNER'), provider: @provider).configure!
+            Workflow::RubyGemsCredentials.new(owner: @provider.fetch('RUBYGEMS_OWNER', ''), provider: @provider).configure!
           end
         end
       end
@@ -121,7 +121,13 @@ module RubyGemRelease
     def install_publish_task
       desc 'Run the release publication callback'
       task :publish do
-        with_failure_capture('release:publish') { @publish&.call(context('release:publish')) }
+        with_failure_capture('release:publish') do
+          next unless @publish
+
+          ctx = context('release:publish')
+          @destination.authenticate!(provider: @provider)
+          @publish.call(ctx)
+        end
       end
     end
 

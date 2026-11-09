@@ -14,7 +14,7 @@ Both Actions interfaces use the configured destination when resolving the prepar
 
 `publish!(release, package:)` obtains the verified artifact, reads its actual built name and version, rejects a version mismatch, checks registry availability again, and invokes `gem push` with that exact filename. It does not rebuild or consult a subsequently edited gemspec.
 
-Configure credentials before calling it directly. In Actions, this destination requests `rubygems` authentication, retaining both existing Trusted Publishing paths: the pinned credentials action or owner-bound exchange for a pending publisher.
+Configure credentials before calling `publish!` directly. The `release:publish` task calls this destination's `authenticate!(provider:)` first; when prepared-version resolution has selected `rubygems` authentication, it invokes [`RubyGemsCredentials`](../workflow/ruby_gems_credentials.md), with an optional owner-bound exchange for a pending publisher. Without that selection, preconfigured credentials are retained. The helper exports credentials without writing a local credentials file.
 
 ## Errors
 

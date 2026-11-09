@@ -8,10 +8,10 @@ require_relative '../execution_provider'
 module RubyGemRelease
   module Workflow
     class RubyGemsCredentials
-      def initialize(owner:, provider: ExecutionProvider.current)
-        raise ArgumentError, 'RubyGems owner must be a positive numeric account ID' unless /\A[1-9]\d*\z/.match?(owner.to_s)
-
+      def initialize(owner: nil, provider: ExecutionProvider.current)
         @owner = owner.to_s
+        raise ArgumentError, 'RubyGems owner must be a positive numeric account ID' unless @owner.empty? || /\A[1-9]\d*\z/.match?(@owner)
+
         @provider = provider
       end
 
@@ -30,7 +30,9 @@ module RubyGemRelease
         request = Net::HTTP::Post.new(uri)
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
-        request.body = JSON.generate(jwt: token, owner: @owner)
+        body = { jwt: token }
+        body[:owner] = @owner unless @owner.empty?
+        request.body = JSON.generate(body)
         credential(response(uri, request), 'rubygems_api_key')
       end
 
@@ -38,7 +40,7 @@ module RubyGemRelease
         result = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 10, read_timeout: 30, max_retries: 0) do |http|
           http.request(request)
         end
-        raise "Credential request failed (HTTP #{result.code}); verify owner ID and pending trusted publisher" unless result.is_a?(Net::HTTPSuccess)
+        raise "Credential request failed (HTTP #{result.code}); verify trusted publisher configuration and owner ID if supplied" unless result.is_a?(Net::HTTPSuccess)
 
         JSON.parse(result.body)
       rescue JSON::ParserError

@@ -51,10 +51,35 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
   end
 
   it 'rejects invalid owners before making credential requests', :aggregate_failures do
-    ['', '0', 'user', "123\nother"].each do |owner|
+    [' ', '0', 'user', "123\nother"].each do |owner|
       expect { described_class.new(owner: owner) }.to raise_error(ArgumentError, /account ID/)
     end
     expect(Net::HTTP).not_to have_received(:start)
+  end
+
+  it 'omits the owner field for an existing-gem exchange' do
+    described_class.new.configure!
+    expect(JSON.parse(requests.last.body)).to eq('jwt' => 'test-oidc-token')
+    expect(ENV.fetch('GEM_HOST_API_KEY')).to eq('test-api-key')
+  end
+
+  it 'exports credentials with an empty owner without creating a credentials file' do
+    ENV['HOME'] = File.join(directory, 'home')
+    allow(Gem).to receive(:user_home).and_return(Dir.home)
+    described_class.new(owner: '').configure!
+    expect(JSON.parse(requests.last.body)).to eq('jwt' => 'test-oidc-token')
+    expect(ENV.values_at('RUBYGEMS_API_KEY', 'BUNDLE_GEM__PUSH_KEY', 'GEM_HOST_API_KEY')).to eq(['test-api-key'] * 3)
+    expect(File).not_to exist(File.join(Dir.home, '.gem', 'credentials'))
+  end
+
+  it 'leaves existing local credentials untouched' do
+    ENV['HOME'] = File.join(directory, 'home')
+    allow(Gem).to receive(:user_home).and_return(Dir.home)
+    path = File.join(Dir.home, '.gem', 'credentials')
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, 'existing credentials')
+    described_class.new.configure!
+    expect(File.read(path)).to eq('existing credentials')
   end
 
   it 'does not leak failed response bodies or export credentials', :aggregate_failures do

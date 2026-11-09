@@ -33,6 +33,8 @@ RSpec.describe 'Workflow release lifecycle' do
       'GIT_USER_NAME' => 'Fixture',
       'GIT_USER_EMAIL' => 'fixture@example.com',
       'RUBYGEMS_OWNER' => '',
+      'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://oidc.example.test/token',
+      'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'fixture-request-token',
       'TZ' => inputs.fetch('timezone').fetch('default'),
       'RELEASE_TEST_REMOTE' => remote
     }
@@ -88,7 +90,7 @@ RSpec.describe 'Workflow release lifecycle' do
       end
     RUBY
     File.write(File.join(checkout, 'CHANGELOG.md'), consumer_changelog)
-    File.write(File.join(checkout, 'Rakefile'), "#{consumer_rakefile}\n#{publication_stub}")
+    File.write(File.join(checkout, 'Rakefile'), "#{consumer_rakefile}\n#{publication_stub}\n#{File.read('spec/fixtures/authentication.rb')}")
     File.write(File.join(checkout, '.gitignore'), consumer_ignores)
     run_git('init', '--bare', '--quiet', '-b', 'master', remote)
     run_git('init', '--quiet', '-b', 'master', checkout)
@@ -404,7 +406,7 @@ RSpec.describe 'Workflow release lifecycle' do
 
     it 'places the release decision before edits and gates all downstream release steps' do
       validation = steps.find { |step| step['id'] == 'validate_release' }
-      downstream = %w[prepare_release resolve_prepared_version test_release authenticate_rubygems authenticate_pending_publisher
+      downstream = %w[prepare_release resolve_prepared_version test_release
                       publish_release preserve_release_artifacts prepare_next_development_iteration release_success_callback]
       downstream.each do |id|
         step = steps.find { |item| item['id'] == id }
@@ -481,6 +483,7 @@ RSpec.describe 'Workflow release lifecycle' do
       expect(File).not_to exist(File.join(directory, 'success.json'))
       expect(File).not_to exist(File.join(directory, 'failure.json'))
       expect(File).not_to exist(File.join(directory, 'version-lookups.jsonl'))
+      expect(File).not_to exist(File.join(directory, 'authentication.json'))
       expect(Dir[File.join(directory, 'release-validation.*')]).to be_empty
     end
   end
@@ -515,6 +518,54 @@ RSpec.describe 'Workflow release lifecycle' do
       expect(File.read(File.join(checkout, 'lib/example/version.rb'))).to include("VERSION = '0.1.0'")
       expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to eq(consumer_changelog)
       expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+      expect(run_git('--git-dir', remote, 'tag')).to eq('')
+    end
+  end
+
+  shared_examples 'RubyGems authentication' do
+    before do
+      environment['HOME'] = File.join(directory, 'home')
+      FileUtils.mkdir_p(environment.fetch('HOME'))
+    end
+
+    [nil, '', '123'].each do |owner|
+      it "authenticates with owner #{owner.inspect} and exports credentials to subsequent publication commands" do
+        environment['RUBYGEMS_OWNER'] = owner.to_s
+        run_phase('Configure Release Inputs') if steps.any? { |step| step['name'] == 'Configure Release Inputs' }
+        run_phase('Capture Release Context')
+        run_phase('Validate Release')
+        run_phase('Prepare Release')
+        run_phase('Resolve Prepared Version')
+        environment['RUBYGEMS_OWNER'] = owner
+        run_phase('Publish Release')
+        exchange = { 'jwt' => 'fixture-oidc-token' }
+        exchange['owner'] = owner unless owner.to_s.empty?
+        expect(JSON.parse(File.read(File.join(directory, 'authentication.json')))).to eq(exchange)
+        command = 'puts JSON.generate(ENV.values_at("RUBYGEMS_API_KEY", "BUNDLE_GEM__PUSH_KEY", "GEM_HOST_API_KEY"))'
+        output, error, status = Open3.capture3(environment, Gem.ruby, '-rjson', '-e', command, chdir: checkout)
+        expect(status.success?).to be(true), error
+        expect(JSON.parse(output)).to eq(['fixture-api-key'] * 3)
+        expect(File).not_to exist(File.join(environment.fetch('HOME'), '.gem', 'credentials'))
+        expect(run_git('--git-dir', remote, 'tag')).to eq('v0.1.0')
+      end
+    end
+
+    it 'captures authentication exceptions for a later failure callback without publishing' do
+      environment['RELEASE_TEST_AUTHENTICATION_STATUS'] = '403'
+      run_phase('Enable Release Failure Callback')
+      run_phase('Capture Release Context')
+      run_phase('Validate Release')
+      run_phase('Prepare Release')
+      run_phase('Resolve Prepared Version')
+      expect { run_phase('Publish Release') }.to raise_error(/HTTP 403/)
+      run_phase('Determine Release Failure Phase')
+      run_phase('Run Release Failure Callback')
+      failure = JSON.parse(File.read(File.join(directory, 'failure.json')))
+      expect(failure.first(2)).to eq(['0.1.0', 'publish_release'])
+      expect(failure.last).to include('HTTP 403')
+      expect(failure.last).not_to include('fixture-api-key')
+      expect(environment).not_to have_key('GEM_HOST_API_KEY')
+      expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
       expect(run_git('--git-dir', remote, 'tag')).to eq('')
     end
   end
@@ -575,18 +626,15 @@ RSpec.describe 'Workflow release lifecycle' do
       RUBY
     end
 
-    it 'checks and publishes through the configured registry without RubyGems checks or authentication' do
+    it 'authenticates and publishes through the configured registry without RubyGems requests' do
       run_phase('Configure Release Inputs') if steps.any? { |step| step['name'] == 'Configure Release Inputs' }
       run_phase('Capture Release Context')
       run_phase('Validate Release')
       run_phase('Prepare Release')
       run_phase('Resolve Prepared Version')
       expect(environment.fetch('RELEASE_AUTHENTICATION')).to eq('')
-      run_phase('Authenticate to RubyGems')
-      run_phase('Authenticate Pending Publisher')
-      expect(executed_steps.fetch('authenticate_rubygems').fetch('outcome')).to eq('skipped')
-      expect(executed_steps.fetch('authenticate_pending_publisher').fetch('outcome')).to eq('skipped')
       run_phase('Publish Release')
+      expect(environment.fetch('FIXTURE_REGISTRY_TOKEN')).to eq('fixture-registry-token')
       path = JSON.parse(File.read(File.join(directory, 'registry-publish.json')))
       expect(File.binread(path)).to eq(File.binread(File.join(directory, 'release.gem')))
       expect(run_git('--git-dir', remote, 'rev-parse', 'v0.1.0')).to eq(run_git('-C', checkout, 'rev-parse', 'HEAD'))
@@ -601,6 +649,7 @@ RSpec.describe 'Workflow release lifecycle' do
   end
 
   it_behaves_like 'a local release lifecycle'
+  it_behaves_like 'RubyGems authentication'
   it_behaves_like 'a custom registry destination'
   it_behaves_like 'release validation control'
   it_behaves_like 'invokes failure callbacks after a failed phase'
@@ -682,6 +731,7 @@ RSpec.describe 'Workflow release lifecycle' do
     end
 
     it_behaves_like 'a local release lifecycle'
+    it_behaves_like 'RubyGems authentication'
     it_behaves_like 'a custom registry destination'
     it_behaves_like 'release validation control'
     it_behaves_like 'invokes failure callbacks after a failed phase'
@@ -703,10 +753,8 @@ RSpec.describe 'Workflow release lifecycle' do
       it_behaves_like 'a local release lifecycle'
     end
 
-    it 'selects owner-aware authentication and preserves artifacts after failures', :aggregate_failures do
+    it 'configures the timezone and preserves artifacts after failures', :aggregate_failures do
       expect(steps.find { |item| item['name'] == 'Configure Release Inputs' }.dig('env', 'TZ')).to eq('${{ inputs.timezone }}')
-      expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ steps.validate_release.outputs.proceed == 'true' && env.RELEASE_AUTHENTICATION == 'rubygems' && inputs.rubygems-owner == '' }}")
-      expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ steps.validate_release.outputs.proceed == 'true' && env.RELEASE_AUTHENTICATION == 'rubygems' && inputs.rubygems-owner != '' }}")
       expect(steps.find { |item| item['name'] == 'Preserve Release Artifacts' }.fetch('if')).to include('always()')
     end
   end
@@ -719,8 +767,6 @@ RSpec.describe 'Workflow release lifecycle' do
     expect(publish.fetch('if')).to include("steps.validate_release.outputs.proceed == 'true'")
     expect(artifacts.fetch('if')).to include('always()')
     expect(steps.index(artifacts)).to be > steps.index(publish)
-    expect(steps.find { |item| item['name'] == 'Authenticate to RubyGems' }.fetch('if')).to eq("${{ steps.validate_release.outputs.proceed == 'true' && env.RELEASE_AUTHENTICATION == 'rubygems' && inputs.rubygems-owner == '' }}")
-    expect(steps.find { |item| item['name'] == 'Authenticate Pending Publisher' }.fetch('if')).to eq("${{ steps.validate_release.outputs.proceed == 'true' && env.RELEASE_AUTHENTICATION == 'rubygems' && inputs.rubygems-owner != '' }}")
     enable_failure = steps.find { |item| item['name'] == 'Enable Release Failure Callback' }
     failure_phase = steps.find { |item| item['name'] == 'Determine Release Failure Phase' }
     failure = steps.find { |item| item['name'] == 'Run Release Failure Callback' }

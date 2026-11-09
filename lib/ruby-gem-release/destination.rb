@@ -2,6 +2,8 @@
 
 module RubyGemRelease
   class Destination
+    def authenticate!(provider:); end
+
     def check_version!(name:, version:)
       raise NotImplementedError, "#{self.class} must implement check_version!"
     end

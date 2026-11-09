@@ -5,10 +5,17 @@ require 'uri'
 require 'open3'
 require 'rubygems/package'
 require_relative '../destination'
+require_relative '../workflow/ruby_gems_credentials'
 
 module RubyGemRelease
   class Destination
     class RubyGems < Destination
+      def authenticate!(provider:)
+        return unless provider.fetch('RELEASE_AUTHENTICATION', '') == authentication
+
+        Workflow::RubyGemsCredentials.new(owner: provider.fetch('RUBYGEMS_OWNER', ''), provider: provider).configure!
+      end
+
       def authentication
         'rubygems'
       end

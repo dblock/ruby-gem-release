@@ -9,6 +9,7 @@
 - [#32](https://github.com/dblock/ruby-gem-release/pull/32): Separate execution-platform services into a provider-neutral base and GitHub implementation, delegate environment and failure transport, and separate identity-token acquisition from the RubyGems exchange (breaking change) - [@dblock](https://github.com/dblock).
 - [#33](https://github.com/dblock/ruby-gem-release/pull/33): Verify provider-neutral releases across separate consumer processes without Actions variables, group consumer specs under `spec/integration/` with a `spec:integration` Rake task, and guide README readers from defaults to workflow extensions - [@dblock](https://github.com/dblock).
 - [#35](https://github.com/dblock/ruby-gem-release/pull/35): Add self-release and GitLab semantic-release customization walkthroughs with example-local placeholder providers - [@dblock](https://github.com/dblock).
+- [#36](https://github.com/dblock/ruby-gem-release/pull/36): Move authentication into publication through destination hooks, remove registry-specific YAML steps, and unify RubyGems exchanges with optional owner binding and environment-only credentials; custom publication commands must not rely on a generated credentials file (breaking change) - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

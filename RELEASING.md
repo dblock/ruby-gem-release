@@ -37,7 +37,7 @@ Before the first publication, configure RubyGems Trusted Publishing for owner `d
 
 Set the non-secret repository variable `RUBYGEMS_OWNER_ID` to the numeric RubyGems account ID shown on the Pending Trusted Publishers page. The caller passes it as `rubygems-owner`, binding the short-lived key to the account whose pending publisher will create the gem. This variable is not an API key and does not replace a pending trusted publisher.
 
-The first failed release authenticated but RubyGems rejected the upload because the owner assertion was absent. The current credentials action does not accept an owner input, so owner-bound exchanges use [`RubyGemsCredentials`](docs/workflow/ruby_gems_credentials.md). With no owner input, existing-gem releases retain the credentials action. No registry credentials or trusted publisher are configured by adding the workflow.
+The first failed release authenticated but RubyGems rejected the upload because the owner assertion was absent. Both first-publication and existing-gem exchanges now use [`RubyGemsCredentials`](docs/workflow/ruby_gems_credentials.md); the helper includes the owner assertion only when supplied and exports credentials without writing `~/.gem/credentials`. No registry credentials or trusted publisher are configured by adding the workflow.
 
 Validate and build locally before authorizing publication:
 

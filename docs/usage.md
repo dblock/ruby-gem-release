@@ -132,7 +132,7 @@ The reusable workflow provides the GitHub Actions environment for release callba
 
 - [Release Workflow](actions/release.md): All inputs, defaults, permissions, commands, and recovery artifacts.
 - [`Workflow::Environment`](workflow/environment.md): Ruby environment capture and prepared-version checks used by the action workflow.
-- [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md): Owner-bound OIDC authentication for first publication with a pending trusted publisher.
+- [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md): RubyGems OIDC authentication, with an optional owner assertion for first publication with a pending trusted publisher.
 
 ### Standard Workflows
 

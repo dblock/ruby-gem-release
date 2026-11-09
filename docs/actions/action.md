@@ -66,7 +66,7 @@ Register a RubyGems trusted publisher for the calling repository, its own workfl
 
 For maintainer-only publication, protect the caller job's `release` environment using [Maintainer-Approved Publication](../../RELEASING.md#maintainer-approved-publication). Other repository writers can dispatch, but publication waits for a designated maintainer to approve. Environments do not restrict who can dispatch, and an environment without protection rules does not restrict release access.
 
-For first publication, register a pending trusted publisher and supply its numeric account ID through `rubygems-owner`. Later publications can omit that input. The action uses the same owner-aware helper and credentials action as the reusable workflow, without a stored RubyGems API key.
+For first publication, register a pending trusted publisher and supply its numeric account ID through `rubygems-owner`. Later publications can omit that input. The default `release:publish` task authenticates through the configured destination before invoking its publication callback; no separate YAML authentication step is needed. The RubyGems destination uses the [Ruby credentials helper](../workflow/ruby_gems_credentials.md) without a stored API key. It exports environment variables and does not create or modify `~/.gem/credentials`. Command overrides that bypass the task must own authentication as well as publication.
 
 ## Release and Recovery
 

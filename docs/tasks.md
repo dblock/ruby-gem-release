@@ -54,10 +54,10 @@ Each registered callback requires a block and can be registered only once. Excep
 
 ## Publish
 
-`tasks.publish` registers the complete release sequence before `bump`. The default `publish` command invokes `bundle exec rake release:publish`, passing an execution context whose [Release](release.md) is built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE`.
+`tasks.publish` registers the complete release sequence before `bump`. The default `publish` command invokes `bundle exec rake release:publish`, passing an execution context whose [Release](release.md) is built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE`. Before the callback runs, the task calls the configured destination's `authenticate!(provider:)` hook. Authentication exceptions are captured as publication failures, and no authentication occurs when no callback is registered.
 
 The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.
 
 ## Workflow Credentials
 
-`release:workflow:credentials` invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with `RUBYGEMS_OWNER`. The reusable workflow calls it for owner-bound publishing runs.
+`release:workflow:credentials` directly invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with optional `RUBYGEMS_OWNER`. It remains available for custom RubyGems commands, but neither Actions interface calls a separate authentication task. Normal authentication belongs to `release:publish` through the configured destination.

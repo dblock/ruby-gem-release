@@ -43,7 +43,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:changelog)).to receive(:pending?).and_return(true)
     record_operations(:package, [:build!])
     allow(objects.fetch(:package)).to receive(:name).and_return('example')
-    record_operations(:destination, %i[check_version! publish!])
+    record_operations(:destination, %i[authenticate! check_version! publish!])
     allow(objects.fetch(:destination)).to receive(:authentication).and_return('rubygems')
     record_operations(:git, %i[commit! tag! push! commit_next!])
     allow(objects.fetch(:git)).to receive(:stage_changes!).and_yield
@@ -91,7 +91,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(events).to be_empty
     run_callbacks
     expect(events).to eq([
-                           :read, %i[changelog release!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!],
+                           :read, %i[changelog release!], %i[destination authenticate!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!],
                            %i[destination publish!], %i[git push!], %i[hosting publish!],
                            :increment, %i[changelog prepare_next!], %i[git commit_next!], %i[git push!]
                          ])
@@ -208,7 +208,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   it 'disables hosted releases without skipping package publication', :aggregate_failures do
     install(hosting: nil)
     Rake::Task['release:publish'].invoke
-    expect(events).to eq([%i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!], %i[destination publish!], %i[git push!]])
+    expect(events).to eq([%i[destination authenticate!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!], %i[destination publish!], %i[git push!]])
     expect(RubyGemRelease::Hosting::GitHubRelease).not_to have_received(:new)
   end
 
@@ -223,14 +223,14 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:package)).to receive(:build!).and_raise('build failed')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('build failed')
-    expect(events).to eq([%i[destination check_version!], %i[git commit!]])
+    expect(events).to eq([%i[destination authenticate!], %i[destination check_version!], %i[git commit!]])
   end
 
   it 'stops before pushing or creating a hosted release when the registry destination fails' do
     allow(objects.fetch(:destination)).to receive(:publish!).and_raise('registry unavailable')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('registry unavailable')
-    expect(events).to eq([%i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!]])
+    expect(events).to eq([%i[destination authenticate!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!]])
     expect(objects.fetch(:destination)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
   end
 
@@ -238,6 +238,13 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:destination)).to receive(:check_version!).with(name: 'example', version: '2.0.0').and_raise('already published')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('already published')
+    expect(events).to eq([%i[destination authenticate!]])
+  end
+
+  it 'stops before publication operations when destination authentication fails' do
+    allow(objects.fetch(:destination)).to receive(:authenticate!).and_raise('authentication failed')
+    install
+    expect { Rake::Task['release:publish'].invoke }.to raise_error('authentication failed')
     expect(events).to be_empty
   end
 
