@@ -44,13 +44,15 @@ jobs:
           rubygems-owner: ${{ inputs.rubygems-owner }}
 ```
 
-The action checks out the calling repository with full history and sets up Ruby with Bundler caching. It exports and validates inputs, captures the initial version, invokes preparation, resolves the prepared version, validates, authenticates, publishes, preserves recovery artifacts, and prepares the next development iteration. Publication must run from the default branch at its current remote commit. Use a GitHub-hosted Ubuntu runner, matching the reusable workflow's supported execution environment.
+The action checks out the calling repository with full history and sets up Ruby with Bundler caching. It exports and validates inputs, captures the initial version, validates whether to release, invokes preparation, resolves the prepared version, tests, authenticates, publishes, preserves recovery artifacts, and prepares the next development iteration. Publication must run from the default branch at its current remote commit. Use a GitHub-hosted Ubuntu runner, matching the reusable workflow's supported execution environment.
 
 ## Inputs and Environment
 
 Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. Dispatching the sample workflow requests publication; configured environment protection rules must pass before the job runs.
 
 Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `release:workflow:configure` rejects line breaks before exporting any values. Override commands execute with release privileges and must be trusted.
+
+The `validate` command now decides whether to release before preparation; the previous post-preparation `validate` command is renamed to `test`. Empty pending changelog notes skip successfully by default, with no downstream release operations or result callbacks. The action exposes a `skipped` output so caller steps can distinguish that outcome. Custom validation commands must emit one explicit `proceed=true` or `proceed=false` decision to `GITHUB_OUTPUT`. See [Release Validation and Skipping](release.md#release-validation-and-skipping) for the contract and migration.
 
 The optional `version` input selects a release version in standard preparation. The configured version object must implement `set!`; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples and migration from assertion-only behavior.
 

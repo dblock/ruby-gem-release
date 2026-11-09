@@ -21,6 +21,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     environment = ENV.to_h
     Rake.application = Rake::Application.new
     ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
+    ENV.delete('GITHUB_OUTPUT')
     example.run
   ensure
     Rake.application = application
@@ -37,6 +38,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
       '2.0.1'
     end
     record_operations(:changelog, %i[release! prepare_next!])
+    allow(objects.fetch(:changelog)).to receive(:pending?).and_return(true)
     record_operations(:package, %i[check_version! build! publish!])
     record_operations(:git, %i[commit! tag! push! commit_next!])
     allow(objects.fetch(:git)).to receive(:stage_changes!).and_yield
@@ -57,7 +59,25 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   end
 
   def run_callbacks
-    %w[before_release publish after_release].each { |phase| Rake::Task["release:#{phase}"].invoke }
+    %w[validate before_release publish after_release].each { |phase| Rake::Task["release:#{phase}"].invoke }
+  end
+
+  it 'skips empty pending notes without invoking release operations' do
+    allow(objects.fetch(:changelog)).to receive(:pending?).and_return(false)
+    install
+    expect { Rake::Task['release:validate'].invoke }.to output("Release skipped: nothing to release.\n").to_stdout
+    expect(events).to be_empty
+  end
+
+  it 'uses custom validation instead of inferring the release decision' do
+    received = nil
+    install(validate: lambda { |release|
+      received = release
+      false
+    })
+    expect { Rake::Task['release:validate'].invoke }.to output("Release skipped: nothing to release.\n").to_stdout
+    expect(received).to have_attributes(version: '1.2.3')
+    expect(objects.fetch(:changelog)).not_to have_received(:pending?)
   end
 
   it 'wires default objects in the existing release order without running during installation', :aggregate_failures do

@@ -36,6 +36,8 @@ The default workflow releases the current version in your version file; it incre
 
 Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` for notifications; success runs after the next development iteration succeeds, while failure receives a `RubyGemRelease::ReleaseFailure` with a phase, captured error when available, and optional release context.
 
+Before any preparation edits, `release:validate` checks the configured changelog for pending notes. An empty pending section skips the release successfully, even when a version is selected. Pass a `validate:` lambda returning `true` to proceed or `false` to skip when your project uses a different release decision; exceptions fail the release. Without a changelog, the standard decision is to proceed.
+
 The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
 ## Object Overrides
@@ -69,6 +71,7 @@ RubyGemRelease::Tasks.install do |tasks|
   package = RubyGemRelease::Package::RubyGem.new
   git = RubyGemRelease::SourceControl::Git.new
   github = RubyGemRelease::Hosting::GitHubRelease.new
+  tasks.validate { |_release| changelog.pending? }
   tasks.before_release do |release|
     git.stage_changes! do
       version.set!(release.version) unless ENV.fetch('INPUT_VERSION', '').empty?
@@ -104,7 +107,7 @@ end
 
 Use custom callbacks to set a release version during preparation, choose a different increment, or change the sequence. [`Tasks`](tasks.md) does not change files implicitly; each callback receives an immutable [`Release`](release.md) context. Changes to its version fields return copies rather than mutating the original.
 
-Wrap custom preparation edits in `git.stage_changes!` as above; it checks for a clean checkout before the block and stages only the resulting changes, including custom README or version files. Both Actions interfaces also stage the trusted `prepare` command's outputs while resolving the prepared version, before validation. Publication never stages files: unexpected working tree or index changes after preparation fail instead of entering a release commit. Custom commands retain control of their operations, but must not stage unrelated validation or dependency output during publication.
+Wrap custom preparation edits in `git.stage_changes!` as above; it checks for a clean checkout before the block and stages only the resulting changes, including custom README or version files. Both Actions interfaces also stage the trusted `prepare` command's outputs while resolving the prepared version, before testing. Publication never stages files: unexpected working tree or index changes after preparation fail instead of entering a release commit. Custom commands retain control of their operations, but must not stage unrelated validation or dependency output during publication.
 
 Check `package.check_version!(release.version)` before committing so a known RubyGems duplicate stops before local release writes. Both Actions interfaces also check the prepared version during resolution, and the package publisher repeats the check using the built artifact's exact name and version. For an earlier check like a project-specific preparation command, call `package.check_version!(version.read)` before writing the changelog or other files. Only a RubyGems 404 permits proceeding; service and connection failures stop the release. See [Check Version](package/ruby_gem.md#check-version).
 
@@ -112,7 +115,7 @@ Check `package.check_version!(release.version)` before committing so a known Rub
 
 Follow [Usage](../README.md#usage) to add the caller workflow, enable Trusted Publishing, and dispatch a release. Command overrides and all input defaults are documented in the [workflow reference](actions/release.md).
 
-Both approaches publish when dispatched. Validate and build locally before authorizing a release. See [RELEASING.md](../RELEASING.md) before recovering from partial publication; never automatically retry an accepted upload or move a release tag.
+Both approaches publish when dispatched unless release validation skips successfully. Test and build locally before authorizing a release. See [RELEASING.md](../RELEASING.md) before recovering from partial publication; never automatically retry an accepted upload or move a release tag.
 
 ## Configuration
 

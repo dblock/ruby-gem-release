@@ -20,6 +20,8 @@ changelog = RubyGemRelease::Changelog::Intridea.new(path: 'CHANGELOG.md')
 
 ## Release
 
+The standard workflow first checks `pending?` during `release:validate`; placeholder-only or structural-only sections skip successfully without writing. Invalid headings or missing or duplicate placeholders still fail.
+
 `changelog.release!(release)` replaces the single Next heading with the [Release](../release.md) version and date, removing exactly one placeholder from that section. Missing or duplicate headings and placeholders, or an existing release heading, fail without writing the file.
 
 Placeholder-only sections and sections containing only headings, comments, or reference definitions also fail without writing. Add actual release notes to the Next section before retrying; older releases do not count. There is no empty-release opt-out. See [Release Notes](base.md#release) for what counts as content.

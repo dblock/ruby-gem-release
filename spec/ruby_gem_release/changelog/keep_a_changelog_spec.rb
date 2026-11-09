@@ -14,6 +14,24 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
 
   after { FileUtils.remove_entry(directory) }
 
+  it 'detects pending notes without rewriting source or counting historical notes' do
+    content = "### [Unreleased]\r\n\r\n#### Fixed\r\n\r\n<!-- pending -->\r\n\r\n## [0.9.0] - 2026-11-06\r\n\r\n- Older notes.\r\n"
+    File.write(path, content)
+    expect(described_class.new(path: path).pending?).to be(false)
+    expect(File.binread(path)).to eq(content)
+    File.write(path, content.sub('<!-- pending -->', '- A fix.'))
+    expect(described_class.new(path: path).pending?).to be(true)
+  end
+
+  it 'fails validation for malformed headings and comparison references rather than skipping' do
+    ["# Changelog\n", "## [Unreleased]\n\n## [Unreleased]\n",
+     "## [Unreleased]\n\n[Unreleased]: https://example.com/compare\n"].each do |content|
+      File.write(path, content)
+      expect { described_class.new(path: path).pending? }.to raise_error(ArgumentError)
+      expect(File.read(path)).to eq(content)
+    end
+  end
+
   [1, 3, 6].each do |level|
     it "preserves level #{level} headings across release and next-section preparation" do
       prefix = '#' * level

@@ -7,6 +7,12 @@ module RubyGemRelease
 
       private
 
+      def unreleased_notes(content, separator)
+        reference = unreleased_reference(content)
+        comparison(reference[2]) if reference
+        super
+      end
+
       def update_release(version:, date:)
         validate_release(version, date)
         content = File.read(@path)

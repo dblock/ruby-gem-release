@@ -14,6 +14,25 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
 
   after { FileUtils.remove_entry(directory) }
 
+  it 'ignores the custom placeholder and history when checking pending notes without writes' do
+    content = "### 1.0.0 (Next)\r\n\r\n#### Fixed\r\n\r\n* Your contribution here.\r\n\r\n## 0.9.0 (2026/11/06)\r\n\r\n- Older notes.\r\n"
+    File.write(path, content)
+    changelog = described_class.new(path: path, placeholder: '* Your contribution here.')
+    expect(changelog.pending?).to be(false)
+    expect(File.binread(path)).to eq(content)
+    File.write(path, content.sub('#### Fixed', "#### Fixed\r\n\r\n- A fix."))
+    expect(changelog.pending?).to be(true)
+  end
+
+  it 'rejects missing and duplicate placeholders during validation rather than skipping' do
+    ['', "- Your contribution here.\n- Your contribution here.\n"].each do |notes|
+      content = "## 1.0.0 (Next)\n\n#{notes}"
+      File.write(path, content)
+      expect { described_class.new(path: path).pending? }.to raise_error(ArgumentError, /placeholder/)
+      expect(File.read(path)).to eq(content)
+    end
+  end
+
   [1, 3, 4, 5, 6].each do |level|
     it "preserves level #{level} headings across release and next-section preparation" do
       prefix = '#' * level

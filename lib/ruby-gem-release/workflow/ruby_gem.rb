@@ -9,18 +9,20 @@ module RubyGemRelease
   module Workflow
     class RubyGem
       def initialize(version:, changelog:, package: Package::RubyGem.new, git: SourceControl::Git.new, hosting: Hosting::GitHubRelease.new,
-                     success: nil, failure: nil)
+                     validate: nil, success: nil, failure: nil)
         @version = version
         @changelog = changelog
         @package = package
         @git = git
         @hosting = hosting
+        @validate = validate
         @success = success
         @failure = failure
       end
 
       def install_tasks
         Tasks.install do |tasks|
+          tasks.validate { |release| validate_release(release) }
           tasks.before_release { |release| prepare_release(release) }
           tasks.publish { |release| publish(release) }
           tasks.after_release { |release| prepare_next(release) }
@@ -30,6 +32,12 @@ module RubyGemRelease
       end
 
       private
+
+      def validate_release(release)
+        return @validate.call(release) if @validate
+
+        @changelog ? @changelog.pending? : true
+      end
 
       def prepare_release(release)
         @git.stage_changes! do

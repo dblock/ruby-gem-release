@@ -12,7 +12,7 @@ Supplies context checks for the reusable workflow and composite action, invoked 
 
 ## Resolve
 
-`resolve!` reads the prepared gemspec version, validates optional `INPUT_VERSION`, rejects an existing release tag or published RubyGems version, stages the trusted preparation command's changes and saves the index tree before validation, and appends `RELEASE_VERSION` to `GITHUB_ENV`. The RubyGems lookup checks the prepared version rather than the initial version; only HTTP 404 permits proceeding. Validation and authentication run afterward. Later working tree or index changes are rejected by publication rather than staged automatically.
+`resolve!` reads the prepared gemspec version, validates optional `INPUT_VERSION`, rejects an existing release tag or published RubyGems version, stages the trusted preparation command's changes and saves the index tree before testing, and appends `RELEASE_VERSION` to `GITHUB_ENV`. The RubyGems lookup checks the prepared version rather than the initial version; only HTTP 404 permits proceeding. Testing and authentication run afterward. Later working tree or index changes are rejected by publication rather than staged automatically.
 
 The optional `version` input selects a version rather than only asserting one. Standard preparation updates the configured version object through `set!`; custom preparation commands and callbacks must honor the selected value themselves. Resolution still rejects a prepared gemspec that differs from the selection, before any publication. Capture always retains the checked-in gemspec version as `RELEASE_PREVIOUS_VERSION`.
 

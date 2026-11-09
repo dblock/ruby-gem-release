@@ -15,6 +15,10 @@ module RubyGemRelease
 
       private
 
+      def unreleased_notes(content, separator)
+        remove_placeholder(super, separator)
+      end
+
       def update_release(version:, date:)
         validate_release(version, date)
         content = File.read(@path)
@@ -46,13 +50,17 @@ module RubyGemRelease
       end
 
       def release_notes(section, separator, version)
+        check_notes(remove_placeholder(section, separator), version)
+      end
+
+      def remove_placeholder(section, separator)
         positions = []
         editable_lines(section) { |line, offset| positions << offset if line.chomp == @placeholder }
         raise ArgumentError, "expected exactly one placeholder in #{@path}" unless positions.one?
 
         position = positions.first
         section.slice!(position, placeholder_length(section, position, separator))
-        check_notes(section, version)
+        section
       end
 
       def placeholder_length(section, position, separator)

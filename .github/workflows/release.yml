@@ -28,12 +28,16 @@ on:
         description: Timezone for release dates and Git timestamps.
         type: string
         default: UTC
+      validate:
+        description: Command deciding whether to release; must write proceed=true or proceed=false to GITHUB_OUTPUT.
+        type: string
+        default: bundle exec rake release:validate
       prepare:
         description: Command to prepare release files; INPUT_VERSION is the selected release version.
         type: string
         default: bundle exec rake release:before_release
-      validate:
-        description: Command to validate the prepared release.
+      test:
+        description: Command to test the prepared release.
         type: string
         default: bundle exec rake
       publish:
@@ -52,6 +56,10 @@ on:
         description: Command to run after a release job failure.
         type: string
         default: bundle exec rake release:failure
+    outputs:
+      skipped:
+        description: Whether validation successfully skipped the release.
+        value: ${{ jobs.release.outputs.skipped }}
 
 concurrency:
   group: ruby-gem-release-${{ github.repository }}
@@ -61,6 +69,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     environment: release
+    outputs:
+      skipped: ${{ steps.validate_release.outputs.proceed == 'false' }}
     env:
       INPUT_VERSION: ${{ inputs.version }}
       INPUT_GEMSPEC: ${{ inputs.gemspec }}
@@ -87,36 +97,57 @@ jobs:
       - name: Capture Release Context
         id: capture_release_context
         run: bundle exec rake release:workflow:capture
+      - name: Validate Release
+        id: validate_release
+        env:
+          COMMAND: ${{ inputs.validate }}
+        run: |
+          output=$(mktemp "$RUNNER_TEMP/release-validation.XXXXXX")
+          trap 'rm -f "$output"' EXIT
+          GITHUB_OUTPUT="$output" bash -euo pipefail -c "$COMMAND"
+          proceed=$(sed -n 's/^proceed=//p' "$output")
+          if [[ $(grep -c '^proceed=' "$output") != 1 || ( "$proceed" != true && "$proceed" != false ) ]]; then
+            echo 'Validation must output exactly one proceed=true or proceed=false decision.' >&2
+            exit 1
+          fi
+          if [[ "$proceed" == false ]]; then
+            echo 'Release skipped: nothing to release.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          printf 'proceed=%s\n' "$proceed" >> "$GITHUB_OUTPUT"
       - name: Prepare Release
         id: prepare_release
+        if: ${{ steps.validate_release.outputs.proceed == 'true' }}
         env:
           COMMAND: ${{ inputs.prepare }}
         run: bash -euo pipefail -c "$COMMAND"
       - name: Resolve Prepared Version
         id: resolve_prepared_version
+        if: ${{ steps.validate_release.outputs.proceed == 'true' }}
         run: bundle exec rake release:workflow:resolve
-      - name: Validate Release
-        id: validate_release
+      - name: Test Release
+        id: test_release
+        if: ${{ steps.validate_release.outputs.proceed == 'true' }}
         env:
-          COMMAND: ${{ inputs.validate }}
+          COMMAND: ${{ inputs.test }}
         run: bash -euo pipefail -c "$COMMAND"
       - name: Authenticate to RubyGems
         id: authenticate_rubygems
-        if: ${{ inputs.rubygems-owner == '' }}
+        if: ${{ steps.validate_release.outputs.proceed == 'true' && inputs.rubygems-owner == '' }}
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
       - name: Authenticate Pending Publisher
         id: authenticate_pending_publisher
-        if: ${{ inputs.rubygems-owner != '' }}
+        if: ${{ steps.validate_release.outputs.proceed == 'true' && inputs.rubygems-owner != '' }}
         run: bundle exec rake release:workflow:credentials
       - name: Publish Release
         id: publish_release
+        if: ${{ steps.validate_release.outputs.proceed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           COMMAND: ${{ inputs.publish }}
         run: bash -euo pipefail -c "$COMMAND"
       - name: Preserve Release Artifacts
         id: preserve_release_artifacts
-        if: ${{ always() && env.RELEASE_VERSION != '' }}
+        if: ${{ always() && steps.validate_release.outputs.proceed == 'true' && env.RELEASE_VERSION != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: release-gem-${{ env.RELEASE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -128,12 +159,13 @@ jobs:
           retention-days: 30
       - name: Prepare Next Development Iteration
         id: prepare_next_development_iteration
+        if: ${{ steps.validate_release.outputs.proceed == 'true' }}
         env:
           COMMAND: ${{ inputs.bump }}
         run: bash -euo pipefail -c "$COMMAND"
       - name: Run Release Success Callback
         id: release_success_callback
-        if: success()
+        if: ${{ success() && steps.validate_release.outputs.proceed == 'true' }}
         env:
           COMMAND: ${{ inputs.success }}
         run: bash -euo pipefail -c "$COMMAND"

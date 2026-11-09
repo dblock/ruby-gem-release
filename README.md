@@ -12,6 +12,7 @@ Update your changelog, validate and publish your gem, create its GitHub Release,
 - **Let collaborators request releases:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials. [Environment protection](RELEASING.md#maintainer-approved-publication) can require approval from a release maintainer before publication.
 - **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
 - **Choose the release version:** Release the checked-in version or [select a different version](docs/actions/release.md#release-version) when dispatching, without a separate version-bump commit.
+- **Skip when there is nothing to release:** [Validate the release](docs/actions/release.md#release-validation-and-skipping) before editing files; empty pending changelog notes end successfully without publication.
 - **Catch release mistakes:** [Check for already published RubyGems versions](docs/package/ruby_gem.md#check-version), reject existing tags, and [require actual release notes](docs/changelog/base.md#release) in both built-in changelog formats.
 - **Keep dependency files out of release commits:** [Reject dirty checkouts after dependency installation](docs/source_control/git.md) and unexpected working tree or index changes after preparation, instead of staging unrelated files during publication.
 - **Build once and retain recovery files:** Publish the same verified gem artifact to RubyGems and attach it to the GitHub Release. Preserve available gem, checksum manifest, and Git recovery bundle files for [recovery after failures](docs/actions/release.md#recovery-artifacts).
@@ -102,6 +103,8 @@ For a real-world example of adding release automation to an existing gem, see [r
 ## Configuration
 
 See [Detailed Usage](docs/usage.md#configuration) for workflow customization, callbacks, and available classes, and the [Actions Reference](docs/actions/release.md) for inputs and defaults.
+
+See [UPGRADING.md](UPGRADING.md) for breaking changes and migration steps before upgrading the gem and pinned workflow or action.
 
 For step-based integration, see the [Composite Action](docs/actions/action.md).
 

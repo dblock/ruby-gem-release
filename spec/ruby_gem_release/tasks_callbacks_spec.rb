@@ -5,13 +5,14 @@ require 'spec_helper'
 RSpec.describe RubyGemRelease::Tasks do
   around do |example|
     original = Rake.application
-    environment = ENV.to_h.slice('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION', 'RELEASE_DATE', 'INPUT_VERSION', 'RELEASE_FAILURE_PHASE', 'RUNNER_TEMP')
+    environment = ENV.to_h.slice('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION', 'RELEASE_DATE', 'INPUT_VERSION', 'RELEASE_FAILURE_PHASE', 'RUNNER_TEMP', 'GITHUB_OUTPUT')
+    ENV.delete('GITHUB_OUTPUT')
     ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     Rake.application = Rake::Application.new
     example.run
   ensure
     Rake.application = original
-    %w[RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE INPUT_VERSION RELEASE_FAILURE_PHASE RUNNER_TEMP].each { |key| ENV.delete(key) }
+    %w[RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE INPUT_VERSION RELEASE_FAILURE_PHASE RUNNER_TEMP GITHUB_OUTPUT].each { |key| ENV.delete(key) }
     ENV.update(environment)
   end
 
@@ -19,6 +20,55 @@ RSpec.describe RubyGemRelease::Tasks do
     described_class.install
     expect(Rake::Task.task_defined?('release:before_release')).to be(true)
     expect(Rake::Task.task_defined?('release:version:read')).to be(false)
+  end
+
+  [true, false].each do |proceed|
+    it "exports the explicit #{proceed} validation decision with the selected release context" do
+      Dir.mktmpdir do |directory|
+        ENV['GITHUB_OUTPUT'] = File.join(directory, 'output')
+        ENV['INPUT_VERSION'] = '3.0.0'
+        described_class.install do |tasks|
+          tasks.validate do |release|
+            expect(release).to have_attributes(version: '3.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
+            proceed
+          end
+        end
+        Rake::Task['release:validate'].invoke
+        expect(File.read(ENV.fetch('GITHUB_OUTPUT'))).to eq("proceed=#{proceed}\n")
+      end
+    end
+  end
+
+  it 'proceeds when no validation callback is configured' do
+    described_class.install
+    expect { Rake::Task['release:validate'].invoke }.to output("Release validation passed.\n").to_stdout
+  end
+
+  it 'rejects an implicit nil validation decision' do
+    described_class.install { |tasks| tasks.validate { nil } }
+    expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /must return true or false/)
+  end
+
+  it 'delivers validation exceptions to the failure callback' do
+    Dir.mktmpdir do |directory|
+      ENV['RUNNER_TEMP'] = directory
+      ENV['RELEASE_FAILURE_PHASE'] = 'validate_release'
+      received = nil
+      described_class.install do |tasks|
+        tasks.validate { raise ArgumentError, 'invalid changelog' }
+        tasks.failure { |failure| received = failure }
+      end
+      expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, 'invalid changelog')
+      Rake::Task['release:failure'].invoke
+      expect(received).to have_attributes(phase: 'validate_release', error: have_attributes(message: 'invalid changelog', original_class: 'ArgumentError'))
+    end
+  end
+
+  it 'rejects missing and duplicate validation blocks' do
+    tasks = described_class.new
+    expect { tasks.validate }.to raise_error(ArgumentError, /requires a block/)
+    tasks.validate { true }
+    expect { tasks.validate { false } }.to raise_error(ArgumentError, /already configured/)
   end
 
   it 'starts release preparation with the current version and date' do

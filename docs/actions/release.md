@@ -15,8 +15,9 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 | `gemspec`        | String | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                                     |
 | `rubygems-owner` | String | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                           |
 | `timezone`       | String | `UTC`                                          | Installed timezone identifier for the release calendar date and Git timestamp offsets.                                                 |
-| `prepare`        | String | `bundle exec rake release:before_release`      | Prepare release files before version resolution and validation.                                                                        |
-| `validate`       | String | `bundle exec rake`                             | Validate prepared release files before publication.                                                                                    |
+| `validate`       | String | `bundle exec rake release:validate`            | Decide whether to proceed before editing files; emit `proceed=true` or `proceed=false` to `GITHUB_OUTPUT`.                             |
+| `prepare`        | String | `bundle exec rake release:before_release`      | Prepare release files before version resolution and testing.                                                                           |
+| `test`           | String | `bundle exec rake`                             | Test prepared release files before publication.                                                                                        |
 | `publish`        | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.                 |
 | `bump`           | String | `bundle exec rake release:after_release`       | Prepare, commit, and push the next development iteration through the configured callback.                                              |
 | `success`        | String | `bundle exec rake release:success`             | Run after publication and the next development iteration succeed.                                                                      |
@@ -25,6 +26,16 @@ Set these under the calling job's `with:` mapping. Only `ruby-version` is requir
 | `git-user-email` | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                        |
 
 Identity values must be nonempty and contain no line breaks. They change commit attribution, not authentication or push permissions.
+
+### Release Validation and Skipping
+
+The Validate Release step runs after context capture, before any preparation edits. Its default command invokes `tasks.validate`; the standard Ruby workflow checks for pending changelog notes. An empty section skips the release successfully, including when a version is selected. Missing or malformed headings, invalid comparison links, and missing or duplicate `Intridea` placeholders still fail. With no changelog, the standard workflow proceeds; custom changelog objects must implement `pending?` or use a custom `validate:` callback.
+
+A custom `validate` command must append exactly one `proceed=true` or `proceed=false` line to `GITHUB_OUTPUT` and exit successfully. Missing, invalid, or duplicate decisions fail; a nonzero exit remains a failure even if it writes `proceed=false`. Commands receive a temporary output file whose validated decision is forwarded to the step output.
+
+When the decision is false, preparation, resolution, tests, authentication, publication, artifact upload, next development iteration preparation, and success notifications are skipped. The job succeeds, neither result callback runs, and the Actions summary records the skip. The reusable workflow and composite action expose a `skipped` output (`'true'` or `'false'`); it is not proof of publication when false.
+
+This changes the `validate` input from testing prepared files into a release decision before preparation. Move existing `validate: bundle exec ...` test overrides to `test:` and upgrade the gem and pinned interface together.
 
 ### Release Version
 
@@ -64,7 +75,7 @@ The workflow uses the GitHub Actions token as `GH_TOKEN` during publication. Bra
 
 After `ruby/setup-ruby` installs dependencies, context capture requires a clean checkout before preparation: tracked/index changes and untracked non-ignored files fail with actionable paths. Ignored Bundler output is allowed; tracked dependency artifacts are not. Resolving the prepared version stages the trusted `prepare` command's outputs and records the index tree before validation. The publication callback refuses later working tree or index changes rather than staging unrelated files. Custom commands own their operations; wrap custom next development iteration edits in `git.stage_changes!` as shown in [Detailed Usage](../usage.md#custom-callbacks).
 
-The job runs on `ubuntu-latest` in the `release` environment. It checks out full history, sets up Ruby with Bundler caching, captures release context, runs `prepare`, resolves the prepared version, runs `validate`, authenticates to RubyGems, runs `publish`, uploads available recovery artifacts, then runs `bump`. Ordinary failures prevent later callback phases; artifact uploading is attempted even after failure.
+The job runs on `ubuntu-latest` in the `release` environment. It checks out full history, sets up Ruby with Bundler caching, captures release context, runs `validate`, and proceeds only when instructed. It then runs `prepare`, resolves the prepared version, runs `test`, authenticates to RubyGems, runs `publish`, uploads available recovery artifacts, then runs `bump`. Ordinary failures prevent later callback phases; artifact uploading is attempted even after failure once validation permits release and the version is resolved.
 
 Releases must run from the default branch at its current remote commit. Git checks the branch again before publication and pushing, rejects existing tags, and pushes the release commit and tag atomically. Concurrency is grouped by repository without canceling a running release.
 

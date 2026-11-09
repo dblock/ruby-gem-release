@@ -6,6 +6,12 @@ Shared implementation for [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_
 
 `path:` defaults to `'CHANGELOG.md'`.
 
+## Pending Notes
+
+`pending?` reads the current unreleased section without writing files. It returns `true` when actual notes exist and `false` for an empty or structural-only section, ignoring historical notes and the configured `Intridea` placeholder. Missing or duplicate release headings, invalid line endings, malformed comparison links, and missing or duplicate placeholders raise errors rather than reporting no changes.
+
+The standard workflow calls this predicate during `release:validate`, before preparation. Empty pending notes skip the release successfully; directly invoking `release!` below still rejects them.
+
 ## Release
 
 `release!(release)` delegates the release version and date to the concrete format implementation.

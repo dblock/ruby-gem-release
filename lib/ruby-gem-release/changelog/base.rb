@@ -18,7 +18,18 @@ module RubyGemRelease
         update_next(version: release.next_version, released_version: release.version)
       end
 
+      def pending?
+        content = File.read(@path)
+        notes?(document(unreleased_notes(content, newline(content))))
+      end
+
       private
+
+      def unreleased_notes(content, separator)
+        position = heading(content, self.class::UNRELEASED)
+        section_end = section_end_position(content, position, heading_prefix(content, position).length)
+        content[line_end(content, position, separator)...section_end]
+      end
 
       def heading(content, pattern)
         matches = heading_positions(content, pattern)

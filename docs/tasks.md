@@ -1,16 +1,30 @@
 # `RubyGemRelease::Tasks`
 
-Registers optional preparation, publication, next development iteration, success, and failure callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
+Registers optional validation, preparation, publication, next development iteration, success, and failure callbacks in the Rakefile. `Tasks.install` takes no arguments and yields the configuration object; it registers no version tasks and requires no version strategy. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
 
 ## Install
 
-Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, all five callback tasks are registered and do nothing. It also registers `release:workflow:capture`, `release:workflow:resolve`, and `release:workflow:failure_phase` for [Workflow::Context](workflow/context.md) checks.
+Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, validation proceeds and the other five callback tasks do nothing. It also registers `release:workflow:capture`, `release:workflow:resolve`, and `release:workflow:failure_phase` for workflow context and failure checks.
 
 The composite action first invokes `release:workflow:configure` to validate and export its input environment for later steps. The reusable workflow supplies the same values through its job environment.
 
+## Validate
+
+`tasks.validate` decides whether to release after context capture and before preparation edits. It receives the same initial or explicitly selected [Release](release.md) context as `before_release`. Return exactly `true` to proceed or `false` to skip successfully; missing or other return values raise an error. Exceptions fail the release and reach the failure callback with phase `validate_release`. Without a callback, validation proceeds.
+
+The `release:validate` task prints the decision and, when `GITHUB_OUTPUT` is available, writes `proceed=true` or `proceed=false` for the Actions validation step. A successful skip gates all subsequent release steps, including tests, authentication, publication, artifact upload, next development iteration preparation, and the success callback. Neither result callback runs for a skip. The task itself does not prevent separately invoked Rake tasks from running.
+
+The standard workflow registers a pending-changelog check automatically. Custom callbacks can use another read-only release decision:
+
+```ruby
+RubyGemRelease::Tasks.install do |tasks|
+  tasks.validate { |_release| changelog.pending? }
+end
+```
+
 ## Before Release
 
-`tasks.before_release` prepares files before validation and publication. The callback receives an immutable [Release](release.md). `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `previous_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `release.with_version(version.read)` before updating a changelog.
+`tasks.before_release` prepares files after release validation and before testing and publication. The callback receives an immutable [Release](release.md). `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `previous_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `release.with_version(version.read)` before updating a changelog.
 
 The default `prepare` command invokes `bundle exec rake release:before_release`. The task reads optional `INPUT_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. It validates the selected version before invoking the callback, but does not itself write a version file; the standard workflow callback does that through its configured object.
 

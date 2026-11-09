@@ -20,11 +20,19 @@ module RubyGemRelease
 
     def install
       namespace :release do
+        install_validate_task
         install_callback_tasks
         install_publish_task
         install_result_tasks
         install_workflow_tasks
       end
+    end
+
+    def validate(&block)
+      raise ArgumentError, 'validate requires a block' unless block
+      raise ArgumentError, 'validate already configured' if @validate
+
+      @validate = block
     end
 
     def before_release(&block)
@@ -63,6 +71,21 @@ module RubyGemRelease
     end
 
     private
+
+    def install_validate_task
+      desc 'Decide whether to proceed with the release'
+      task :validate do
+        with_failure_capture('validate_release') { validate_release }
+      end
+    end
+
+    def validate_release
+      proceed = @validate ? @validate.call(context(before_release: true)) : true
+      raise ArgumentError, 'validate must return true or false' unless [true, false].include?(proceed)
+
+      puts(proceed ? 'Release validation passed.' : 'Release skipped: nothing to release.')
+      File.open(ENV.fetch('GITHUB_OUTPUT'), 'a') { |file| file.puts "proceed=#{proceed}" } if ENV['GITHUB_OUTPUT']
+    end
 
     def install_workflow_tasks
       namespace :workflow do
