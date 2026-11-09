@@ -11,6 +11,7 @@
 - [#35](https://github.com/dblock/ruby-gem-release/pull/35): Add self-release and GitLab semantic-release customization walkthroughs with example-local placeholder providers - [@dblock](https://github.com/dblock).
 - [#36](https://github.com/dblock/ruby-gem-release/pull/36): Move authentication into publication through destination hooks, remove registry-specific YAML steps, and unify RubyGems exchanges with optional owner binding and environment-only credentials; custom publication commands must not rely on a generated credentials file (breaking change) - [@dblock](https://github.com/dblock).
 - [#38](https://github.com/dblock/ruby-gem-release/pull/38): Speed up release tests by separating focused orchestration coverage from real-process consumer smoke tests and avoiding duplicate source and installed integration runs in CI - [@dblock](https://github.com/dblock).
+- [#37](https://github.com/dblock/ruby-gem-release/pull/37): Add opt-in semantic releases with reachable-tag history, configurable Conventional Commits rules and versions, persisted immutable decisions, generated notes and changelog files, and optional development bumps - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

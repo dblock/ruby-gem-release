@@ -4,6 +4,55 @@ require 'spec_helper'
 require 'tmpdir'
 
 RSpec.describe RubyGemRelease::Workflow::State do
+  let(:decision) do
+    RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [],
+                                                  release_type: 'minor', version: '1.0.0', notes: 'Generated notes.')
+  end
+
+  it 'roundtrips semantic decisions without losing them when recording the next version' do
+    Dir.mktmpdir do |directory|
+      path = described_class.create!(directory: directory)
+      state = described_class.new(path: path)
+      ctx = RubyGemRelease::ExecutionContext.new(release: nil, task: 'release:validate', state: state)
+      ctx.record_analysis!(decision)
+      expect(ctx.analysis).to be_nil
+      later = described_class.new(path: path)
+      expect(later.analysis.to_h).to eq(decision.to_h)
+      later.record_next_version!('1.0.1')
+      expect(described_class.new(path: path).analysis.to_h).to eq(decision.to_h)
+      expect(described_class.new(path: path).next_version).to eq('1.0.1')
+      expect(File.stat(path).mode & 0o777).to eq(0o600)
+      expect { state.record_analysis!(decision) }.to raise_error(ArgumentError, /already recorded/)
+    end
+  end
+
+  it 'reads legacy state and upgrades it only when analysis is recorded' do
+    Dir.mktmpdir do |directory|
+      path = File.join(directory, 'state.json')
+      File.write(path, JSON.generate('schema_version' => 1, 'next_version' => '0.9.9'))
+      state = described_class.new(path: path)
+      expect(state.analysis).to be_nil
+      state.record_analysis!(decision)
+      expect(state.next_version).to eq('0.9.9')
+      expect(JSON.parse(File.read(path)).fetch('schema_version')).to eq(2)
+    end
+  end
+
+  it 'retains immutable process-local analysis and rejects unsupported payloads' do
+    state = described_class.new
+    expect { state.record_analysis!({}) }.to raise_error(ArgumentError, /semantic release decision/)
+    state.record_analysis!(decision)
+    state.record_next_version!('1.0.1')
+    ctx = RubyGemRelease::ExecutionContext.new(release: nil, task: 'release:success', state: state)
+    expect(ctx.analysis).to equal(decision)
+    expect { state.record_analysis!(decision) }.to raise_error(ArgumentError, /already recorded/)
+    Dir.mktmpdir do |directory|
+      path = described_class.create!(directory: directory)
+      File.write(path, JSON.generate('schema_version' => 2, 'next_version' => nil, 'analysis' => {}))
+      expect { described_class.new(path: path).next_version }.to raise_error(ArgumentError, /unsupported semantic decision/)
+    end
+  end
+
   it 'persists validated state across instances using private atomic files' do
     Dir.mktmpdir do |directory|
       path = described_class.create!(directory: directory)

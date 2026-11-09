@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'ruby-gem-release/workflow/ruby_gem'
+require 'ruby-gem-release/workflow/semantic_ruby_gem'
 require 'ruby-gem-release/changelog'
 require 'digest'
 
@@ -18,9 +19,15 @@ module PortableConsumer
   end
 
   def self.context(ctx)
-    { step: ctx.step.id, context_class: ctx.class.name, steps: ctx.steps, run: ctx.run,
+    execution = { step: ctx.step.id, context_class: ctx.class.name, steps: ctx.steps, run: ctx.run, provider: ctx.workflow.provider.class.name }
+    execution.merge(release_context(ctx))
+  end
+
+  def self.release_context(ctx)
+    {
       version: ctx.release&.version, previous_version: ctx.release&.previous_version, next_version: ctx.release&.next_version,
-      provider: ctx.workflow.provider.class.name }
+      analysis: ctx.analysis&.to_h
+    }
   end
 
   def self.remote_tags
@@ -47,6 +54,10 @@ module PortableConsumer
   end
 
   class Destination < RubyGemRelease::Destination
+    def authenticate!(**)
+      PortableConsumer.record('authenticate')
+    end
+
     def check_version!(name:, version:)
       PortableConsumer.record('check', name: name, version: version)
     end
@@ -61,7 +72,15 @@ module PortableConsumer
   class Hosting
     def publish!(release, package:)
       path = package.artifact(release)
-      PortableConsumer.record('hosting', path: path, sha256: Digest::SHA256.file(path).hexdigest, tags: PortableConsumer.remote_tags)
+      PortableConsumer.record('hosting', path: path, sha256: Digest::SHA256.file(path).hexdigest, tags: PortableConsumer.remote_tags, notes: release.notes)
+    end
+  end
+
+  class SemanticDecision < RubyGemRelease::SemanticRelease
+    def analyze(**arguments)
+      raise 'Semantic analysis was repeated' if ENV['CONSUMER_FORBID_ANALYSIS'] == 'true'
+
+      super.tap { |decision| PortableConsumer.record('analysis', decision: decision.to_h) }
     end
   end
 
@@ -84,20 +103,28 @@ end
 Open3.singleton_class.prepend(PortableConsumer::LocalCommands)
 Net::HTTP.singleton_class.prepend(PortableConsumer::NoNetwork)
 
-RubyGemRelease::Workflow::RubyGem.new(
+semantic = ENV['CONSUMER_SEMANTIC'] == 'true'
+workflow = semantic ? RubyGemRelease::Workflow::SemanticRubyGem : RubyGemRelease::Workflow::RubyGem
+options = if semantic
+            { semantic_release: PortableConsumer::SemanticDecision.new }
+          else
+            { validate: lambda { |ctx|
+              PortableConsumer.record('validate', **PortableConsumer.context(ctx))
+              ctx.workflow.changelog.pending?
+            } }
+          end
+
+workflow.new(
   version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
-  changelog: RubyGemRelease::Changelog::KeepAChangelog.new,
+  changelog: semantic ? RubyGemRelease::Changelog::Generated.new : RubyGemRelease::Changelog::KeepAChangelog.new,
   provider: PortableConsumer::Provider.new,
   destination: PortableConsumer::Destination.new,
   hosting: PortableConsumer::Hosting.new,
-  validate: lambda { |ctx|
-    PortableConsumer.record('validate', **PortableConsumer.context(ctx))
-    ctx.workflow.changelog.pending?
-  },
   success: ->(ctx) { PortableConsumer.record('success', **PortableConsumer.context(ctx)) },
   failure: lambda { |failure|
     PortableConsumer.record('failure', phase: failure.phase, error: failure.error&.message, **PortableConsumer.context(failure.context))
-  }
+  },
+  **options
 ).install_tasks
 
 desc 'Verify the prepared package'

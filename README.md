@@ -98,6 +98,7 @@ Start with the defaults above and replace only the parts your project needs. The
 
 - **Project conventions:** Choose [version objects](docs/usage.md#version-objects) and [changelog formats](docs/usage.md#changelog-objects), including custom implementations.
 - **Release decisions and callbacks:** Customize [validation, preparation, publication, and notifications](docs/tasks.md). Callbacks receive an [execution context](docs/execution_context.md) with release data, step history, and the configured workflow.
+- **Semantic releases:** Opt into [Conventional Commits, release-history-based versions, and generated notes](docs/workflow/semantic_ruby_gem.md) without changing the execution platform or registry.
 - **Packages and registries:** Override [package construction](docs/package/ruby_gem.md) or supply a [registry destination](docs/destination.md) independently of hosted releases.
 - **Release hosting:** Replace or disable [GitHub Release creation](docs/workflow/ruby_gem.md#hosting) without changing package publication or Git operations.
 - **Execution platforms:** Supply an [execution provider](docs/execution_provider.md) for environment transport, metadata, temporary storage, and authentication services. GitHub Actions is the only built-in external platform; another platform needs its own adapter and pipeline.
@@ -105,7 +106,7 @@ Start with the defaults above and replace only the parts your project needs. The
 
 Execution platform, package registry, and release hosting are separate choices. Changing one does not automatically change the others.
 
-For complete examples, see [releasing ruby-gem-release itself](examples/self_release/README.md) with small project-specific customizations, then [GitLab and semantic releases](examples/gitlab_semantic_release/README.md) for a fully customized configuration using placeholder providers.
+For complete examples, see [releasing ruby-gem-release itself](examples/self_release/README.md) with small project-specific customizations, then [GitLab and semantic releases](examples/gitlab_semantic_release/README.md) for built-in semantic providers composed with placeholder GitLab adapters.
 
 The defaults retain [clean-checkout checks](docs/source_control/git.md), [duplicate-version checks](docs/destination/ruby_gems.md#check-version), and [verified recovery artifacts](docs/actions/release.md#recovery-artifacts). Custom publication callbacks must preserve the documented ordering and artifact checks.
 

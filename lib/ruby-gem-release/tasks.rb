@@ -113,7 +113,7 @@ module RubyGemRelease
       task(:capture) { with_failure_capture('release:workflow:capture') { Workflow::Environment.new(provider: @provider).capture! } }
       task(:resolve) do
         with_failure_capture('release:workflow:resolve') do
-          Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination)
+          Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination, analysis: state.analysis)
         end
       end
     end
@@ -168,7 +168,9 @@ module RubyGemRelease
     end
 
     def context(task, preparing: false)
-      @provider.context(release: release_context(preparing: preparing), task: task, state: state, workflow: @workflow)
+      analysis = state.analysis
+      release = release_context(preparing: preparing, analysis: analysis, validating: task == 'release:validate')
+      @provider.context(release: release, task: task, state: state, workflow: @workflow)
     end
 
     def state
@@ -180,17 +182,24 @@ module RubyGemRelease
       @state
     end
 
-    def release_context(preparing: false)
+    def release_context(preparing: false, analysis: nil, validating: false)
       previous_version = @provider.fetch('RELEASE_PREVIOUS_VERSION')
-      version = preparing ? preparation_version(previous_version) : @provider.fetch('RELEASE_VERSION')
+      version = preparing ? preparation_version(previous_version, analysis: analysis, validating: validating) : @provider.fetch('RELEASE_VERSION')
       date = @provider.fetch('RELEASE_DATE')
+      analysis&.check!(head: @provider.fetch('RELEASE_INITIAL_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: validating ? nil : version)
       validate_context_versions(version, previous_version)
       raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: state.next_version)
+      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: state.next_version, notes: analysis&.notes)
     end
 
-    def preparation_version(previous_version)
+    def preparation_version(previous_version, analysis: nil, validating: false)
+      if analysis
+        return analysis.version if analysis.release?
+        return previous_version if validating
+
+        raise ArgumentError, 'semantic analysis selected no release'
+      end
       selected = @provider.fetch('INPUT_VERSION', '')
       selected.empty? ? previous_version : selected
     end
@@ -198,19 +207,20 @@ module RubyGemRelease
     def failure_context
       phase = @provider.fetch('RELEASE_FAILURE_PHASE', 'unknown')
       error = Workflow::Failure.error_for(phase, provider: @provider) unless phase == 'unknown'
-      execution = @provider.context(release: failure_release_context, task: 'release:failure', state: state, workflow: @workflow)
+      safe_state = failure_state
+      execution = @provider.context(release: failure_release_context(safe_state.analysis), task: 'release:failure', state: safe_state, workflow: @workflow)
       ReleaseFailure.new(phase: phase, error: error, context: execution)
     end
 
-    def failure_release_context
+    def failure_release_context(analysis = nil)
       previous_version = @provider.fetch('RELEASE_PREVIOUS_VERSION', nil)
       date = @provider.fetch('RELEASE_DATE', '')
       return unless previous_version && date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
       version = @provider.fetch('RELEASE_VERSION', '')
-      version = preparation_version(previous_version) if version.empty?
+      version = preparation_version(previous_version, analysis: analysis) if version.empty?
       validate_context_versions(version, previous_version)
-      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: failure_next_version)
+      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: failure_next_version, notes: analysis&.notes)
     rescue ArgumentError
       nil
     end
@@ -220,6 +230,14 @@ module RubyGemRelease
     rescue ArgumentError, JSON::ParserError, SystemCallError => e
       warn "Unable to read release state for failure callback: #{e.message}"
       nil
+    end
+
+    def failure_state
+      state.analysis
+      state
+    rescue ArgumentError, JSON::ParserError, SystemCallError => e
+      warn "Unable to read release state for failure callback: #{e.message}"
+      Workflow::State.new
     end
 
     def with_failure_capture(task)

@@ -23,8 +23,8 @@ module RubyGemRelease
         end.freeze
       end
 
-      def initialize(release:, task:, state:, workflow: nil, environment: ENV)
-        super(release: release, task: task, state: state, workflow: workflow,
+      def initialize(release:, task:, state:, workflow: nil, environment: ENV, analysis: state&.analysis)
+        super(release: release, task: task, state: state, workflow: workflow, analysis: analysis,
               step: Step.new(id: self.class.step_id(task, environment: environment)),
               steps: self.class.steps(environment: environment), run: Run.new(environment: environment))
       end

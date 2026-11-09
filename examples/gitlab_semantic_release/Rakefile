@@ -1,17 +1,10 @@
 # frozen_string_literal: true
 
-require 'ruby-gem-release/workflow/ruby_gem'
+require 'ruby-gem-release/workflow/semantic_ruby_gem'
 require_relative 'gitlab'
 require_relative 'gitlab_release'
-require_relative 'semantic_release'
-require_relative 'semantic_changelog'
-
-decision = GitLabSemanticReleaseExample::SemanticRelease.new
-
-RubyGemRelease::Workflow::RubyGem.new(
+RubyGemRelease::Workflow::SemanticRubyGem.new(
   version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
-  changelog: GitLabSemanticReleaseExample::SemanticChangelog.new,
   provider: GitLabSemanticReleaseExample::GitLab.new,
-  hosting: GitLabSemanticReleaseExample::GitLabRelease.new,
-  validate: decision.method(:proceed?)
+  hosting: GitLabSemanticReleaseExample::GitLabRelease.new
 ).install_tasks

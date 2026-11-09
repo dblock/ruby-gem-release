@@ -132,4 +132,83 @@ RSpec.describe 'Provider-neutral release lifecycle' do
                                'provider' => 'PortableConsumer::Provider')
     expect(events.map { |event| event.fetch('event') }).not_to include('hosting', 'success')
   end
+
+  context 'with semantic releases' do
+    let(:environment) { super().merge('CONSUMER_SEMANTIC' => 'true', 'INPUT_VERSION' => '') }
+
+    before do
+      run_git('-C', checkout, 'tag', 'v0.4.0')
+      File.write(File.join(checkout, 'lib/example/version.rb'), "module Example\n  VERSION = '9.9.9'\nend\n")
+      File.write(File.join(checkout, 'CHANGELOG.md'), "# Changelog\n\nNo handwritten pending notes.\n")
+      run_git('-C', checkout, 'add', '.')
+      commit_semantic('chore: Prepare development')
+      run_git('-C', checkout, 'push', '--quiet', '--tags', 'origin', 'master')
+    end
+
+    def commit_semantic(message)
+      run_git('-C', checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--quiet', '--allow-empty', '-m', message)
+    end
+
+    def prepare_semantic_release
+      commit_semantic("feat(api): Add endpoint\n\nFull commit body.")
+      run_git('-C', checkout, 'push', '--quiet', 'origin', 'master')
+      run_task('release:workflow:capture')
+      run_task('release:validate')
+      expect(JSON.parse(File.read(environment.fetch('CONSUMER_OUTPUT')))).to eq('proceed' => 'true')
+      environment['CONSUMER_FORBID_ANALYSIS'] = 'true'
+      %w[release:prepare release:workflow:resolve test].each { |name| run_task(name) }
+    end
+
+    it 'persists one decision across processes, publishes generated notes, and leaves development bumps disabled' do
+      prepare_semantic_release
+      run_task('release:publish')
+      released = run_git('--git-dir', remote, 'rev-parse', 'master')
+      run_task('release:bump')
+      run_task('release:success')
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(released)
+      expect(run_git('--git-dir', remote, 'show', 'v0.5.0:lib/example/version.rb')).to include("VERSION = '0.5.0'")
+      analysis = events.select { |event| event['event'] == 'analysis' }
+      expect(analysis.size).to eq(1)
+      decision = analysis.first.fetch('decision')
+      expect(decision).to include('version' => '0.5.0', 'release_type' => 'minor', 'last_release' => include('version' => '0.4.0'))
+      success = events.find { |event| event['event'] == 'success' }
+      expect(success).to include('version' => '0.5.0', 'previous_version' => '9.9.9', 'next_version' => nil, 'analysis' => decision)
+      hosted = events.find { |event| event['event'] == 'hosting' }
+      expect(hosted).to include('notes' => decision.fetch('notes'), 'tags' => %w[v0.4.0 v0.5.0])
+      expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include(decision.fetch('notes'))
+      expect(Gem::Package.new(artifact('release.gem')).spec.version.to_s).to eq('0.5.0')
+      expect(events.select { |event| event['event'] == 'invocation' }.map { |event| event.fetch('pid') }.uniq.size).to eq(8)
+    end
+
+    it 'skips across processes without preparation, authentication, publication, bumping, or success notification' do
+      initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+      run_task('release:workflow:capture')
+      run_task('release:validate')
+      expect(JSON.parse(File.read(environment.fetch('CONSUMER_OUTPUT')))).to eq('proceed' => 'false')
+      decision = RubyGemRelease::Workflow::State.new(path: environment.fetch('RELEASE_STATE')).analysis
+      expect(decision).not_to be_release
+      expect(decision.last_release.fetch('version')).to eq('0.4.0')
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
+      expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+      expect(events.map { |event| event.fetch('event') }).to eq(%w[invocation invocation analysis])
+      expect(File).not_to exist(artifact('release.gem'))
+    end
+
+    it 'delivers the persisted decision and publication failure to a later process without pushing' do
+      prepare_semantic_release
+      initial = run_git('--git-dir', remote, 'rev-parse', 'master')
+      environment['CONSUMER_FAIL_PUBLICATION'] = 'true'
+      expect { run_task('release:publish') }.to raise_error(/Registry rejected release/)
+      run_task('release:workflow:failure_phase')
+      run_task('release:failure')
+      failure = events.find { |event| event['event'] == 'failure' }
+      expect(failure).to include('phase' => 'release:publish', 'error' => 'Registry rejected release',
+                                 'version' => '0.5.0', 'previous_version' => '9.9.9',
+                                 'analysis' => events.find { |event| event['event'] == 'analysis' }.fetch('decision'))
+      expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
+      expect(run_git('--git-dir', remote, 'tag')).to eq('v0.4.0')
+      %w[release.gem release.json release.bundle].each { |name| expect(File).to exist(artifact(name)) }
+      expect(events.map { |event| event.fetch('event') }).not_to include('hosting', 'success')
+    end
+  end
 end

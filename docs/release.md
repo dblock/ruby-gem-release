@@ -20,6 +20,10 @@ The standard workflow records it after the next development iteration is committ
 
 `release.date` is a Ruby `Date`. The workflow captures it once in the configured `timezone` and retains it across both phases. UTC is the default; `America/New_York` uses Eastern Time with daylight saving changes. The constructor requires `date:` and does not perform timezone conversion.
 
+## Notes
+
+`release.notes` is an optional copied, frozen Markdown string supplied through `notes:`. [Semantic workflows](workflow/semantic_ruby_gem.md) persist generated notes and pass the same body to changelog and hosting operations. Manual workflows leave it `nil`, retaining platform-generated hosted-release notes. Version copies preserve it.
+
 ## With Version
 
 `release.with_version(version.read)` returns a new context containing the supplied version string, preserving every other field and leaving the original unchanged.

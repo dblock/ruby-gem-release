@@ -33,10 +33,10 @@ module RubyGemRelease
         @provider.export(captured_values(package, git, release))
       end
 
-      def resolve!(package: nil, destination: Destination::RubyGems.new)
+      def resolve!(package: nil, destination: Destination::RubyGems.new, analysis: State.new(path: @provider.fetch('RELEASE_STATE', nil)).analysis)
         package ||= Package::RubyGem.new(gemspec: @provider.fetch('GEMSPEC', @provider.fetch('INPUT_GEMSPEC', '')) || '', directory: @provider.directory)
         authentication = authentication_for(destination)
-        version = prepared_version(package)
+        version = prepared_version(package, analysis)
         git = SourceControl::Git.new(directory: @provider.directory)
         git.check_tag!(version)
         destination.check_version!(name: package.name, version: version)
@@ -60,10 +60,11 @@ module RubyGemRelease
           'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => git.head, 'RELEASE_STATE' => state.to_s }
       end
 
-      def prepared_version(package)
+      def prepared_version(package, analysis)
         version = package.version
         validate_version(version)
-        selected = @provider.fetch('INPUT_VERSION', '')
+        analysis&.check!(head: @provider.fetch('RELEASE_INITIAL_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: version)
+        selected = analysis ? analysis.version : @provider.fetch('INPUT_VERSION', '')
         raise "Prepared version #{version} does not match selected version #{selected}" unless selected.empty? || version == selected
 
         version

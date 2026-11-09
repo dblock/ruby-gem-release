@@ -15,7 +15,7 @@ The optional `repository:` argument identifies the target as `'OWNER/REPO'`. It 
 
 ## Publish
 
-`publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](../release.md) context. It generates release notes and verifies that the tag exists remotely; it never creates a tag automatically. It returns the release URL printed by `gh`.
+`publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](../release.md) context. It verifies that the tag exists remotely and never creates a tag automatically. With `release.notes`, it supplies that nonempty body through a private temporary `--notes-file` and removes the file afterward; otherwise it retains GitHub's `--generate-notes`. It returns the release URL printed by `gh`.
 
 ## Package
 

@@ -30,6 +30,26 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
     expect { publisher.publish!(release) }.to raise_error(RuntimeError, /release already exists/)
   end
 
+  it 'uses the persisted notes verbatim instead of requesting platform-generated notes and cleans up the private file' do
+    semantic = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.4', date: release.date, notes: "### Features\n\n- Add endpoint.")
+    path = nil
+    allow(Open3).to receive(:capture3) do |*arguments|
+      expect(arguments).not_to include('--generate-notes')
+      path = arguments[arguments.index('--notes-file') + 1]
+      expect(File.read(path)).to eq(semantic.notes)
+      expect(File.stat(path).mode & 0o777).to eq(0o600)
+      ['', '', status]
+    end
+    publisher.publish!(semantic)
+    expect(File).not_to exist(path)
+  end
+
+  it 'rejects empty custom notes before creating a hosted release' do
+    semantic = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: release.date, notes: ' ')
+    expect { publisher.publish!(semantic) }.to raise_error(ArgumentError, /must not be empty/)
+    expect(Open3).not_to have_received(:capture3)
+  end
+
   it 'rejects missing artifacts before invoking gh', :aggregate_failures do
     expect { publisher.publish!(release, artifacts: [File.join(directory, 'missing.gem')]) }.to raise_error(ArgumentError, /existing file/)
     expect(Open3).not_to have_received(:capture3)

@@ -89,6 +89,17 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     expect(File.read(environment_file)).to eq('')
   end
 
+  it 'enforces the persisted semantic selection even when no explicit version was supplied' do
+    ENV['RELEASE_INITIAL_COMMIT'] = 'a' * 40
+    decision = RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [],
+                                                             release_type: 'minor', version: '2.0.0', notes: 'Generated.')
+    expect { described_class.new.resolve!(analysis: decision) }.to raise_error(ArgumentError, /differs/)
+    expect(git).not_to have_received(:stage_changes!)
+    File.write('version.rb', "VERSION = '2.0.0'\n")
+    described_class.new.resolve!(analysis: decision)
+    expect(File.read(environment_file)).to include("RELEASE_VERSION=2.0.0\n")
+  end
+
   it 'rejects a missing specification before recording a release', :aggregate_failures do
     ENV['GEMSPEC'] = 'missing.gemspec'
     expect { described_class.new.resolve! }.to raise_error(ArgumentError, /existing file/)

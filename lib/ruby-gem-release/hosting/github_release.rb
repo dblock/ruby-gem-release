@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'open3'
+require 'tempfile'
 
 module RubyGemRelease
   module Hosting
@@ -18,7 +19,7 @@ module RubyGemRelease
 
         tag = "v#{version}"
         paths = artifact_paths(package ? [package.artifact(release)] : artifacts)
-        output, error, status = Open3.capture3(*command(tag), *paths)
+        output, error, status = create_release(tag, paths, release.notes)
         raise "GitHub Release creation failed: #{error.strip}" unless status.success?
 
         output.strip
@@ -26,10 +27,22 @@ module RubyGemRelease
 
       private
 
+      def create_release(tag, paths, notes)
+        return Open3.capture3(*command(tag), '--generate-notes', *paths) if notes.nil?
+
+        raise ArgumentError, 'release notes must not be empty' if notes.strip.empty?
+
+        Tempfile.create(['ruby-gem-release-notes-', '.md']) do |file|
+          file.write(notes)
+          file.close
+          Open3.capture3(*command(tag), '--notes-file', file.path, *paths)
+        end
+      end
+
       def command(tag)
         arguments = ['gh', 'release', 'create', tag]
         arguments.push('--repo', @repository) if @repository
-        arguments.push('--verify-tag', '--title', tag, '--generate-notes')
+        arguments.push('--verify-tag', '--title', tag)
       end
 
       def artifact_paths(artifacts)

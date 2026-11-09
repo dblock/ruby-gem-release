@@ -12,10 +12,14 @@ LCOV
 lifecycle
 lookups
 md
+micromatch
+multiline
 namespaces
 OIDC
 OpenID
 preconfigured
+prerelease
+prereleases
 PRs
 Rakefile
 README
