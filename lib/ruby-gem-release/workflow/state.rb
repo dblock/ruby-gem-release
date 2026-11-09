@@ -25,16 +25,18 @@ module RubyGemRelease
       end
 
       def next_version
-        return @next_version unless @path
-
-        attributes.fetch('next_version')
+        snapshot.fetch(:next_version)
       end
 
       def analysis
-        return @analysis unless @path
+        snapshot.fetch(:analysis)
+      end
 
-        value = attributes['analysis']
-        SemanticRelease::Decision.from_h(value) if value
+      def snapshot
+        return { next_version: @next_version, analysis: @analysis }.freeze unless @path
+
+        values, analysis = read_state
+        { next_version: values.fetch('next_version')&.freeze, analysis: analysis }.freeze
       end
 
       def record_analysis!(decision)
@@ -62,13 +64,18 @@ module RubyGemRelease
       private
 
       def attributes
+        read_state.first
+      end
+
+      def read_state
         values = JSON.parse(File.read(@path))
         valid = values.is_a?(Hash) && SCHEMAS[values['schema_version']] == values.keys.sort
         raise ArgumentError, 'unsupported release state' unless valid
 
         validate_version(values['next_version']) unless values['next_version'].nil?
-        SemanticRelease::Decision.from_h(values['analysis']) unless values['analysis'].nil?
-        values
+        raw_analysis = values['analysis']
+        analysis = SemanticRelease::Decision.from_h(raw_analysis) unless raw_analysis.nil?
+        [values, analysis]
       end
 
       def persist(values)

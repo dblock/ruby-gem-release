@@ -101,6 +101,34 @@ RSpec.describe RubyGemRelease::Tasks do
     expect(received).to eq(['1.2.3', '1.2.3', nil, Date.new(2026, 11, 7)])
   end
 
+  it 'keeps one coherent state snapshot per context and reloads it for the next task invocation' do
+    Dir.mktmpdir do |directory|
+      path = RubyGemRelease::Workflow::State.create!(directory: directory)
+      ENV.update('RELEASE_STATE' => path, 'RELEASE_INITIAL_COMMIT' => 'a' * 40)
+      decision = RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [],
+                                                               release_type: 'major', version: '2.0.0', notes: 'Original notes.')
+      state = RubyGemRelease::Workflow::State.new(path: path)
+      state.record_analysis!(decision)
+      state.record_next_version!('2.0.1')
+      updated = JSON.parse(File.read(path))
+      updated['next_version'] = '2.0.2'
+      updated.fetch('analysis')['notes'] = 'Updated notes.'
+      allow(File).to receive(:read).and_call_original
+      allow(File).to receive(:read).with(path).and_wrap_original do |read, *arguments|
+        read.call(*arguments).tap { File.write(path, JSON.generate(updated)) }
+      end
+      received = []
+      described_class.install { |tasks| tasks.success { |ctx| received << ctx } }
+      Rake::Task['release:success'].invoke
+      Rake::Task['release:success'].reenable
+      Rake::Task['release:success'].invoke
+      expect(received.first.release).to have_attributes(next_version: '2.0.1', notes: 'Original notes.')
+      expect(received.first.analysis.notes).to eq('Original notes.')
+      expect(received.last.release).to have_attributes(next_version: '2.0.2', notes: 'Updated notes.')
+      expect(received.last.analysis.notes).to eq('Updated notes.')
+    end
+  end
+
   it 'passes the selected version to custom callbacks while retaining the initial version and date' do
     ENV['INPUT_VERSION'] = '3.0.0'
     received = nil

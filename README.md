@@ -6,7 +6,7 @@
 
 **Release your Ruby gem from GitHub Actions without maintaining custom release scripts or storing a RubyGems API key.**
 
-Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development iteration with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
+One dispatch updates the changelog, tests and publishes the gem, creates its GitHub Release, and prepares the next development iteration. Choose your version and changelog formats; the workflow handles the sequence.
 
 The default setup below requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
 
@@ -94,7 +94,7 @@ For a real-world example of adding release automation to an existing gem, see [r
 
 ## Extending the Workflow
 
-Start with the defaults above and replace only the parts your project needs. The [standard workflow](docs/workflow/ruby_gem.md) keeps the release sequence intact while accepting custom components; [Detailed Usage](docs/usage.md) shows file examples and a complete manual callback configuration.
+Replace only what you need. The [standard workflow](docs/workflow/ruby_gem.md) preserves ordering; [Detailed Usage](docs/usage.md) provides file examples and complete manual callbacks.
 
 - **Project conventions:** Choose [version objects](docs/usage.md#version-objects) and [changelog formats](docs/usage.md#changelog-objects), including custom implementations.
 - **Release decisions and callbacks:** Customize [validation, preparation, publication, and notifications](docs/tasks.md). Callbacks receive an [execution context](docs/execution_context.md) with release data, step history, and the configured workflow.
@@ -104,7 +104,7 @@ Start with the defaults above and replace only the parts your project needs. The
 - **Execution platforms:** Supply an [execution provider](docs/execution_provider.md) for environment transport, metadata, temporary storage, and authentication services. GitHub Actions is the only built-in external platform; another platform needs its own adapter and pipeline.
 - **Actions integration:** Override commands, inputs, and timezone through the [Actions Reference](docs/actions/release.md), or use the [Composite Action](docs/actions/action.md) inside a caller-owned job.
 
-Execution platform, package registry, and release hosting are separate choices. Changing one does not automatically change the others.
+Execution platform, registry, and hosting are independent choices.
 
 For complete examples, see [releasing ruby-gem-release itself](examples/self_release/README.md) with small project-specific customizations, then [GitLab and semantic releases](examples/gitlab_semantic_release/README.md) for built-in semantic providers composed with placeholder GitLab adapters.
 

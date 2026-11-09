@@ -26,4 +26,4 @@ The release integration workflow builds and installs the actual gem, then exerci
 
 ## Pull Requests
 
-Keep one coherent commit per PR, amending it for updates and using `git push --force-with-lease` on the topic branch when needed. Squash and rebase merges are supported; merge commits are disabled. Update documentation for user-visible changes and add notable behavior changes to the `0.2.0 (Next)` section of `CHANGELOG.md` with the PR link and author attribution once available. List entries chronologically within each release and keep `- Your contribution here.` as the last entry in the next-release section. Keep Markdown paragraphs on one source line. See [RELEASING.md](RELEASING.md) for release procedures.
+Keep one coherent commit per PR; amend updates and use `git push --force-with-lease` on the topic branch. Squash and rebase merges are supported; merge commits are disabled. Update affected documentation and append notable changes to the current Next changelog section with the PR link and author attribution, above `- Your contribution here.`. Keep Markdown paragraphs on one line. See [RELEASING.md](RELEASING.md).

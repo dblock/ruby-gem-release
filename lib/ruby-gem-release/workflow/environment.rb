@@ -22,12 +22,12 @@ module RubyGemRelease
         @provider.export(names.to_h { |name| [name, @provider.fetch(name)] }.merge('TZ' => timezone))
       end
 
-      def capture!
+      def capture!(package: nil)
         check_branch
         validate_timezone(@provider.fetch('TZ', 'UTC'))
         git = configured_git
         git.check_clean!
-        package = Package::RubyGem.new(gemspec: @provider.fetch('INPUT_GEMSPEC', @provider.fetch('GEMSPEC', '')) || '', directory: @provider.directory)
+        package ||= Package::RubyGem.new(gemspec: @provider.fetch('INPUT_GEMSPEC', @provider.fetch('GEMSPEC', '')) || '', directory: @provider.directory)
         release = initial_release(package)
         git.check_current!(release)
         @provider.export(captured_values(package, git, release))
@@ -55,7 +55,7 @@ module RubyGemRelease
 
       def captured_values(package, git, release)
         state = State.create!(directory: @provider.directory) if @provider.directory
-        { 'TZ' => @provider.fetch('TZ', 'UTC'), 'GEMSPEC' => package.gemspec, 'RELEASE_PREVIOUS_VERSION' => release.version,
+        { 'TZ' => @provider.fetch('TZ', 'UTC'), 'GEMSPEC' => package.respond_to?(:gemspec) ? package.gemspec.to_s : '', 'RELEASE_PREVIOUS_VERSION' => release.version,
           'RELEASE_DIRECTORY' => @provider.directory.to_s,
           'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => git.head, 'RELEASE_STATE' => state.to_s }
       end

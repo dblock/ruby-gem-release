@@ -205,6 +205,15 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(objects.fetch(:hosting)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
   end
 
+  it 'passes the configured package to capture as well as publication' do
+    environment = instance_double(RubyGemRelease::Workflow::Environment, capture!: nil)
+    allow(RubyGemRelease::Workflow::Environment).to receive(:new).and_return(environment)
+    install(**objects.except(:changelog))
+    Rake::Task['release:workflow:capture'].invoke
+    expect(environment).to have_received(:capture!).with(package: objects.fetch(:package))
+    expect(RubyGemRelease::Package::RubyGem).not_to have_received(:new)
+  end
+
   it 'disables hosted releases without skipping package publication', :aggregate_failures do
     install(hosting: nil)
     Rake::Task['release:publish'].invoke

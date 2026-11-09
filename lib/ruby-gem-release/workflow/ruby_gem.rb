@@ -30,16 +30,20 @@ module RubyGemRelease
 
       def install_tasks
         Tasks.install(workflow: self, package: @package, destination: @destination, provider: @provider) do |tasks|
-          tasks.validate { |ctx| validate_release(ctx) }
-          tasks.prepare { |ctx| prepare_release(ctx.release) }
-          tasks.publish { |ctx| publish(ctx.release) }
-          tasks.bump { |ctx| prepare_next(ctx) }
-          tasks.success(&@success) if @success
-          tasks.failure(&@failure) if @failure
+          install_callbacks(tasks)
         end
       end
 
       private
+
+      def install_callbacks(tasks)
+        tasks.validate { |ctx| validate_release(ctx) }
+        tasks.prepare { |ctx| prepare_release(ctx.release) }
+        tasks.publish { |ctx| publish(ctx.release) }
+        tasks.bump { |ctx| prepare_next(ctx) }
+        tasks.success(&@success) if @success
+        tasks.failure(&@failure) if @failure
+      end
 
       def validate_release(ctx)
         return @validate.call(ctx) if @validate

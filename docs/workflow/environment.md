@@ -8,7 +8,7 @@ Supplies release context checks, invoked through [Tasks](../tasks.md). `Environm
 
 ## Capture
 
-`capture!` checks the provider's ref, validates the timezone, configures checkout-local Git identity, rejects a dirty checkout after dependency installation, selects the gemspec, reads the initial numeric version, and checks that the default branch has not advanced. It exports `TZ`, `GEMSPEC`, `RELEASE_DIRECTORY`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `RELEASE_INITIAL_COMMIT` through the provider. The date is captured once in `TZ`, defaulting to UTC when that variable is absent. Invalid identifiers fail before Git configuration or environment export.
+`capture!(package:)` checks the ref and timezone, configures local Git identity, rejects a dirty checkout, reads the initial package version, and checks remote advancement. Tasks supply the configured package; direct calls default to the selected Ruby gem. It exports `TZ`, `GEMSPEC`, `RELEASE_DIRECTORY`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `RELEASE_INITIAL_COMMIT`. `GEMSPEC` is the package's selected path when available, otherwise empty. The date is captured once in `TZ`, defaulting to UTC.
 
 When the provider supplies a directory, capture also creates a unique private state file and exports `RELEASE_STATE`; otherwise it exports an empty path and callbacks use process-local state. Each new Actions invocation clears previous release environment values before capture. See [Execution Context](../execution_context.md#state).
 
@@ -16,7 +16,7 @@ When the provider supplies a directory, capture also creates a unique private st
 
 `resolve!(package:, destination:)` reads the prepared package version, validates optional `INPUT_VERSION`, rejects an existing release tag or a version unavailable at the destination, stages the trusted preparation command's changes and saves the index tree before testing, and exports `RELEASE_VERSION` and `RELEASE_AUTHENTICATION` through the provider. Tasks supply the configured objects; direct calls default to the selected Ruby gem and RubyGems destination. The RubyGems lookup checks the prepared version rather than the initial version; only HTTP 404 permits proceeding. Testing and destination-specific authentication run afterward. Later working tree or index changes are rejected by publication rather than staged automatically.
 
-The optional `version` input selects a version rather than only asserting one. Standard preparation updates the configured version object through `set!`; custom preparation commands and callbacks must honor the selected value themselves. Resolution still rejects a prepared gemspec that differs from the selection, before any publication. Capture always retains the checked-in gemspec version as `RELEASE_PREVIOUS_VERSION`.
+Standard preparation honors optional `version` through `set!`; custom callbacks must honor it themselves. Resolution rejects a prepared version that differs from the explicit or persisted semantic selection. `RELEASE_PREVIOUS_VERSION` always retains the initial package version.
 
 ## Environment
 

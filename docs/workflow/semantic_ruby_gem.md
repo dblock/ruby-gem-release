@@ -1,6 +1,6 @@
 # `RubyGemRelease::Workflow::SemanticRubyGem`
 
-Opt into commit-driven releases instead of the default checked-in version and handwritten pending notes. This workflow requires the same Ruby and release environment as [`Workflow::RubyGem`](ruby_gem.md); it does not enable automatic triggers or authorize publication. Keep the existing manually dispatched Actions workflow or composite action.
+Select releases from commits instead of handwritten pending notes. Keep the same [runtime and release setup](ruby_gem.md) and manually dispatched Actions interface; this does not enable triggers or authorize publication.
 
 ```ruby
 require 'ruby-gem-release/workflow/semantic_ruby_gem'
@@ -10,13 +10,13 @@ RubyGemRelease::Workflow::SemanticRubyGem.new(
 ).install_tasks
 ```
 
-Install only one workflow. The semantic workflow accepts the same independent execution provider, package, destination, Git, hosting, and result callbacks as the manual workflow. GitHub Actions remains the only built-in external execution platform.
+Install only one workflow. Execution, package, destination, Git, hosting, and result callbacks remain independently replaceable.
 
 ## History and Versions
 
-Validation reads stable `vMAJOR.MINOR.PATCH` tags reachable from the captured default-branch commit and chooses the highest numeric version, not the nearest tag or newest tag date. Annotated and lightweight tags work. Tags on unrelated branches, prerelease tags, build metadata, and other naming conventions are ignored. Shallow checkouts fail explicitly; fetch complete history and tags before capture. The built-in Git capture fetches tags and checks that the default branch has not advanced.
+Validation selects the highest reachable stable `vMAJOR.MINOR.PATCH` tag, not the nearest or newest. Annotated and lightweight tags work; unrelated, prerelease, metadata, and alternate-format tags are ignored. Shallow checkouts fail. Capture fetches tags and checks remote advancement; supply full history.
 
-Analyze all reachable commits for a first release, or commits after the selected tag otherwise. The first releasable version defaults to `1.0.0` regardless of release type, matching semantic-release. Configure another starting version when needed:
+Analysis covers all reachable commits initially, then commits after the selected tag. First release defaults to `1.0.0` regardless of severity; override it with:
 
 ```ruby
 semantic = RubyGemRelease::SemanticRelease.new(
@@ -29,9 +29,9 @@ RubyGemRelease::Workflow::SemanticRubyGem.new(
 ).install_tasks
 ```
 
-Subsequent versions increment the last released version: major resets minor and patch, minor resets patch, and patch increments patch. A checked-in development version such as `9.9.9` does not affect a selection from released `1.2.3`. `release.previous_version` continues to mean the initial gemspec version; `ctx.analysis.last_release` identifies the actual release baseline.
+Later versions increment the last release, resetting lower components. Development versions do not affect selection. `release.previous_version` remains the initial gemspec version; `ctx.analysis.last_release` is the release baseline.
 
-The existing explicit `version` input takes precedence, including allowing a release with no releasable commits. It must be a stable numeric version strictly greater than the last release; it need not exceed the checked-in development version or the automatically suggested version. The version object must implement `set!`; preparation, resolution, and publication must all agree on the persisted selection.
+Explicit `version` can force a release without releasable commits. It must exceed the last release, not necessarily the development or suggested version. The version object needs `set!`; all later phases must match the persisted selection.
 
 ## Conventional Commits
 
@@ -52,7 +52,7 @@ semantic = RubyGemRelease::SemanticRelease.new(analyzer: analyzer)
 
 Supported selectors are `type`, `scope`, and `subject` strings, plus boolean `breaking` and `revert` selectors. A rule matches when all its selectors match. Matching custom rules replace defaults for that commit; the highest positive match wins, or `false` suppresses it if there is no positive match. Unmatched commits fall back to defaults. Use `release: :major`, `:minor`, `:patch`, or `false`.
 
-No releasable commits means `proceed=false`, without preparation, authentication, publication, development bumps, or success notifications. This decision does not consult handwritten pending changelog content. An optional `validate:` callback can additionally veto a releasable decision; it receives the validation task's starting snapshot, while newly recorded analysis is visible to subsequent tasks.
+No releasable commits means `proceed=false`, without downstream operations or notifications. Handwritten pending notes do not affect selection. Optional `validate:` can veto a release; its context is the starting snapshot, while subsequent tasks see newly recorded analysis.
 
 ## Notes and Changelog
 
@@ -62,19 +62,19 @@ The default `Changelog::Generated` creates `CHANGELOG.md` if absent or inserts a
 
 Set `changelog: nil` to disable file updates, or supply an object whose `release!(release)` consumes `release.notes`. With `bump: true`, also implement `prepare_next!(release)`. A handwritten changelog provider is not automatically converted to generated notes.
 
-The same frozen `release.notes` reaches hosting. Built-in GitHub hosting passes it verbatim through a private temporary notes file instead of requesting platform-generated notes. Manual workflows retain `--generate-notes`. Custom hosting should use the supplied notes and exact artifact, not reanalyze commits.
+GitHub hosting passes frozen `release.notes` verbatim through a private file; manual workflows retain `--generate-notes`. Custom hosting must use supplied notes and the exact artifact, not reanalyze.
 
 ## Development Iterations
 
-Semantic workflows default to `bump: false`. The existing bump task remains installed but does nothing, and `release.next_version` remains `nil`. Set `bump: true` to retain the standard patch increment, next-development commit, and push. Future semantic selection still uses the last release tag, not that development version. Manual workflows retain their existing automatic patch bump.
+With default `bump: false`, the installed bump task does nothing and `release.next_version` stays `nil`. `bump: true` enables the standard patch increment, commit, and push. Future selection still uses released tags. Manual workflows continue to bump automatically.
 
 ## State and Callbacks
 
 Validation records one immutable `SemanticRelease::Decision` through `ctx.record_analysis!`. Its fields are `head`, `last_release`, `commits`, `release_type`, `version`, `notes`, and `explicit_version`. `last_release` is `nil` or a frozen hash with string keys `tag`, `version`, and `commit`. `commits` retains the full analyzed range as frozen hashes with `sha` and complete `message`, including commits canceled for release analysis. A skipped decision has `nil` release type, version, and notes.
 
-Later tasks load the decision rather than re-running providers. Contexts are snapshots: recording analysis does not modify the validation context already passed to the callback. Prepared and published contexts expose it through `ctx.analysis`; failure contexts include it when readable. Versioned private JSON state supports schema 2 decisions and legacy schema 1 next-version data. Recording a development version preserves analysis. Corrupt or unsupported state fails closed; failure reporting warns and omits unreadable state without hiding the original error.
+Later contexts expose persisted analysis without rerunning providers or mutating earlier snapshots. Private JSON supports schema 2 and legacy schema 1 next-version data; recording a bump preserves analysis. Corrupt state fails closed. Failure reporting warns and omits unreadable state without hiding the original error.
 
-Preserve `RELEASE_STATE` and captured inputs across processes. Decisions are bound to `RELEASE_INITIAL_COMMIT` and the original explicit version. Changed inputs or a mismatched prepared version fail before publication. In-process tasks can share memory without a file, but separate local processes need a provider with private storage and export transport.
+Preserve `RELEASE_STATE` and captured inputs across processes. Changed `RELEASE_INITIAL_COMMIT`, explicit input, or prepared version fails before publication. In-process tasks can share memory; separate processes need private storage and export transport.
 
 ## Replacing Providers
 

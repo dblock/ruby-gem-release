@@ -17,16 +17,14 @@ module RubyGemRelease
         super(changelog: changelog, **)
       end
 
-      def install_tasks
-        Tasks.install(workflow: self, package: @package, destination: @destination, provider: @provider) do |tasks|
-          tasks.validate { |ctx| validate_release(ctx) }
-          tasks.prepare { |ctx| prepare_semantic_release(ctx) }
-          install_result_callbacks(tasks)
-          tasks.failure(&@failure) if @failure
-        end
-      end
-
       private
+
+      def install_callbacks(tasks)
+        tasks.validate { |ctx| validate_release(ctx) }
+        tasks.prepare { |ctx| prepare_semantic_release(ctx) }
+        install_result_callbacks(tasks)
+        tasks.failure(&@failure) if @failure
+      end
 
       def install_result_callbacks(tasks)
         tasks.publish { |ctx| with_decision(ctx) { publish(ctx.release) } }

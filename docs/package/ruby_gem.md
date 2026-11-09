@@ -4,7 +4,7 @@ Owns gem metadata, building, and artifact verification independently of the publ
 
 ## Gemspec
 
-`RubyGem.new(gemspec: 'example.gemspec')` selects the specification. Without an argument, it uses `GEMSPEC` or the only root gemspec; missing or ambiguous specifications fail. Use the same specification as the workflow, or omit the argument to honor its `gemspec` input. `gemspec` returns the selected absolute path.
+`RubyGem.new(gemspec: 'example.gemspec')` selects an explicit specification; otherwise it uses `GEMSPEC` or the only root gemspec. Missing or ambiguous selections fail. The standard workflow uses this package during capture and resolution, exporting its absolute `gemspec` path.
 
 ## Directory
 

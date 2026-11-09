@@ -4,13 +4,49 @@ Upgrade the gem and pinned workflow or action together. Apply the relevant chang
 
 ## Upgrading to 0.5.0 (Unreleased)
 
+From 0.4.x, update both the gem and pinned Actions reference. Install only one workflow or manual task configuration.
+
+### Callback and Command Changes
+
+Before, inside `Tasks.install`:
+
+```ruby
+tasks.before_release { |release| puts release.version }
+tasks.after_release { |release| puts release.version }
+```
+
+After:
+
+```ruby
+tasks.prepare { |ctx| puts ctx.release.version }
+tasks.bump { |ctx| puts ctx.release.version }
+```
+
+Rename explicit Rake commands to `release:prepare` and `release:bump`; there are no aliases ([#30](https://github.com/dblock/ruby-gem-release/pull/30)). Real bump callbacks must still edit, commit, and push, then call `ctx.record_next_version!`. For complete wiring, use the [manual callback example](docs/usage.md#custom-callbacks).
+
+Prepared-release test overrides change from:
+
+```yaml
+with:
+  validate: bundle exec rake spec
+```
+
+To:
+
+```yaml
+with:
+  test: bundle exec rake spec
+```
+
+`validate` now decides whether to release before edits. Standard workflows provide this decision; custom commands must emit exactly one `proceed=true` or `proceed=false` to `GITHUB_OUTPUT`.
+
+### Component Changes
+
 - Authentication is now part of `release:publish`, through the destination's `authenticate!(provider:)` hook; subclass `Destination` for its default that retains preconfigured credentials, or implement the hook on custom destination objects. RubyGems exchanges accept an optional owner and export credentials without creating or modifying `~/.gem/credentials`. Custom commands bypassing `release:publish` must own authentication; callbacks invoked by the task inherit its exported key variables. Authentication failures are reported under `publish_release`, not a separate authentication step. See [#36](https://github.com/dblock/ruby-gem-release/pull/36).
 - Git and package objects now use `RELEASE_DIRECTORY` instead of `RUNNER_TEMP`; direct Git identity defaults are provider-neutral. Standard Actions behavior is unchanged. Inject `provider:` to replace execution services independently of hosting and registry destinations. See [#32](https://github.com/dblock/ruby-gem-release/pull/32).
 - Move package version checks and publication to `Destination::RubyGems` using `check_version!(name:, version:)` and `publish!(release, package:)`. Configure `destination:` on the standard workflow, or pass `package:` and `destination:` to manual `Tasks.install`; custom packages now supply `name` as well. See [#31](https://github.com/dblock/ruby-gem-release/pull/31).
 - Callback arguments are now execution contexts: replace `release.version` with `ctx.release.version`, and `failure.release` with `failure.context.release`. Use `ctx.step`, `steps`, `workflow`, and `run` for execution metadata; custom bump callbacks must call `ctx.record_next_version!` to propagate their next version. Rename `Workflow::Context` to `Workflow::Environment`. See [#31](https://github.com/dblock/ruby-gem-release/pull/31).
 - Local callbacks receive `ExecutionContext` with a logical task ID and `run: nil`; GitHub Actions callbacks receive its `ExecutionContext::GitHub` subclass with Actions history and run metadata. See [#31](https://github.com/dblock/ruby-gem-release/pull/31).
-- Rename `tasks.before_release` to `tasks.prepare` and `tasks.after_release` to `tasks.bump`. Update explicit Rake commands from `release:before_release` to `release:prepare` and `release:after_release` to `release:bump`; there are no compatibility aliases. The `prepare` and `bump` command input names are unchanged. See [#30](https://github.com/dblock/ruby-gem-release/pull/30).
-- Move prepared-release test overrides from `validate:` to `test:`. The new `validate` command decides whether to release before preparation and must emit `proceed=true` or `proceed=false` to `GITHUB_OUTPUT`. See [#29](https://github.com/dblock/ruby-gem-release/pull/29).
 - Empty pending changelog notes now skip successfully without publication or result callbacks. Custom changelog objects must implement `pending?` or supply a `validate:` callback returning `true` to proceed or `false` to skip. See [#29](https://github.com/dblock/ruby-gem-release/pull/29).
 
 ## Upgrading To 0.4.0

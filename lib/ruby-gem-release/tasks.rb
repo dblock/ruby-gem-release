@@ -110,7 +110,7 @@ module RubyGemRelease
 
     def install_workflow_context_tasks
       task(:configure) { with_failure_capture('release:workflow:configure') { Workflow::Environment.new(provider: @provider).configure! } }
-      task(:capture) { with_failure_capture('release:workflow:capture') { Workflow::Environment.new(provider: @provider).capture! } }
+      task(:capture) { with_failure_capture('release:workflow:capture') { Workflow::Environment.new(provider: @provider).capture!(package: @package) } }
       task(:resolve) do
         with_failure_capture('release:workflow:resolve') do
           Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination, analysis: state.analysis)
@@ -168,9 +168,9 @@ module RubyGemRelease
     end
 
     def context(task, preparing: false)
-      analysis = state.analysis
-      release = release_context(preparing: preparing, analysis: analysis, validating: task == 'release:validate')
-      @provider.context(release: release, task: task, state: state, workflow: @workflow)
+      snapshot = state.snapshot
+      release = release_context(preparing: preparing, **snapshot, validating: task == 'release:validate')
+      @provider.context(release: release, task: task, state: state, workflow: @workflow, analysis: snapshot.fetch(:analysis))
     end
 
     def state
@@ -182,7 +182,7 @@ module RubyGemRelease
       @state
     end
 
-    def release_context(preparing: false, analysis: nil, validating: false)
+    def release_context(preparing: false, analysis: nil, next_version: nil, validating: false)
       previous_version = @provider.fetch('RELEASE_PREVIOUS_VERSION')
       version = preparing ? preparation_version(previous_version, analysis: analysis, validating: validating) : @provider.fetch('RELEASE_VERSION')
       date = @provider.fetch('RELEASE_DATE')
@@ -190,7 +190,7 @@ module RubyGemRelease
       validate_context_versions(version, previous_version)
       raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: state.next_version, notes: analysis&.notes)
+      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: next_version, notes: analysis&.notes)
     end
 
     def preparation_version(previous_version, analysis: nil, validating: false)

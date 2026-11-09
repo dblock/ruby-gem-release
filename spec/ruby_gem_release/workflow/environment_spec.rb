@@ -155,6 +155,22 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     let(:values) { { 'RELEASE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RELEASE_DIRECTORY' => directory } }
     let(:provider) { RubyGemRelease::ExecutionProvider.new(environment: values) }
 
+    it 'captures the explicitly configured package instead of rediscovering root specifications' do
+      File.write('other.gemspec', "raise 'unselected gemspec must not load'\n")
+      package = RubyGemRelease::Package::RubyGem.new(gemspec: 'fixture.gemspec', directory: directory)
+      described_class.new(provider: provider).capture!(package: package)
+      expect(values).to include('GEMSPEC' => package.gemspec, 'RELEASE_PREVIOUS_VERSION' => '1.2.3')
+      expect(git).to have_received(:check_clean!)
+      expect(git).to have_received(:check_current!).with(have_attributes(version: '1.2.3'))
+    end
+
+    it 'captures custom package metadata without requiring a gemspec accessor' do
+      package = Struct.new(:version).new('2.3.4')
+      values['GEMSPEC'] = 'stale.gemspec'
+      described_class.new(provider: provider).capture!(package: package)
+      expect(values).to include('GEMSPEC' => '', 'RELEASE_PREVIOUS_VERSION' => '2.3.4')
+    end
+
     it 'captures and resolves without using Actions files or RubyGems' do
       File.write('other.gemspec', "raise 'unselected gemspec must not load'\n")
       values['INPUT_GEMSPEC'] = 'fixture.gemspec'

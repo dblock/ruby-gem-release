@@ -1,6 +1,6 @@
 # Working on `ruby-gem-release`
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [DESIGN.md](DESIGN.md) before making changes. This project will provide a reusable GitHub Actions release workflow and a Ruby gem with Rake tasks for common Ruby gem release operations; it is not a general-purpose release service.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [DESIGN.md](DESIGN.md). This project provides GitHub Actions interfaces and Ruby release tasks, not a general-purpose release service.
 
 The reusable workflow belongs in `.github/workflows/`, the gem API and Rake tasks belong in `lib/` and `tasks/`, and focused RSpec examples belong in `spec/`. Support Ruby 3.3 and newer; use public RubyGems, Rake, GitHub Actions, and RubyGems Trusted Publishing interfaces.
 

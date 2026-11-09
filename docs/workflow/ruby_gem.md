@@ -14,7 +14,7 @@ The standard workflow registers `release:validate` to call `pending?` on the cha
 
 ## Package
 
-The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md). It selects `GEMSPEC` or the only root gemspec and owns metadata, artifact construction, and verification. Override it with an object implementing `name`, `version`, `build!(release)`, and `artifact(release)`. Registry checks and uploads do not belong to the package.
+The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md). Override it with `name`, `version`, `build!(release)`, and `artifact(release)` methods. The same object supplies initial capture, prepared-version checks, and publication. An optional `gemspec` method exports its selected path; custom packages need not provide one. Registry checks and uploads belong to the destination.
 
 ## Destination
 
@@ -24,7 +24,7 @@ The same package and destination are supplied to prepared-version resolution and
 
 ## Git
 
-The optional `git:` defaults to [`SourceControl::Git`](../source_control/git.md). It implements `commit!`, `tag!`, `push!`, and `commit_next!`. Branch defaults come from the workflow environment or checkout. Default package and Git objects share the execution provider's directory. Git identity is configured during context capture; task installation alone does not alter Git configuration.
+The optional `git:` defaults to [`SourceControl::Git`](../source_control/git.md). Custom objects implement `stage_changes!` (yielding to trusted edits), `commit!`, `tag!`, `push!`, and `commit_next!`. Defaults use the provider's directory and checkout branch. Capture separately configures and checks checkout-local Git; task installation does not alter Git configuration.
 
 ## Execution Provider
 
