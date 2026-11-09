@@ -14,6 +14,9 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 
 RSpec::Core::RakeTask.new(:spec)
+RSpec::Core::RakeTask.new('spec:integration') do |task|
+  task.pattern = 'spec/integration/**/*_spec.rb'
+end
 RuboCop::RakeTask.new
 
 task default: %i[spec rubocop]

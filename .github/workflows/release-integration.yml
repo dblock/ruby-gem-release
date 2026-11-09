@@ -35,4 +35,4 @@ jobs:
             echo "RELEASE_CONSUMER_LIB=$RUNNER_TEMP/gems/gems/ruby-gem-release-$version/lib"
           } >> "$GITHUB_ENV"
       - name: Exercise Installed Release Lifecycle
-        run: bundle exec rspec spec/ruby_gem_release/workflow_github_release_spec.rb
+        run: bundle exec rake spec:integration

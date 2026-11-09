@@ -8,17 +8,7 @@
 
 Update your changelog, validate and publish your gem, create its GitHub Release, and prepare the next development iteration with one workflow dispatch. Choose your version and changelog formats; the standard workflow handles the release sequence.
 
-- **No stored RubyGems API key:** Authenticate with RubyGems Trusted Publishing using OpenID Connect (OIDC).
-- **Let collaborators request releases:** After one-time setup, collaborators with write access, including on personal repositories, can dispatch releases without repository admin access or their own RubyGems credentials. [Environment protection](RELEASING.md#maintainer-approved-publication) can require approval from a release maintainer before publication.
-- **Keep your conventions:** Use the standard workflow or compose Ruby objects and callbacks for custom releases.
-- **Choose the release version:** Release the checked-in version or [select a different version](docs/actions/release.md#release-version) when dispatching, without a separate version-bump commit.
-- **Skip when there is nothing to release:** [Validate the release](docs/actions/release.md#release-validation-and-skipping) before editing files; empty pending changelog notes end successfully without publication.
-- **Catch release mistakes:** [Check for already published RubyGems versions](docs/package/ruby_gem.md#check-version), reject existing tags, and [require actual release notes](docs/changelog/base.md#release) in both built-in changelog formats.
-- **Keep dependency files out of release commits:** [Reject dirty checkouts after dependency installation](docs/source_control/git.md) and unexpected working tree or index changes after preparation, instead of staging unrelated files during publication.
-- **Build once and retain recovery files:** Publish the same verified gem artifact to RubyGems and attach it to the GitHub Release. Preserve available gem, checksum manifest, and Git recovery bundle files for [recovery after failures](docs/actions/release.md#recovery-artifacts).
-- **Use your release timezone:** [Configure release dates](docs/actions/release.md#timezone) with a named timezone such as `America/New_York`, including daylight saving changes; UTC is the default.
-
-Requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
+The default setup below requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
 
 ## Usage
 
@@ -36,7 +26,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-The standard workflow handles changelog updates, publication, and the next development iteration, selecting the gemspec and repository using unambiguous defaults. See [Detailed Usage](docs/usage.md) for file examples and custom release callbacks.
+These defaults select the gemspec and repository, skip empty pending notes, prepare the changelog, publish to RubyGems and GitHub Releases, and increment the patch version for the next development iteration. Dates use UTC.
 
 ### 2. Add the Release Workflow
 
@@ -80,6 +70,8 @@ gh api --method PUT repos/{owner}/{repo}/environments/release
 
 For a new gem, open the [pending trusted publishers page](https://rubygems.org/profile/oidc/pending_trusted_publishers). For an existing gem, open your existing gem's **Trusted publishers** page (e.g. `https://rubygems.org/gems/example/trusted_publishers`). Create a [trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows). Set the repository fields to your gem's repository, the workflow filename to `release.yml`, and the environment to `release`. Set the separate workflow repository fields to `dblock` and `ruby-gem-release`; these identify the reusable workflow RubyGems verifies in the OIDC token.
 
+Collaborators with write access can dispatch releases after this setup, without repository admin access or their own RubyGems credentials. Creating the environment alone does not restrict publication. Configure [required maintainer approval and deployment branches](RELEASING.md#maintainer-approved-publication) to control who approves publication.
+
 ### 4. Make a Release
 
 Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Dispatching starts a publishing run; when required reviewers are configured, the release job waits for approval from a designated maintainer. Run your project's tests and build checks, review the changes, and dispatch from your default branch:
@@ -100,17 +92,24 @@ To release a different version, select it in the dispatch form or pass `-f versi
 
 For a real-world example of adding release automation to an existing gem, see [ruby-link-checker #26](https://github.com/dblock/ruby-link-checker/pull/26). It adds the dependency, Rake tasks, reusable workflow, and release instructions while preserving the existing changelog format.
 
-## Configuration
+## Extending the Workflow
 
-See [Detailed Usage](docs/usage.md#configuration) for workflow customization, callbacks, and available classes, and the [Actions Reference](docs/actions/release.md) for inputs and defaults.
+Start with the defaults above and replace only the parts your project needs. The [standard workflow](docs/workflow/ruby_gem.md) keeps the release sequence intact while accepting custom components; [Detailed Usage](docs/usage.md) shows file examples and a complete manual callback configuration.
 
-See [UPGRADING.md](UPGRADING.md) for breaking changes and migration steps before upgrading the gem and pinned workflow or action.
+- **Project conventions:** Choose [version objects](docs/usage.md#version-objects) and [changelog formats](docs/usage.md#changelog-objects), including custom implementations.
+- **Release decisions and callbacks:** Customize [validation, preparation, publication, and notifications](docs/tasks.md). Callbacks receive an [execution context](docs/execution_context.md) with release data, step history, and the configured workflow.
+- **Packages and registries:** Override [package construction](docs/package/ruby_gem.md) or supply a [registry destination](docs/destination.md) independently of hosted releases.
+- **Release hosting:** Replace or disable [GitHub Release creation](docs/workflow/ruby_gem.md#hosting) without changing package publication or Git operations.
+- **Execution platforms:** Supply an [execution provider](docs/execution_provider.md) for environment transport, metadata, temporary storage, and authentication services. GitHub Actions is the only built-in external platform; another platform needs its own adapter and pipeline.
+- **Actions integration:** Override commands, inputs, and timezone through the [Actions Reference](docs/actions/release.md), or use the [Composite Action](docs/actions/action.md) inside a caller-owned job.
 
-For step-based integration, see the [Composite Action](docs/actions/action.md).
+Execution platform, package registry, and release hosting are separate choices. Changing one does not automatically change the others.
 
-### Release Access
+The defaults retain [clean-checkout checks](docs/source_control/git.md), [duplicate-version checks](docs/destination/ruby_gems.md#check-version), and [verified recovery artifacts](docs/actions/release.md#recovery-artifacts). Custom publication callbacks must preserve the documented ordering and artifact checks.
 
-Creating the environment without protection rules does not restrict release access. For maintainer-only publication, configure **Settings → Environments → release** with required maintainer reviewers, self-review and administrator-bypass rules, and deployment branches restricted to `main` (or your actual default branch), as described in [Maintainer-Approved Publication](RELEASING.md#maintainer-approved-publication). Other repository writers can still dispatch, but publication waits for a designated maintainer to approve; environments do not provide a workflow-dispatch allow list.
+## Upgrading
+
+See [UPGRADING.md](UPGRADING.md) for breaking changes and migration steps. Upgrade the gem and pinned workflow or action together.
 
 ## Contributing
 

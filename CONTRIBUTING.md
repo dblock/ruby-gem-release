@@ -16,6 +16,8 @@ RuboCop includes Markdown prose checks with `rubocop-prose`, Ruby code block che
 
 RSpec examples live in `spec/`; add focused examples for release-task behavior and use real consumers to execute the reusable workflow and composite action's callback commands. Specs write HTML and LCOV coverage reports under `coverage/`, which CI uploads to Coveralls.
 
+Consumer integration specs live in `spec/integration/`. Run them separately with `bundle exec rake spec:integration`; `bundle exec rake spec` and the default task still include the complete suite. Installed-gem integration CI uses the same focused task with its consumer environment configured.
+
 The release integration workflow builds and installs the actual gem, then exercises both interfaces' callback commands with real local Git pushes and isolated RubyGems and GitHub publication boundaries. Tests verify release and next development iteration commits, artifact identity, and publication ordering without publishing packages or creating hosted releases. They do not execute live Actions authentication or artifact uploading. Preserve authentication selection and failure-aware artifact upload when changing either interface. Validate workflow examples with `actionlint .github/workflows/*.yml examples/.github/workflows/*.yml`.
 
 ## Pull Requests
