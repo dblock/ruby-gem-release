@@ -1,5 +1,6 @@
 Bundler
 changelog
+customizations
 dblock
 ExecutionContext
 ExecutionProvider
@@ -28,6 +29,8 @@ subclasses
 unstaged
 untracked
 untrusted
+walkthrough
+walkthroughs
 worktree
 worktrees
 YAML

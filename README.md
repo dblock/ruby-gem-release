@@ -105,6 +105,8 @@ Start with the defaults above and replace only the parts your project needs. The
 
 Execution platform, package registry, and release hosting are separate choices. Changing one does not automatically change the others.
 
+For complete examples, see [releasing ruby-gem-release itself](examples/self_release/README.md) with small project-specific customizations, then [GitLab and semantic releases](examples/gitlab_semantic_release/README.md) for a fully customized configuration using placeholder providers.
+
 The defaults retain [clean-checkout checks](docs/source_control/git.md), [duplicate-version checks](docs/destination/ruby_gems.md#check-version), and [verified recovery artifacts](docs/actions/release.md#recovery-artifacts). Custom publication callbacks must preserve the documented ordering and artifact checks.
 
 ## Upgrading
