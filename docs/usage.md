@@ -34,7 +34,7 @@ This installs the validation, preparation, publication, next development iterati
 
 The default workflow releases the current version in your version file; it increments the patch version only afterward. Set the optional workflow `version` input to choose a different release version. The standard workflow calls your version object's `set!` method before preparing the changelog, preserving the initial version in the release context. Custom preparation callbacks retain control of their own file updates.
 
-Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` for notifications; success runs after the next development iteration succeeds, while failure receives a `RubyGemRelease::ReleaseFailure` with a phase, captured error when available, and optional release context.
+Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` for notifications; success receives an execution context after the next development iteration succeeds, while failure receives a `RubyGemRelease::ReleaseFailure` with a phase, captured error when available, and execution context.
 
 Before any preparation edits, `release:validate` checks the configured changelog for pending notes. An empty pending section skips the release successfully, even when a version is selected. Pass a `validate:` lambda returning `true` to proceed or `false` to skip when your project uses a different release decision; exceptions fail the release. Without a changelog, the standard decision is to proceed.
 
@@ -42,7 +42,7 @@ The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and art
 
 ## Object Overrides
 
-Supply your own `package:`, `git:`, or `hosting:` object to customize an implementation without changing the release sequence. For example, disable GitHub Release creation while retaining RubyGems publication:
+Supply your own `package:`, `destination:`, `git:`, or `hosting:` object to customize an implementation without changing the release sequence. Packages own construction and verification; registry destinations own availability checks and uploads. For example, disable GitHub Release creation while retaining RubyGems publication:
 
 ```ruby
 RubyGemRelease::Workflow::RubyGem.new(
@@ -63,31 +63,36 @@ require 'ruby-gem-release/tasks'
 require 'ruby-gem-release/changelog'
 require 'ruby-gem-release/hosting/github_release'
 require 'ruby-gem-release/package/ruby_gem'
+require 'ruby-gem-release/destination/ruby_gems'
 require 'ruby-gem-release/source_control/git'
 
-RubyGemRelease::Tasks.install do |tasks|
+package = RubyGemRelease::Package::RubyGem.new
+destination = RubyGemRelease::Destination::RubyGems.new
+RubyGemRelease::Tasks.install(package: package, destination: destination) do |tasks|
   version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION')
   changelog = RubyGemRelease::Changelog::KeepAChangelog.new
-  package = RubyGemRelease::Package::RubyGem.new
   git = RubyGemRelease::SourceControl::Git.new
   github = RubyGemRelease::Hosting::GitHubRelease.new
-  tasks.validate { |_release| changelog.pending? }
-  tasks.prepare do |release|
+  tasks.validate { |_ctx| changelog.pending? }
+  tasks.prepare do |ctx|
+    release = ctx.release
     git.stage_changes! do
       version.set!(release.version) unless ENV.fetch('INPUT_VERSION', '').empty?
       changelog.release!(release.with_version(version.read))
     end
   end
-  tasks.publish do |release|
-    package.check_version!(release.version)
+  tasks.publish do |ctx|
+    release = ctx.release
+    destination.check_version!(name: package.name, version: release.version)
     git.commit!(release)
     package.build!(release)
     git.tag!(release)
-    package.publish!(release)
+    destination.publish!(release, package: package)
     git.push!(release)
     github.publish!(release, package: package)
   end
-  tasks.bump do |release|
+  tasks.bump do |ctx|
+    release = ctx.release
     next_release = nil
     git.stage_changes! do
       next_release = release.with_next_version(version.increment!)
@@ -95,21 +100,22 @@ RubyGemRelease::Tasks.install do |tasks|
     end
     git.commit_next!(next_release)
     git.push!
+    ctx.record_next_version!(next_release.next_version)
   end
-  tasks.success { |release| puts "Published #{release.version}" }
+  tasks.success { |ctx| puts "Published #{ctx.release.version}" }
   tasks.failure do |failure|
-    version = failure.release&.version || 'version unavailable'
+    version = failure.context.release&.version || 'version unavailable'
     error = failure.error&.original_class || 'details unavailable'
     warn "Release failed during #{failure.phase} for #{version}: #{error}"
   end
 end
 ```
 
-Use custom callbacks to set a release version during preparation, choose a different increment, or change the sequence. [`Tasks`](tasks.md) does not change files implicitly; each callback receives an immutable [`Release`](release.md) context. Changes to its version fields return copies rather than mutating the original.
+Use custom callbacks to set a release version during preparation, choose a different increment, or change the sequence. [`Tasks`](tasks.md) does not change files implicitly; callbacks receive an [`ExecutionContext`](execution_context.md) containing an immutable [`Release`](release.md). Changes to release version fields return copies rather than mutating the original. Record the next development version explicitly after its operations succeed so later callbacks can read it.
 
 Wrap custom preparation edits in `git.stage_changes!` as above; it checks for a clean checkout before the block and stages only the resulting changes, including custom README or version files. Both Actions interfaces also stage the trusted `prepare` command's outputs while resolving the prepared version, before testing. Publication never stages files: unexpected working tree or index changes after preparation fail instead of entering a release commit. Custom commands retain control of their operations, but must not stage unrelated validation or dependency output during publication.
 
-Check `package.check_version!(release.version)` before committing so a known RubyGems duplicate stops before local release writes. Both Actions interfaces also check the prepared version during resolution, and the package publisher repeats the check using the built artifact's exact name and version. For an earlier check like a project-specific preparation command, call `package.check_version!(version.read)` before writing the changelog or other files. Only a RubyGems 404 permits proceeding; service and connection failures stop the release. See [Check Version](package/ruby_gem.md#check-version).
+Check `destination.check_version!(name: package.name, version: release.version)` before committing so a known duplicate stops before local release writes. Both Actions interfaces also check the prepared version during resolution using the configured package and destination. The RubyGems destination repeats the check using the built artifact's exact name and version before uploading; only HTTP 404 permits proceeding. For an earlier check, pass `version.read` before preparing files. See [Check Version](destination/ruby_gems.md#check-version).
 
 ## Actions Setup
 
@@ -124,7 +130,7 @@ Both approaches publish when dispatched unless release validation skips successf
 The reusable workflow provides the GitHub Actions environment for release callbacks, including setup, validation, authentication, and artifact preservation. Use its `with:` inputs to choose the gemspec, release version, Ruby version, commands, and commit identity. Pin the workflow to a reviewed release or commit instead of `master` when available.
 
 - [Release Workflow](actions/release.md): All inputs, defaults, permissions, commands, and recovery artifacts.
-- [`Workflow::Context`](workflow/context.md): Ruby context capture and prepared-version checks used by the action workflow.
+- [`Workflow::Environment`](workflow/environment.md): Ruby environment capture and prepared-version checks used by the action workflow.
 - [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md): Owner-bound OIDC authentication for first publication with a pending trusted publisher.
 
 ### Standard Workflows
@@ -144,7 +150,8 @@ Version objects read, set, and increment the version stored in project files. Co
 Callbacks define project-specific preparation, publication, and next development iteration work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. Custom callback code executes with release privileges and must be trusted.
 
 - [`Tasks`](tasks.md): Registers preparation, publication, next-development-iteration, success, and failure callbacks and their Rake tasks.
-- [`Release`](release.md): Immutable version and date context passed to callbacks.
+- [`ExecutionContext`](execution_context.md): Release data, current step, observed steps, configured workflow, and run metadata.
+- [`Release`](release.md): Immutable version and date value used by release operations.
 
 ### Changelog Objects
 
@@ -158,7 +165,14 @@ Changelog objects prepare release headings and open the next development section
 
 Package objects build, verify, and publish the exact release artifact.
 
-- [`Package::RubyGem`](package/ruby_gem.md): Gem construction, artifact verification, and RubyGems publication.
+- [`Package::RubyGem`](package/ruby_gem.md): Gem metadata, construction, and artifact verification.
+
+### Registry Destinations
+
+Registry destinations publish built packages independently of package construction and hosted releases. The default destination is RubyGems; custom destinations supply their own registry checks, uploads, and preconfigured credentials.
+
+- [`Destination`](destination.md): Shared registry publication contract and authentication selection.
+- [`Destination::RubyGems`](destination/ruby_gems.md): Public RubyGems version checks and exact-artifact publication.
 
 ### Source Control Objects
 

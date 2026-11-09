@@ -43,10 +43,10 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     output.strip
   end
 
-  def prepare_tag(context = release)
+  def prepare_tag(ctx = release)
     git.stage_changes! { File.write('version', 'release files') }
-    git.commit!(context)
-    git.tag!(context)
+    git.commit!(ctx)
+    git.tag!(ctx)
   end
 
   it 'pushes the exact release commit and tag, then only the next commit', :aggregate_failures do

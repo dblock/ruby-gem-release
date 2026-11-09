@@ -5,15 +5,15 @@ require 'spec_helper'
 RSpec.describe RubyGemRelease::Tasks do
   around do |example|
     original = Rake.application
-    environment = ENV.to_h.slice('RELEASE_VERSION', 'RELEASE_PREVIOUS_VERSION', 'RELEASE_DATE', 'INPUT_VERSION', 'RELEASE_FAILURE_PHASE', 'RUNNER_TEMP', 'GITHUB_OUTPUT')
+    environment = ENV.to_h
+    %w[RELEASE_STATE RELEASE_STEPS RELEASE_STEP_ID GITHUB_ACTIONS].each { |key| ENV.delete(key) }
     ENV.delete('GITHUB_OUTPUT')
     ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     Rake.application = Rake::Application.new
     example.run
   ensure
     Rake.application = original
-    %w[RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE INPUT_VERSION RELEASE_FAILURE_PHASE RUNNER_TEMP GITHUB_OUTPUT].each { |key| ENV.delete(key) }
-    ENV.update(environment)
+    ENV.replace(environment)
   end
 
   it 'installs without configuration or version tasks', :aggregate_failures do
@@ -29,8 +29,8 @@ RSpec.describe RubyGemRelease::Tasks do
         ENV['GITHUB_OUTPUT'] = File.join(directory, 'output')
         ENV['INPUT_VERSION'] = '3.0.0'
         described_class.install do |tasks|
-          tasks.validate do |release|
-            expect(release).to have_attributes(version: '3.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
+          tasks.validate do |ctx|
+            expect(ctx.release).to have_attributes(version: '3.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
             proceed
           end
         end
@@ -54,6 +54,8 @@ RSpec.describe RubyGemRelease::Tasks do
     Dir.mktmpdir do |directory|
       ENV['RUNNER_TEMP'] = directory
       ENV['RELEASE_FAILURE_PHASE'] = 'validate_release'
+      ENV['RELEASE_STEP_ID'] = 'validate_release'
+      ENV['GITHUB_ACTIONS'] = 'true'
       received = nil
       described_class.install do |tasks|
         tasks.validate { raise ArgumentError, 'invalid changelog' }
@@ -75,7 +77,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'starts release preparation with the current version and date' do
     received = nil
     described_class.install do |tasks|
-      tasks.prepare { |release| received = [release.version, release.previous_version, release.next_version, release.date] }
+      tasks.prepare { |ctx| received = [ctx.release.version, ctx.release.previous_version, ctx.release.next_version, ctx.release.date] }
     end
     Rake::Task['release:prepare'].invoke
     expect(received).to eq(['1.2.3', '1.2.3', nil, Date.new(2026, 11, 7)])
@@ -85,7 +87,7 @@ RSpec.describe RubyGemRelease::Tasks do
     ENV['INPUT_VERSION'] = '3.0.0'
     received = nil
     described_class.install do |tasks|
-      tasks.prepare { |release| received = [release.version, release.previous_version, release.date] }
+      tasks.prepare { |ctx| received = [ctx.release.version, ctx.release.previous_version, ctx.release.date] }
     end
     Rake::Task['release:prepare'].invoke
     expect(received).to eq(['3.0.0', '1.2.3', Date.new(2026, 11, 7)])
@@ -101,8 +103,8 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'attaches the version for the next development iteration after publication' do
     received = nil
     described_class.install do |tasks|
-      tasks.bump do |release|
-        updated = release.with_next_version('2.0.1')
+      tasks.bump do |ctx|
+        updated = ctx.release.with_next_version('2.0.1')
         received = [updated.version, updated.previous_version, updated.next_version, updated.date]
       end
     end
@@ -150,7 +152,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'passes the released context to the publication callback' do
     received = nil
     described_class.install do |tasks|
-      tasks.publish { |release| received = [release.version, release.previous_version, release.next_version, release.date] }
+      tasks.publish { |ctx| received = [ctx.release.version, ctx.release.previous_version, ctx.release.next_version, ctx.release.date] }
     end
     Rake::Task['release:publish'].invoke
     expect(received).to eq(['2.0.0', '1.2.3', nil, Date.new(2026, 11, 7)])
@@ -159,7 +161,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'passes the released context to the success callback' do
     received = nil
     described_class.install do |tasks|
-      tasks.success { |release| received = release }
+      tasks.success { |ctx| received = ctx.release }
     end
     Rake::Task['release:success'].invoke
     expect(received).to have_attributes(version: '2.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
@@ -170,13 +172,15 @@ RSpec.describe RubyGemRelease::Tasks do
       received = nil
       ENV['RUNNER_TEMP'] = runner_temp
       ENV['RELEASE_FAILURE_PHASE'] = 'publish_release'
+      ENV['RELEASE_STEP_ID'] = 'publish_release'
+      ENV['GITHUB_ACTIONS'] = 'true'
       described_class.install do |tasks|
         tasks.publish { raise 'publication failed' }
         tasks.failure { |failure| received = failure }
       end
       expect { Rake::Task['release:publish'].invoke }.to raise_error('publication failed')
       Rake::Task['release:failure'].invoke
-      expect(received).to have_attributes(phase: 'publish_release', release: have_attributes(version: '2.0.0', previous_version: '1.2.3'))
+      expect(received).to have_attributes(phase: 'publish_release', context: have_attributes(release: have_attributes(version: '2.0.0', previous_version: '1.2.3')))
       expect(received.error).to have_attributes(original_class: 'RuntimeError', message: 'publication failed')
     end
   end
@@ -190,7 +194,62 @@ RSpec.describe RubyGemRelease::Tasks do
       tasks.failure { |failure| received = failure }
     end
     Rake::Task['release:failure'].invoke
-    expect(received).to have_attributes(phase: 'capture_release_context', error: nil, release: nil)
+    expect(received).to have_attributes(phase: 'capture_release_context', error: nil, context: have_attributes(release: nil))
+  end
+
+  it 'attributes errors to the enclosing Actions step even when it invokes a different task' do
+    Dir.mktmpdir do |directory|
+      ENV.update('GITHUB_ACTIONS' => 'true', 'RUNNER_TEMP' => directory, 'RELEASE_STEP_ID' => 'custom_prepare', 'RELEASE_FAILURE_PHASE' => 'custom_prepare')
+      received = nil
+      described_class.install do |tasks|
+        tasks.publish { raise 'custom command failed' }
+        tasks.failure { |failure| received = failure }
+      end
+      expect { Rake::Task['release:publish'].invoke }.to raise_error('custom command failed')
+      ENV['RELEASE_STEP_ID'] = 'notify_failure'
+      Rake::Task['release:failure'].invoke
+      expect(received.phase).to eq('custom_prepare')
+      expect(received.context.step.id).to eq('notify_failure')
+      expect(received.context).to be_an_instance_of(RubyGemRelease::ExecutionContext::GitHub)
+      expect(received.error.message).to eq('custom command failed')
+    end
+  end
+
+  it 'retains explicitly recorded state between local callbacks without changing earlier snapshots' do
+    original = nil
+    received = nil
+    described_class.install do |tasks|
+      tasks.bump do |ctx|
+        original = ctx
+        ctx.record_next_version!('2.0.1')
+      end
+      tasks.success { |ctx| received = ctx }
+    end
+    Rake::Task['release:bump'].invoke
+    Rake::Task['release:success'].invoke
+    expect(original.release.next_version).to be_nil
+    expect(received.release.next_version).to eq('2.0.1')
+    expect(received.step.id).to eq('release:success')
+    expect(received.workflow).to be_nil
+    expect(received).to be_an_instance_of(RubyGemRelease::ExecutionContext)
+  end
+
+  it 'reports corrupt state failures without losing execution metadata or replacing the original error' do
+    Dir.mktmpdir do |directory|
+      path = File.join(directory, 'state.json')
+      File.write(path, '{')
+      ENV.update('GITHUB_ACTIONS' => 'true', 'RUNNER_TEMP' => directory, 'RELEASE_STATE' => path, 'RELEASE_STEP_ID' => 'publish_release', 'RELEASE_FAILURE_PHASE' => 'publish_release')
+      received = nil
+      described_class.install do |tasks|
+        tasks.publish { raise 'must not run' }
+        tasks.failure { |failure| received = failure }
+      end
+      expect { Rake::Task['release:publish'].invoke }.to raise_error(JSON::ParserError)
+      ENV['RELEASE_STEP_ID'] = 'release_failure_callback'
+      expect { Rake::Task['release:failure'].invoke }.to output(/Unable to read release state/).to_stderr
+      expect(received.error.original_class).to eq('JSON::ParserError')
+      expect(received.context).to have_attributes(step: have_attributes(id: 'release_failure_callback'), release: have_attributes(version: '2.0.0', next_version: nil))
+    end
   end
 
   it 'does nothing when publication is not configured' do

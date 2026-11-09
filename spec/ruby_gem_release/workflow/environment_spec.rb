@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'ruby-gem-release/workflow/context'
+require 'ruby-gem-release/workflow/environment'
 require 'tmpdir'
 
-RSpec.describe RubyGemRelease::Workflow::Context do
+RSpec.describe RubyGemRelease::Workflow::Environment do
   let(:directory) { Dir.mktmpdir }
   let(:environment_file) { File.join(directory, 'environment') }
   let(:git) { instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_clean!: nil, check_current!: nil, check_tag!: nil, stage_changes!: nil, head: 'initial-commit') }
 
   around do |example|
     original = ENV.to_h
-    ENV.update('GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'GITHUB_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master')
+    ENV.update('GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'GITHUB_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RUNNER_TEMP' => directory)
     ENV.delete('GEMSPEC')
     ENV.delete('INPUT_GEMSPEC')
     ENV.delete('TZ')
@@ -37,6 +37,16 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     File.write('version.rb', "VERSION = '2.0.0'\n")
     described_class.new.resolve!
     expect(File.read(environment_file)).to include("RELEASE_PREVIOUS_VERSION=1.2.3\n", "RELEASE_VERSION=2.0.0\n", "RELEASE_INITIAL_COMMIT=initial-commit\n")
+  end
+
+  it 'exports independent private state files for successive captures' do
+    described_class.new.capture!
+    first = File.readlines(environment_file, chomp: true).grep(/\ARELEASE_STATE=/).last.delete_prefix('RELEASE_STATE=')
+    RubyGemRelease::Workflow::State.new(path: first).record_next_version!('1.2.4')
+    described_class.new.capture!
+    second = File.readlines(environment_file, chomp: true).grep(/\ARELEASE_STATE=/).last.delete_prefix('RELEASE_STATE=')
+    expect(first).not_to eq(second)
+    expect(RubyGemRelease::Workflow::State.new(path: second).next_version).to be_nil
   end
 
   it 'defaults the calendar date to UTC rather than the server timezone' do
@@ -110,6 +120,22 @@ RSpec.describe RubyGemRelease::Workflow::Context do
     allow(Net::HTTP).to receive(:start).and_yield(http)
     allow(http).to receive(:get).with('/api/v2/rubygems/fixture/versions/2.0.0.json').and_return(response)
     expect { described_class.new.resolve! }.to raise_error(/fixture 2.0.0.*already published/)
+    expect(git).not_to have_received(:stage_changes!)
+    expect(File.read(environment_file)).to eq('')
+  end
+
+  it 'uses the supplied destination for version checks without contacting RubyGems or enabling its authentication' do
+    destination = instance_double(RubyGemRelease::Destination, check_version!: nil, authentication: nil)
+    described_class.new.resolve!(destination: destination)
+    expect(destination).to have_received(:check_version!).with(name: 'fixture', version: '1.2.3')
+    expect(Net::HTTP).not_to have_received(:start)
+    expect(File.read(environment_file)).to include("RELEASE_VERSION=1.2.3\n", "RELEASE_AUTHENTICATION=\n")
+  end
+
+  it 'rejects unsupported automatic authentication before version checks or staging' do
+    destination = instance_double(RubyGemRelease::Destination, authentication: 'unsupported', check_version!: nil)
+    expect { described_class.new.resolve!(destination: destination) }.to raise_error(ArgumentError, /unsupported destination authentication/)
+    expect(destination).not_to have_received(:check_version!)
     expect(git).not_to have_received(:stage_changes!)
     expect(File.read(environment_file)).to eq('')
   end

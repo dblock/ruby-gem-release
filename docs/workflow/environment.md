@@ -1,4 +1,4 @@
-# `RubyGemRelease::Workflow::Context`
+# `RubyGemRelease::Workflow::Environment`
 
 Supplies context checks for the reusable workflow and composite action, invoked through [Tasks](../tasks.md). It leaves setup, validation, authentication, artifact uploading, and callback invocation to GitHub Actions. For inputs and defaults, see the [GitHub Actions workflow reference](../actions/release.md).
 
@@ -10,9 +10,11 @@ Supplies context checks for the reusable workflow and composite action, invoked 
 
 `capture!` checks the dispatch branch, validates the timezone, configures checkout-local Git identity, rejects a dirty checkout after dependency installation, selects the gemspec, reads the initial numeric version, and checks that the default branch has not advanced. It appends `TZ`, `GEMSPEC`, `RELEASE_PREVIOUS_VERSION`, `RELEASE_DATE`, and `RELEASE_INITIAL_COMMIT` to `GITHUB_ENV`. The date is captured once in `TZ`, defaulting to UTC when that variable is absent. Invalid identifiers fail before Git configuration or environment export.
 
+When `RUNNER_TEMP` is available, capture also creates a unique private state file and exports `RELEASE_STATE`; otherwise it exports an empty path and callbacks use process-local state. Each new Actions invocation clears previous release environment values before capture. See [Execution Context](../execution_context.md#state).
+
 ## Resolve
 
-`resolve!` reads the prepared gemspec version, validates optional `INPUT_VERSION`, rejects an existing release tag or published RubyGems version, stages the trusted preparation command's changes and saves the index tree before testing, and appends `RELEASE_VERSION` to `GITHUB_ENV`. The RubyGems lookup checks the prepared version rather than the initial version; only HTTP 404 permits proceeding. Testing and authentication run afterward. Later working tree or index changes are rejected by publication rather than staged automatically.
+`resolve!(package:, destination:)` reads the prepared package version, validates optional `INPUT_VERSION`, rejects an existing release tag or a version unavailable at the destination, stages the trusted preparation command's changes and saves the index tree before testing, and appends `RELEASE_VERSION` and `RELEASE_AUTHENTICATION` to `GITHUB_ENV`. Tasks supply the configured objects; direct calls default to the selected Ruby gem and RubyGems destination. The RubyGems lookup checks the prepared version rather than the initial version; only HTTP 404 permits proceeding. Testing and destination-specific authentication run afterward. Later working tree or index changes are rejected by publication rather than staged automatically.
 
 The optional `version` input selects a version rather than only asserting one. Standard preparation updates the configured version object through `set!`; custom preparation commands and callbacks must honor the selected value themselves. Resolution still rejects a prepared gemspec that differs from the selection, before any publication. Capture always retains the checked-in gemspec version as `RELEASE_PREVIOUS_VERSION`.
 

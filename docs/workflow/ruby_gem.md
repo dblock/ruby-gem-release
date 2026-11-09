@@ -10,11 +10,17 @@ The required `version:` object implements `read` and `increment!`, plus `set!(va
 
 The required `changelog:` object implements `release!(release)` and `prepare_next!(release)`. Choose [`KeepAChangelog`](../changelog/keep_a_changelog.md) or [`Intridea`](../changelog/intridea.md) explicitly. Set `changelog: nil` to skip changelog updates without skipping version incrementing.
 
-The standard workflow registers `release:validate` to call `pending?` on the changelog before preparation. Empty pending notes skip the release successfully without edits or result callbacks; malformed changelog files fail. Pass `validate: ->(release) { ... }` to supply another decision, returning exactly `true` to proceed or `false` to skip. With `changelog: nil`, the default is to proceed. Custom changelog implementations must support `pending?` or supply a validation callback; the library does not guess their formats. Direct changelog `release!` calls still reject empty notes.
+The standard workflow registers `release:validate` to call `pending?` on the changelog before preparation. Empty pending notes skip the release successfully without edits or result callbacks; malformed changelog files fail. Pass `validate: ->(ctx) { ... }` to supply another decision, returning exactly `true` to proceed or `false` to skip. With `changelog: nil`, the default is to proceed. Custom changelog implementations must support `pending?` or supply a validation callback; the library does not guess their formats. Direct changelog `release!` calls still reject empty notes.
 
 ## Package
 
-The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md). It selects `GEMSPEC` or the only root gemspec and owns artifact construction, verification, and publication. Override it with an object implementing `check_version!(version)`, `build!(release)`, and `publish!(release)`, plus `artifact(release)` when required by your hosting object. The version check is a required new method for custom package objects; it must reject already published versions before any release commit. The default implementation checks public RubyGems.
+The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md). It selects `GEMSPEC` or the only root gemspec and owns metadata, artifact construction, and verification. Override it with an object implementing `name`, `version`, `build!(release)`, and `artifact(release)`. Registry checks and uploads do not belong to the package.
+
+## Destination
+
+The optional `destination:` defaults to [`Destination::RubyGems`](../destination/ruby_gems.md). A registry destination implements `check_version!(name:, version:)`, `publish!(release, package:)`, and `authentication`. Subclass [`Destination`](../destination.md) to inherit the default of preconfigured credentials. No additional registry implementation is provided.
+
+The same package and destination are supplied to prepared-version resolution and publication. Custom destinations therefore do not run the default RubyGems version checks or authentication. Destination publication must preserve exact-artifact identity and stop before the Git push on failure.
 
 ## Git
 
@@ -28,10 +34,12 @@ The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github
 
 `install_tasks` registers preparation, publication, next development iteration, success, failure, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
 
-Preparation updates the changelog with the explicitly read version. Publication checks RubyGems for the prepared version, commits release changes, builds once, tags locally, publishes the package, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
+Preparation updates the changelog with the explicitly read version. Publication checks the destination for the prepared version, commits release changes, builds once, tags locally, publishes the package through the destination, pushes the release commit and tag atomically, then publishes the hosted release. Next development iteration preparation increments the version, updates the changelog, passes the updated context to `commit_next!`, and pushes only the next development iteration commit.
 
-Pass optional `success:` and `failure:` callbacks to the constructor for result notifications. Success receives the published release context after the next development iteration succeeds. Failure receives a `RubyGemRelease::ReleaseFailure` with `phase`, `error`, and optional `release` properties. A captured Ruby exception is reconstructed with its original class name, message, and stack trace; failures only reported by GitHub Actions have no `error`. A failure callback error does not turn a failed workflow into a successful one.
+Pass optional `success:` and `failure:` callbacks to the constructor for result notifications. Success receives an [ExecutionContext](../execution_context.md) with the published release and recorded next development version after the next development iteration succeeds. Failure receives a `RubyGemRelease::ReleaseFailure` with `phase`, `error`, and `context` properties; `failure.context.release` may be absent. A captured Ruby exception is reconstructed with its original class name, message, and stack trace; failures only reported by GitHub Actions have no `error`. A failure callback error does not turn a failed workflow into a successful one.
+
+Callbacks can access this configured workflow through `ctx.workflow`. Public readers expose the configured `version`, `changelog`, `package`, `destination`, `git`, and `hosting` objects; they are reconstructed through the Rakefile in each Ruby process, not serialized across Actions steps.
 
 ## Errors
 
-Errors propagate through the tasks and stop the sequence. The default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag publication. Preparation, publication, next-development-iteration, and success callbacks receive an immutable release context; the failure callback receives it when available, or `nil` if context capture failed. Overrides must preserve the publication order and artifact identity.
+Errors propagate through the tasks and stop the sequence. The default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag publication. Callbacks receive execution snapshots; the release value inside the failure context is `nil` if capture failed. Overrides must preserve the publication order and artifact identity.

@@ -11,6 +11,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     {
       changelog: instance_double(RubyGemRelease::Changelog::KeepAChangelog),
       package: instance_double(RubyGemRelease::Package::RubyGem),
+      destination: instance_double(RubyGemRelease::Destination::RubyGems),
       git: instance_double(RubyGemRelease::SourceControl::Git),
       hosting: instance_double(RubyGemRelease::Hosting::GitHubRelease)
     }
@@ -22,6 +23,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     Rake.application = Rake::Application.new
     ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     ENV.delete('GITHUB_OUTPUT')
+    %w[RELEASE_STATE RELEASE_STEP_ID RELEASE_STEPS GITHUB_ACTIONS].each { |key| ENV.delete(key) }
     example.run
   ensure
     Rake.application = application
@@ -39,11 +41,15 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     end
     record_operations(:changelog, %i[release! prepare_next!])
     allow(objects.fetch(:changelog)).to receive(:pending?).and_return(true)
-    record_operations(:package, %i[check_version! build! publish!])
+    record_operations(:package, [:build!])
+    allow(objects.fetch(:package)).to receive(:name).and_return('example')
+    record_operations(:destination, %i[check_version! publish!])
+    allow(objects.fetch(:destination)).to receive(:authentication).and_return('rubygems')
     record_operations(:git, %i[commit! tag! push! commit_next!])
     allow(objects.fetch(:git)).to receive(:stage_changes!).and_yield
     record_operations(:hosting, [:publish!])
     allow(RubyGemRelease::Package::RubyGem).to receive(:new).and_return(objects.fetch(:package))
+    allow(RubyGemRelease::Destination::RubyGems).to receive(:new).and_return(objects.fetch(:destination))
     allow(RubyGemRelease::SourceControl::Git).to receive(:new).and_return(objects.fetch(:git))
     allow(RubyGemRelease::Hosting::GitHubRelease).to receive(:new).and_return(objects.fetch(:hosting))
   end
@@ -71,8 +77,8 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
 
   it 'uses custom validation instead of inferring the release decision' do
     received = nil
-    install(validate: lambda { |release|
-      received = release
+    install(validate: lambda { |ctx|
+      received = ctx.release
       false
     })
     expect { Rake::Task['release:validate'].invoke }.to output("Release skipped: nothing to release.\n").to_stdout
@@ -85,8 +91,8 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(events).to be_empty
     run_callbacks
     expect(events).to eq([
-                           :read, %i[changelog release!], %i[package check_version!], %i[git commit!], %i[package build!], %i[git tag!],
-                           %i[package publish!], %i[git push!], %i[hosting publish!],
+                           :read, %i[changelog release!], %i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!],
+                           %i[destination publish!], %i[git push!], %i[hosting publish!],
                            :increment, %i[changelog prepare_next!], %i[git commit_next!], %i[git push!]
                          ])
   end
@@ -96,15 +102,37 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     install = described_class.new(
       version: version,
       changelog: objects.fetch(:changelog),
-      success: ->(release) { received << [:success, release] },
+      success: ->(ctx) { received << [:success, ctx] },
       failure: ->(failure) { received << [:failure, failure] }
     )
     install.install_tasks
     Rake::Task['release:success'].invoke
     Rake::Task['release:failure'].invoke
     expect(received.map(&:first)).to eq(%i[success failure])
-    expect(received.first.last).to have_attributes(version: '2.0.0', previous_version: '1.2.3')
-    expect(received.last.last).to have_attributes(phase: 'unknown', error: nil, release: have_attributes(version: '2.0.0', previous_version: '1.2.3'))
+    expect(received.first.last).to have_attributes(workflow: install, release: have_attributes(version: '2.0.0', previous_version: '1.2.3'))
+    expect(received.last.last).to have_attributes(phase: 'unknown', error: nil, context: have_attributes(workflow: install, release: have_attributes(version: '2.0.0', previous_version: '1.2.3')))
+  end
+
+  it 'makes configured components and the completed next development version available to success' do
+    received = nil
+    instance = described_class.new(version: version, changelog: objects.fetch(:changelog), success: ->(ctx) { received = ctx })
+    instance.install_tasks
+    run_callbacks
+    Rake::Task['release:success'].invoke
+    expect(received.release).to have_attributes(version: '2.0.0', next_version: '2.0.1')
+    expect(received.workflow).to equal(instance)
+    expect(received.workflow.version).to equal(version)
+    expect(received.workflow.git).to equal(objects.fetch(:git))
+    expect(received.workflow.destination).to equal(objects.fetch(:destination))
+  end
+
+  it 'does not record a completed next development iteration when pushing fails' do
+    received = nil
+    allow(objects.fetch(:git)).to receive(:push!).and_raise('push failed')
+    install(failure: ->(failure) { received = failure.context })
+    expect { Rake::Task['release:bump'].invoke }.to raise_error('push failed')
+    Rake::Task['release:failure'].invoke
+    expect(received.release.next_version).to be_nil
   end
 
   it 'preserves the initial context across version copies', :aggregate_failures do
@@ -160,6 +188,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     install(**objects.except(:changelog))
     Rake::Task['release:publish'].invoke
     expect(RubyGemRelease::Package::RubyGem).not_to have_received(:new)
+    expect(RubyGemRelease::Destination::RubyGems).not_to have_received(:new)
     expect(RubyGemRelease::SourceControl::Git).not_to have_received(:new)
     expect(RubyGemRelease::Hosting::GitHubRelease).not_to have_received(:new)
     expect(objects.fetch(:hosting)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
@@ -168,7 +197,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   it 'disables hosted releases without skipping package publication', :aggregate_failures do
     install(hosting: nil)
     Rake::Task['release:publish'].invoke
-    expect(events).to eq([%i[package check_version!], %i[git commit!], %i[package build!], %i[git tag!], %i[package publish!], %i[git push!]])
+    expect(events).to eq([%i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!], %i[destination publish!], %i[git push!]])
     expect(RubyGemRelease::Hosting::GitHubRelease).not_to have_received(:new)
   end
 
@@ -183,11 +212,19 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:package)).to receive(:build!).and_raise('build failed')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('build failed')
-    expect(events).to eq([%i[package check_version!], %i[git commit!]])
+    expect(events).to eq([%i[destination check_version!], %i[git commit!]])
+  end
+
+  it 'stops before pushing or creating a hosted release when the registry destination fails' do
+    allow(objects.fetch(:destination)).to receive(:publish!).and_raise('registry unavailable')
+    install
+    expect { Rake::Task['release:publish'].invoke }.to raise_error('registry unavailable')
+    expect(events).to eq([%i[destination check_version!], %i[git commit!], %i[package build!], %i[git tag!]])
+    expect(objects.fetch(:destination)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
   end
 
   it 'checks the exact release version before committing, building, or tagging', :aggregate_failures do
-    allow(objects.fetch(:package)).to receive(:check_version!).with('2.0.0').and_raise('already published')
+    allow(objects.fetch(:destination)).to receive(:check_version!).with(name: 'example', version: '2.0.0').and_raise('already published')
     install
     expect { Rake::Task['release:publish'].invoke }.to raise_error('already published')
     expect(events).to be_empty

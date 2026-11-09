@@ -1,15 +1,18 @@
 Bundler
 changelog
 dblock
+ExecutionContext
 gemspec
 HTTPS
 JSON
 LCOV
 lifecycle
+lookups
 md
 namespaces
 OIDC
 OpenID
+preconfigured
 PRs
 Rakefile
 README
@@ -19,6 +22,7 @@ rulesets
 RSpec
 RuboCop
 RubyGems
+subclasses
 unstaged
 untracked
 untrusted

@@ -2,17 +2,22 @@
 
 require_relative '../tasks'
 require_relative '../package/ruby_gem'
+require_relative '../destination/ruby_gems'
 require_relative '../source_control/git'
 require_relative '../hosting/github_release'
 
 module RubyGemRelease
   module Workflow
     class RubyGem
-      def initialize(version:, changelog:, package: Package::RubyGem.new, git: SourceControl::Git.new, hosting: Hosting::GitHubRelease.new,
+      attr_reader :version, :changelog, :package, :destination, :git, :hosting
+
+      def initialize(version:, changelog:, package: Package::RubyGem.new, destination: Destination::RubyGems.new,
+                     git: SourceControl::Git.new, hosting: Hosting::GitHubRelease.new,
                      validate: nil, success: nil, failure: nil)
         @version = version
         @changelog = changelog
         @package = package
+        @destination = destination
         @git = git
         @hosting = hosting
         @validate = validate
@@ -21,11 +26,11 @@ module RubyGemRelease
       end
 
       def install_tasks
-        Tasks.install do |tasks|
-          tasks.validate { |release| validate_release(release) }
-          tasks.prepare { |release| prepare_release(release) }
-          tasks.publish { |release| publish(release) }
-          tasks.bump { |release| prepare_next(release) }
+        Tasks.install(workflow: self, package: @package, destination: @destination) do |tasks|
+          tasks.validate { |ctx| validate_release(ctx) }
+          tasks.prepare { |ctx| prepare_release(ctx.release) }
+          tasks.publish { |ctx| publish(ctx.release) }
+          tasks.bump { |ctx| prepare_next(ctx) }
           tasks.success(&@success) if @success
           tasks.failure(&@failure) if @failure
         end
@@ -33,8 +38,8 @@ module RubyGemRelease
 
       private
 
-      def validate_release(release)
-        return @validate.call(release) if @validate
+      def validate_release(ctx)
+        return @validate.call(ctx) if @validate
 
         @changelog ? @changelog.pending? : true
       end
@@ -53,23 +58,24 @@ module RubyGemRelease
       end
 
       def publish(release)
-        @package.check_version!(release.version)
+        @destination.check_version!(name: @package.name, version: release.version)
         @git.commit!(release)
         @package.build!(release)
         @git.tag!(release)
-        @package.publish!(release)
+        @destination.publish!(release, package: @package)
         @git.push!(release)
         @hosting&.publish!(release, package: @package)
       end
 
-      def prepare_next(release)
+      def prepare_next(ctx)
         next_release = nil
         @git.stage_changes! do
-          next_release = release.with_next_version(@version.increment!)
+          next_release = ctx.release.with_next_version(@version.increment!)
           @changelog&.prepare_next!(next_release)
         end
         @git.commit_next!(next_release)
         @git.push!
+        ctx.record_next_version!(next_release.next_version)
       end
     end
   end

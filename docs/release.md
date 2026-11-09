@@ -1,6 +1,6 @@
 # `RubyGemRelease::Release`
 
-An immutable context passed to [release callbacks](tasks.md). Strings and the date are copied and frozen along with the object.
+An immutable version and date value available through [callback execution contexts](execution_context.md) as `ctx.release` and passed directly to release operations. Strings and the date are copied and frozen along with the object.
 
 ## Version
 
@@ -13,6 +13,8 @@ An immutable context passed to [release callbacks](tasks.md). Strings and the da
 ## Next Development Iteration
 
 `release.next_version` holds the version for the next development iteration and starts as `nil`. The optional constructor argument `next_version:` accepts a string.
+
+The standard workflow records it after the next development iteration is committed and pushed, making it available to the success callback. Custom callbacks must call `ctx.record_next_version!(version)` explicitly; creating a release copy alone does not persist data across tasks.
 
 ## Date
 

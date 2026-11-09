@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 require_relative '../package/ruby_gem'
+require_relative '../destination/ruby_gems'
 require_relative '../source_control/git'
 require_relative '../release'
 require_relative '../version/ruby_constant'
+require_relative 'state'
 
 module RubyGemRelease
   module Workflow
-    class Context
+    class Environment
       def configure!
         names = %w[INPUT_VERSION INPUT_GEMSPEC DEFAULT_BRANCH GIT_USER_NAME GIT_USER_EMAIL RUBYGEMS_OWNER]
         timezone = ENV.fetch('TZ', 'UTC')
@@ -23,21 +25,33 @@ module RubyGemRelease
         package = Package::RubyGem.new(gemspec: ENV.fetch('INPUT_GEMSPEC', nil))
         release = initial_release(package)
         git.check_current!(release)
-        export('TZ' => ENV.fetch('TZ', 'UTC'), 'GEMSPEC' => package.gemspec, 'RELEASE_PREVIOUS_VERSION' => release.version,
-               'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => git.head)
+        export(captured_values(package, git, release))
       end
 
-      def resolve!
-        package = Package::RubyGem.new
+      def resolve!(package: Package::RubyGem.new, destination: Destination::RubyGems.new)
+        authentication = authentication_for(destination)
         version = prepared_version(package)
         git = SourceControl::Git.new
         git.check_tag!(version)
-        package.check_version!(version)
+        destination.check_version!(name: package.name, version: version)
         git.stage_changes!
-        export('RELEASE_VERSION' => version)
+        export('RELEASE_VERSION' => version, 'RELEASE_AUTHENTICATION' => authentication)
       end
 
       private
+
+      def authentication_for(destination)
+        authentication = destination.authentication
+        raise ArgumentError, 'unsupported destination authentication' unless [nil, 'rubygems'].include?(authentication)
+
+        authentication.to_s
+      end
+
+      def captured_values(package, git, release)
+        state = State.create!(directory: ENV.fetch('RUNNER_TEMP')) if ENV['RUNNER_TEMP']
+        { 'TZ' => ENV.fetch('TZ', 'UTC'), 'GEMSPEC' => package.gemspec, 'RELEASE_PREVIOUS_VERSION' => release.version,
+          'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => git.head, 'RELEASE_STATE' => state.to_s }
+      end
 
       def prepared_version(package)
         version = package.version

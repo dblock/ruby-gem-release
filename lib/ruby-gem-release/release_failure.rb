@@ -24,12 +24,12 @@ module RubyGemRelease
       end
     end
 
-    attr_reader :phase, :error, :release
+    attr_reader :phase, :error, :context
 
-    def initialize(phase:, error:, release: nil)
+    def initialize(phase:, error:, context:)
       @phase = phase.dup.freeze
       @error = error
-      @release = release
+      @context = context
       freeze
     end
   end

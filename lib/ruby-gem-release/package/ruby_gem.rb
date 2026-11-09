@@ -6,8 +6,6 @@ require 'json'
 require 'digest'
 require 'fileutils'
 require 'tmpdir'
-require 'net/http'
-require 'uri'
 
 module RubyGemRelease
   module Package
@@ -23,11 +21,8 @@ module RubyGemRelease
         specification.fetch('version')
       end
 
-      def check_version!(version)
-        name = specification.fetch('name')
-        raise 'Invalid package name' unless name.is_a?(String) && /\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/.match?(name)
-
-        check_published_version(name, version)
+      def name
+        specification.fetch('name')
       end
 
       def build!(release)
@@ -47,32 +42,11 @@ module RubyGemRelease
         path
       end
 
-      def publish!(release)
-        path = artifact(release)
-        check_published_version(verified_manifest(release).fetch('name'), release.version)
-        run(Gem.ruby, '-S', 'gem', 'push', path)
-      end
-
       private
 
       def specification
         script = 'spec = Gem::Specification.load(ARGV.fetch(0)); abort "Cannot load gemspec" unless spec; puts JSON.generate(name: spec.name, version: spec.version.to_s)'
         JSON.parse(run(Gem.ruby, '-rrubygems', '-rjson', '-e', script, @gemspec))
-      end
-
-      def check_published_version(name, version)
-        response = version_response(name, version)
-        raise "#{name} #{version} is already published on RubyGems; do not republish it, see RELEASING.md for recovery" if response.code == '200'
-        return if response.code == '404'
-
-        raise "Cannot check RubyGems for #{name} #{version} (HTTP #{response.code}); verify RubyGems availability before retrying"
-      end
-
-      def version_response(name, version)
-        uri = URI("https://rubygems.org/api/v2/rubygems/#{URI.encode_www_form_component(name)}/versions/#{URI.encode_www_form_component(version)}.json")
-        Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 10, read_timeout: 30, max_retries: 0) { |http| http.get(uri.request_uri) }
-      rescue Timeout::Error, SocketError, SystemCallError, IOError, OpenSSL::SSL::SSLError => e
-        raise "Cannot check RubyGems for #{name} #{version}: #{e.message}; verify connectivity before retrying"
       end
 
       def build_manifest(release)

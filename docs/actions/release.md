@@ -57,7 +57,7 @@ The `publish` input replaces the former `github-release` input and controls the 
 
 ### Success and Failure Callbacks
 
-The `success` command runs after the publication and next development iteration phases succeed. The `failure` command runs after a failed phase once Ruby setup has completed; its callback receives a `RubyGemRelease::ReleaseFailure` with the failed phase, an exception captured from a Ruby task when available, and the optional release context. Failures reported only by GitHub Actions have no exception object. Both default to optional Rake callbacks and are no-ops when none are registered. Failure before Ruby setup or a job blocked by environment protection cannot invoke the callback.
+The `success` command runs after the publication and next development iteration phases succeed. The `failure` command runs after a failed phase once Ruby setup has completed; its callback receives a `RubyGemRelease::ReleaseFailure` with the failed phase, an exception captured from a Ruby task when available, and an execution context whose release value is optional. Failures reported only by GitHub Actions have no exception object. Both default to optional Rake callbacks and are no-ops when none are registered. Failure before Ruby setup or a job blocked by environment protection cannot invoke the callback.
 
 ## Permissions and Authentication
 
@@ -68,6 +68,8 @@ Environments do not provide a workflow-dispatch allow list, and creating one wit
 For a brand-new gem, register a pending trusted publisher and set `rubygems-owner` to the numeric account ID shown on that page. The [owner-aware helper](../workflow/ruby_gems_credentials.md) requests a GitHub OIDC token for audience `rubygems.org`, exchanges it with the owner assertion, masks both credentials, and exports the short-lived key for publication. The current credentials action lacks this owner input; existing-gem releases with no owner specified continue to use it.
 
 The caller needs `contents: write` for Git pushes and GitHub Releases, and `id-token: write` for RubyGems Trusted Publishing. Configure the `release` environment and RubyGems trusted publisher as described in [Usage](../../README.md#3-enable-trusted-publishing). No stored RubyGems API key is required.
+
+RubyGems authentication runs only when the configured registry destination requests it. A custom destination with preconfigured credentials skips both RubyGems authentication steps; prepared-version checks also use that destination. See [Registry Destinations](../destination.md).
 
 The workflow uses the GitHub Actions token as `GH_TOKEN` during publication. Branch rules must permit its fast-forward pushes while retaining force-push and deletion restrictions.
 
@@ -83,23 +85,27 @@ Releases must run from the default branch at its current remote commit. Git chec
 
 Commands run through `bash -euo pipefail`. Overrides replace the corresponding phase and must perform its required operations; callback registration alone does not cause an overridden command to invoke a task.
 
-| Variable                          | Availability     | Meaning                                                              |
-| ---                               | ---              | ---                                                                  |
-| `INPUT_VERSION`                   | All phases       | Optional selected release version.                                   |
-| `RELEASE_FAILURE_PHASE`           | Failure callback | Failed workflow step when available.                                 |
-| `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                              |
-| `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication. |
-| `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                      |
-| `RELEASE_PREVIOUS_VERSION`        | After capture    | Initial gemspec version, retained across callbacks.                  |
-| `RELEASE_DATE`                    | After capture    | Date captured once in the configured timezone, as `YYYY-MM-DD`.      |
-| `TZ`                              | All phases       | Configured timezone; defaults to `UTC`.                              |
-| `RELEASE_INITIAL_COMMIT`          | After capture    | Checkout commit used for concurrency checks.                         |
-| `RELEASE_VERSION`                 | After resolution | Prepared version to publish.                                         |
-| `DEFAULT_BRANCH`                  | All phases       | Repository default branch.                                           |
-| `GIT_USER_NAME`, `GIT_USER_EMAIL` | All phases       | Configured checkout-local commit identity.                           |
-| `GH_TOKEN`                        | Publication      | GitHub Actions token for GitHub Release creation.                    |
+| Variable                          | Availability     | Meaning                                                                 |
+| ---                               | ---              | ---                                                                     |
+| `INPUT_VERSION`                   | All phases       | Optional selected release version.                                      |
+| `RELEASE_FAILURE_PHASE`           | Failure callback | Failed workflow step when available.                                    |
+| `RELEASE_STEP_ID`                 | Commands         | Current enclosing Actions step ID.                                      |
+| `RELEASE_STEPS`                   | Commands         | JSON snapshot of previously observed Actions steps.                     |
+| `RELEASE_STATE`                   | After capture    | Private invocation-specific state file for callback data.               |
+| `RELEASE_AUTHENTICATION`          | After resolution | Destination authentication strategy, or empty for existing credentials. |
+| `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                                 |
+| `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication.    |
+| `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                         |
+| `RELEASE_PREVIOUS_VERSION`        | After capture    | Initial gemspec version, retained across callbacks.                     |
+| `RELEASE_DATE`                    | After capture    | Date captured once in the configured timezone, as `YYYY-MM-DD`.         |
+| `TZ`                              | All phases       | Configured timezone; defaults to `UTC`.                                 |
+| `RELEASE_INITIAL_COMMIT`          | After capture    | Checkout commit used for concurrency checks.                            |
+| `RELEASE_VERSION`                 | After resolution | Prepared version to publish.                                            |
+| `DEFAULT_BRANCH`                  | All phases       | Repository default branch.                                              |
+| `GIT_USER_NAME`, `GIT_USER_EMAIL` | All phases       | Configured checkout-local commit identity.                              |
+| `GH_TOKEN`                        | Publication      | GitHub Actions token for GitHub Release creation.                       |
 
-GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_TEMP`. See [`Tasks`](../tasks.md) for callback context semantics and [`Workflow::Context`](../workflow/context.md) for capture and resolution methods.
+GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_TEMP`. See [Execution Context](../execution_context.md) for step, run, and state semantics, [`Tasks`](../tasks.md) for callbacks, and [`Workflow::Environment`](../workflow/environment.md) for capture and resolution methods.
 
 ## Recovery Artifacts
 
