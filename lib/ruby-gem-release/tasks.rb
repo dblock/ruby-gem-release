@@ -35,18 +35,18 @@ module RubyGemRelease
       @validate = block
     end
 
-    def before_release(&block)
-      raise ArgumentError, 'before_release requires a block' unless block
-      raise ArgumentError, 'before_release already configured' if @before_release
+    def prepare(&block)
+      raise ArgumentError, 'prepare requires a block' unless block
+      raise ArgumentError, 'prepare already configured' if @prepare
 
-      @before_release = block
+      @prepare = block
     end
 
-    def after_release(&block)
-      raise ArgumentError, 'after_release requires a block' unless block
-      raise ArgumentError, 'after_release already configured' if @after_release
+    def bump(&block)
+      raise ArgumentError, 'bump requires a block' unless block
+      raise ArgumentError, 'bump already configured' if @bump
 
-      @after_release = block
+      @bump = block
     end
 
     def publish(&block)
@@ -80,7 +80,7 @@ module RubyGemRelease
     end
 
     def validate_release
-      proceed = @validate ? @validate.call(context(before_release: true)) : true
+      proceed = @validate ? @validate.call(context(preparing: true)) : true
       raise ArgumentError, 'validate must return true or false' unless [true, false].include?(proceed)
 
       puts(proceed ? 'Release validation passed.' : 'Release skipped: nothing to release.')
@@ -124,33 +124,33 @@ module RubyGemRelease
     end
 
     def install_callback_tasks
-      install_before_release_task
-      install_after_release_task
+      install_prepare_task
+      install_bump_task
     end
 
-    def install_before_release_task
-      desc 'Run the before-release callback'
-      task(:before_release) do
+    def install_prepare_task
+      desc 'Run the release preparation callback'
+      task(:prepare) do
         with_failure_capture('prepare_release') do
-          release = context(before_release: true)
-          @before_release&.call(release)
+          release = context(preparing: true)
+          @prepare&.call(release)
         end
       end
     end
 
-    def install_after_release_task
+    def install_bump_task
       desc 'Run the next development iteration preparation callback'
-      task(:after_release) do
+      task(:bump) do
         with_failure_capture('prepare_next_development_iteration') do
           release = context
-          @after_release&.call(release)
+          @bump&.call(release)
         end
       end
     end
 
-    def context(before_release: false)
+    def context(preparing: false)
       previous_version = ENV.fetch('RELEASE_PREVIOUS_VERSION')
-      version = before_release ? preparation_version(previous_version) : ENV.fetch('RELEASE_VERSION')
+      version = preparing ? preparation_version(previous_version) : ENV.fetch('RELEASE_VERSION')
       date = ENV.fetch('RELEASE_DATE')
       validate_context_versions(version, previous_version)
       raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)

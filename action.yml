@@ -32,7 +32,7 @@ inputs:
     default: bundle exec rake release:validate
   prepare:
     description: Command to prepare release files; INPUT_VERSION is the selected release version.
-    default: bundle exec rake release:before_release
+    default: bundle exec rake release:prepare
   test:
     description: Command to test the prepared release.
     default: bundle exec rake
@@ -41,7 +41,7 @@ inputs:
     default: bundle exec rake release:publish
   bump:
     description: Command to prepare, commit, and push the next development iteration.
-    default: bundle exec rake release:after_release
+    default: bundle exec rake release:bump
   success:
     description: Command to run after the release and next development iteration succeed.
     default: bundle exec rake release:success

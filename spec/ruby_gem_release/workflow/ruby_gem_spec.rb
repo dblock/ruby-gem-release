@@ -59,7 +59,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   end
 
   def run_callbacks
-    %w[validate before_release publish after_release].each { |phase| Rake::Task["release:#{phase}"].invoke }
+    %w[validate prepare publish bump].each { |phase| Rake::Task["release:#{phase}"].invoke }
   end
 
   it 'skips empty pending notes without invoking release operations' do
@@ -126,7 +126,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(version).to receive(:set!).with('3.0.0') { events << :set }
     allow(version).to receive(:read).and_return('3.0.0')
     install
-    Rake::Task['release:before_release'].invoke
+    Rake::Task['release:prepare'].invoke
     expect(events).to eq([:set, %i[changelog release!]])
     expect(objects.fetch(:changelog)).to have_received(:release!).with(have_attributes(version: '3.0.0', previous_version: '1.2.3'))
   end
@@ -135,7 +135,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     ENV['INPUT_VERSION'] = '3.0.0'
     allow(version).to receive(:set!).with('3.0.0')
     described_class.new(version: version, changelog: nil).install_tasks
-    Rake::Task['release:before_release'].invoke
+    Rake::Task['release:prepare'].invoke
     expect(version).to have_received(:set!).with('3.0.0')
     expect(objects.fetch(:changelog)).not_to have_received(:release!)
   end
@@ -144,7 +144,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     ENV['INPUT_VERSION'] = '03.0.0'
     allow(version).to receive(:set!)
     install
-    expect { Rake::Task['release:before_release'].invoke }.to raise_error(ArgumentError, /invalid version/)
+    expect { Rake::Task['release:prepare'].invoke }.to raise_error(ArgumentError, /invalid version/)
     expect(version).not_to have_received(:set!)
     expect(events).to be_empty
   end
@@ -153,7 +153,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     ENV['INPUT_VERSION'] = '3.0.0'
     custom = Struct.new(:read).new('1.2.3')
     described_class.new(version: custom, changelog: objects.fetch(:changelog)).install_tasks
-    expect { Rake::Task['release:before_release'].invoke }.to raise_error(ArgumentError, /must implement set!/)
+    expect { Rake::Task['release:prepare'].invoke }.to raise_error(ArgumentError, /must implement set!/)
   end
 
   it 'uses supplied publication objects instead of constructing defaults', :aggregate_failures do
@@ -196,7 +196,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   it 'stops before committing when next development iteration changelog preparation fails', :aggregate_failures do
     allow(objects.fetch(:changelog)).to receive(:prepare_next!).and_raise('changelog failed')
     install
-    expect { Rake::Task['release:after_release'].invoke }.to raise_error('changelog failed')
+    expect { Rake::Task['release:bump'].invoke }.to raise_error('changelog failed')
     expect(events).to eq([:increment])
   end
 end

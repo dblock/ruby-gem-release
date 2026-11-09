@@ -30,7 +30,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-This installs the before-release, publication, next development iteration, success, failure, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development iteration commit.
+This installs the validation, preparation, publication, next development iteration, success, failure, and workflow-context tasks. It builds once, verifies the archive, publishes to RubyGems before pushing the release commit and tag atomically, creates the hosted release, and increments the patch version for the next development iteration commit.
 
 The default workflow releases the current version in your version file; it increments the patch version only afterward. Set the optional workflow `version` input to choose a different release version. The standard workflow calls your version object's `set!` method before preparing the changelog, preserving the initial version in the release context. Custom preparation callbacks retain control of their own file updates.
 
@@ -72,7 +72,7 @@ RubyGemRelease::Tasks.install do |tasks|
   git = RubyGemRelease::SourceControl::Git.new
   github = RubyGemRelease::Hosting::GitHubRelease.new
   tasks.validate { |_release| changelog.pending? }
-  tasks.before_release do |release|
+  tasks.prepare do |release|
     git.stage_changes! do
       version.set!(release.version) unless ENV.fetch('INPUT_VERSION', '').empty?
       changelog.release!(release.with_version(version.read))
@@ -87,7 +87,7 @@ RubyGemRelease::Tasks.install do |tasks|
     git.push!(release)
     github.publish!(release, package: package)
   end
-  tasks.after_release do |release|
+  tasks.bump do |release|
     next_release = nil
     git.stage_changes! do
       next_release = release.with_next_version(version.increment!)

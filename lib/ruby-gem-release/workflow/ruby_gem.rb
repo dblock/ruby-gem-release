@@ -23,9 +23,9 @@ module RubyGemRelease
       def install_tasks
         Tasks.install do |tasks|
           tasks.validate { |release| validate_release(release) }
-          tasks.before_release { |release| prepare_release(release) }
+          tasks.prepare { |release| prepare_release(release) }
           tasks.publish { |release| publish(release) }
-          tasks.after_release { |release| prepare_next(release) }
+          tasks.bump { |release| prepare_next(release) }
           tasks.success(&@success) if @success
           tasks.failure(&@failure) if @failure
         end

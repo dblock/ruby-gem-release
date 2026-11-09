@@ -10,7 +10,7 @@ The composite action first invokes `release:workflow:configure` to validate and 
 
 ## Validate
 
-`tasks.validate` decides whether to release after context capture and before preparation edits. It receives the same initial or explicitly selected [Release](release.md) context as `before_release`. Return exactly `true` to proceed or `false` to skip successfully; missing or other return values raise an error. Exceptions fail the release and reach the failure callback with phase `validate_release`. Without a callback, validation proceeds.
+`tasks.validate` decides whether to release after context capture and before preparation edits. It receives the same initial or explicitly selected [Release](release.md) context as `prepare`. Return exactly `true` to proceed or `false` to skip successfully; missing or other return values raise an error. Exceptions fail the release and reach the failure callback with phase `validate_release`. Without a callback, validation proceeds.
 
 The `release:validate` task prints the decision and, when `GITHUB_OUTPUT` is available, writes `proceed=true` or `proceed=false` for the Actions validation step. A successful skip gates all subsequent release steps, including tests, authentication, publication, artifact upload, next development iteration preparation, and the success callback. Neither result callback runs for a skip. The task itself does not prevent separately invoked Rake tasks from running.
 
@@ -22,17 +22,17 @@ RubyGemRelease::Tasks.install do |tasks|
 end
 ```
 
-## Before Release
+## Prepare
 
-`tasks.before_release` prepares files after release validation and before testing and publication. The callback receives an immutable [Release](release.md). `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `previous_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `release.with_version(version.read)` before updating a changelog.
+`tasks.prepare` prepares files after release validation and before testing and publication. The callback receives an immutable [Release](release.md). `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `previous_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `release.with_version(version.read)` before updating a changelog.
 
-The default `prepare` command invokes `bundle exec rake release:before_release`. The task reads optional `INPUT_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. It validates the selected version before invoking the callback, but does not itself write a version file; the standard workflow callback does that through its configured object.
+The default `prepare` command invokes `bundle exec rake release:prepare`. The task reads optional `INPUT_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. It validates the selected version before invoking the callback, but does not itself write a version file; the standard workflow callback does that through its configured object.
 
-## After Release
+## Bump
 
-`tasks.after_release` prepares the next development iteration after publication. `version` contains the published version, `previous_version` retains the initial version, and `next_version` starts as `nil`. Explicitly increment the version and retain the updated context with `next_release = release.with_next_version(version.increment!)` before preparing the next changelog section.
+`tasks.bump` prepares the next development iteration after publication. `version` contains the published version, `previous_version` retains the initial version, and `next_version` starts as `nil`. Explicitly increment the version and retain the updated context with `next_release = release.with_next_version(version.increment!)` before preparing the next changelog section.
 
-The default `bump` command invokes `bundle exec rake release:after_release`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
+The default `bump` command invokes `bundle exec rake release:bump`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
 
 ## Success and Failure
 
@@ -50,7 +50,7 @@ Each registered callback requires a block and can be registered only once. Excep
 
 ## Publish
 
-`tasks.publish` registers the complete release sequence before `after_release`. The default `publish` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE`.
+`tasks.publish` registers the complete release sequence before `bump`. The default `publish` command invokes `bundle exec rake release:publish`, passing a [Release](release.md) built from `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE`.
 
 The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.
 

@@ -18,7 +18,8 @@ RSpec.describe RubyGemRelease::Tasks do
 
   it 'installs without configuration or version tasks', :aggregate_failures do
     described_class.install
-    expect(Rake::Task.task_defined?('release:before_release')).to be(true)
+    expect(Rake::Task.task_defined?('release:prepare')).to be(true)
+    expect(Rake::Task.task_defined?('release:bump')).to be(true)
     expect(Rake::Task.task_defined?('release:version:read')).to be(false)
   end
 
@@ -74,9 +75,9 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'starts release preparation with the current version and date' do
     received = nil
     described_class.install do |tasks|
-      tasks.before_release { |release| received = [release.version, release.previous_version, release.next_version, release.date] }
+      tasks.prepare { |release| received = [release.version, release.previous_version, release.next_version, release.date] }
     end
-    Rake::Task['release:before_release'].invoke
+    Rake::Task['release:prepare'].invoke
     expect(received).to eq(['1.2.3', '1.2.3', nil, Date.new(2026, 11, 7)])
   end
 
@@ -84,9 +85,9 @@ RSpec.describe RubyGemRelease::Tasks do
     ENV['INPUT_VERSION'] = '3.0.0'
     received = nil
     described_class.install do |tasks|
-      tasks.before_release { |release| received = [release.version, release.previous_version, release.date] }
+      tasks.prepare { |release| received = [release.version, release.previous_version, release.date] }
     end
-    Rake::Task['release:before_release'].invoke
+    Rake::Task['release:prepare'].invoke
     expect(received).to eq(['3.0.0', '1.2.3', Date.new(2026, 11, 7)])
   end
 
@@ -100,39 +101,39 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'attaches the version for the next development iteration after publication' do
     received = nil
     described_class.install do |tasks|
-      tasks.after_release do |release|
+      tasks.bump do |release|
         updated = release.with_next_version('2.0.1')
         received = [updated.version, updated.previous_version, updated.next_version, updated.date]
       end
     end
-    Rake::Task['release:after_release'].invoke
+    Rake::Task['release:bump'].invoke
     expect(received).to eq(['2.0.0', '1.2.3', '2.0.1', Date.new(2026, 11, 7)])
   end
 
   it 'propagates callback failures' do
     described_class.install do |tasks|
-      tasks.before_release { |_| raise 'callback failed' }
+      tasks.prepare { |_| raise 'callback failed' }
     end
-    expect { Rake::Task['release:before_release'].invoke }.to raise_error('callback failed')
+    expect { Rake::Task['release:prepare'].invoke }.to raise_error('callback failed')
   end
 
   it 'runs successfully without callbacks' do
     described_class.install
     expect do
-      Rake::Task['release:before_release'].invoke
-      Rake::Task['release:after_release'].invoke
+      Rake::Task['release:prepare'].invoke
+      Rake::Task['release:bump'].invoke
     end.not_to raise_error
   end
 
   it 'rejects invalid version arguments' do
     described_class.install
     ENV['RELEASE_PREVIOUS_VERSION'] = 'invalid'
-    expect { Rake::Task['release:before_release'].invoke }.to raise_error(ArgumentError, /invalid version/)
+    expect { Rake::Task['release:prepare'].invoke }.to raise_error(ArgumentError, /invalid version/)
   end
 
   it 'rejects missing and malformed dates' do
     described_class.install
-    task = Rake::Task['release:before_release']
+    task = Rake::Task['release:prepare']
     %w[2026-11-40 20261107].each do |date|
       ENV['RELEASE_DATE'] = date
       task.reenable
@@ -143,7 +144,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'rejects a missing release date instead of using today' do
     described_class.install
     ENV.delete('RELEASE_DATE')
-    expect { Rake::Task['release:before_release'].invoke }.to raise_error(KeyError, /RELEASE_DATE/)
+    expect { Rake::Task['release:prepare'].invoke }.to raise_error(KeyError, /RELEASE_DATE/)
   end
 
   it 'passes the released context to the publication callback' do
@@ -217,8 +218,8 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'rejects duplicate callback registration' do
     expect do
       described_class.install do |tasks|
-        tasks.before_release { nil }
-        tasks.before_release { nil }
+        tasks.prepare { nil }
+        tasks.prepare { nil }
       end
     end.to raise_error(ArgumentError, /already configured/)
   end

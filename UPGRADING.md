@@ -2,8 +2,9 @@
 
 Upgrade the gem and pinned workflow or action together. Apply the relevant changes below; see the linked PRs for details.
 
-## Upgrading to 0.4.1 (Unreleased)
+## Upgrading to 0.5.0 (Unreleased)
 
+- Rename `tasks.before_release` to `tasks.prepare` and `tasks.after_release` to `tasks.bump`. Update explicit Rake commands from `release:before_release` to `release:prepare` and `release:after_release` to `release:bump`; there are no compatibility aliases. The `prepare` and `bump` command input names are unchanged. See [#30](https://github.com/dblock/ruby-gem-release/pull/30).
 - Move prepared-release test overrides from `validate:` to `test:`. The new `validate` command decides whether to release before preparation and must emit `proceed=true` or `proceed=false` to `GITHUB_OUTPUT`. See [#29](https://github.com/dblock/ruby-gem-release/pull/29).
 - Empty pending changelog notes now skip successfully without publication or result callbacks. Custom changelog objects must implement `pending?` or supply a `validate:` callback returning `true` to proceed or `false` to skip. See [#29](https://github.com/dblock/ruby-gem-release/pull/29).
 
