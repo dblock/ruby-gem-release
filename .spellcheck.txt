@@ -26,6 +26,7 @@ RSpec
 RuboCop
 RubyGems
 subclasses
+subprocess
 unstaged
 untracked
 untrusted

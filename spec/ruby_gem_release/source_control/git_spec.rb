@@ -138,6 +138,22 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(git.head).to eq(initial)
   end
 
+  it 'permits ignored dependency output without staging it in release preparation' do
+    File.write('.gitignore', ".bundle/\nvendor/bundle/\n")
+    command('add', '.gitignore')
+    command('commit', '--quiet', '-m', 'Ignore dependencies')
+    FileUtils.mkdir_p('.bundle')
+    FileUtils.mkdir_p('vendor/bundle')
+    File.write('.bundle/config', "BUNDLE_PATH: vendor/bundle\n")
+    File.write('vendor/bundle/generated.rb', 'dependency')
+    expect { git.check_clean! }.not_to raise_error
+    git.stage_changes! { File.write('version', 'release edit') }
+    git.commit!(release)
+    expect(command('show', '--format=', '--name-only', 'HEAD')).to eq('version')
+    expect(command('ls-files', '.bundle', 'vendor/bundle')).to eq('')
+    expect(command('status', '--porcelain')).to eq('')
+  end
+
   it 'rejects unrelated late index changes without disturbing them', :aggregate_failures do
     git.stage_changes! { File.write('version', 'release edit') }
     File.write('unrelated', 'late output')

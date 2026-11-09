@@ -10,6 +10,7 @@
 - [#33](https://github.com/dblock/ruby-gem-release/pull/33): Verify provider-neutral releases across separate consumer processes without Actions variables, group consumer specs under `spec/integration/` with a `spec:integration` Rake task, and guide README readers from defaults to workflow extensions - [@dblock](https://github.com/dblock).
 - [#35](https://github.com/dblock/ruby-gem-release/pull/35): Add self-release and GitLab semantic-release customization walkthroughs with example-local placeholder providers - [@dblock](https://github.com/dblock).
 - [#36](https://github.com/dblock/ruby-gem-release/pull/36): Move authentication into publication through destination hooks, remove registry-specific YAML steps, and unify RubyGems exchanges with optional owner binding and environment-only credentials; custom publication commands must not rely on a generated credentials file (breaking change) - [@dblock](https://github.com/dblock).
+- [#38](https://github.com/dblock/ruby-gem-release/pull/38): Speed up release tests by separating focused orchestration coverage from real-process consumer smoke tests and avoiding duplicate source and installed integration runs in CI - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

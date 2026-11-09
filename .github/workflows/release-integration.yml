@@ -11,14 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        ruby: ['3.3', '4.0']
+        entry:
+          - { ruby: '3.3' }
+          - { ruby: '4.0' }
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
+          ruby-version: ${{ matrix.entry.ruby }}
           bundler-cache: true
       - name: Build and Install Release Gem
         run: |

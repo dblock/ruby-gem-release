@@ -75,6 +75,23 @@ RSpec.describe RubyGemRelease::Tasks do
     expect { tasks.validate { false } }.to raise_error(ArgumentError, /already configured/)
   end
 
+  it 'retains the enclosing validation identity and history when a command invokes another callback' do
+    ENV.update('GITHUB_ACTIONS' => 'true', 'RELEASE_STEP_ID' => 'validate_release',
+               'RELEASE_STEPS' => JSON.generate('capture_release_context' => { 'outcome' => 'success', 'conclusion' => 'success' }))
+    received = nil
+    described_class.install do |tasks|
+      tasks.success { |ctx| received = ctx }
+      tasks.validate do
+        Rake::Task['release:success'].invoke
+        true
+      end
+    end
+    Rake::Task['release:validate'].invoke
+    expect(received.step.id).to eq('validate_release')
+    expect(received.steps.fetch('capture_release_context').outcome).to eq('success')
+    expect(received.steps).not_to have_key('validate_release')
+  end
+
   it 'starts release preparation with the current version and date' do
     received = nil
     described_class.install do |tasks|

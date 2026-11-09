@@ -26,7 +26,9 @@ The package builds once and publishes before atomically pushing its commit and t
 
 Provider-neutral consumer tests also run the installed gem through separate Ruby processes with no inherited Actions environment. A test-only provider transports environment values and validation outputs through JSON files, while registry and hosting fixtures record the verified archive and publication order. Real local Git pushes verify release and next development iteration commits; a rejected upload preserves recovery files and delivers the captured error to a later process without pushing. Unexpected network requests and external publication commands fail the fixture.
 
-Consumer integration specs are grouped under `spec/integration/` and run independently through `bundle exec rake spec:integration`, including in installed-gem CI. The default suite continues to include them.
+Consumer integration specs are grouped under `spec/integration/` and run through `bundle exec rake spec:integration` against the installed gem in CI. They retain a small real-process smoke matrix for both interfaces plus the provider-neutral consumers. Credential propagation is verified as part of successful releases; failure tests retain real recovery files and remote-ref assertions. Format, version, timezone, and other domain combinations belong to focused source tests, not repeated complete pipelines.
+
+`bundle exec rake spec:unit` excludes consumer integration and runs documented configurations with in-process Rake tasks and isolated publication doubles. YAML assertions and validation-shell contracts do not create consumer repositories or invoke Bundler. Test CI runs only this source task; installed-gem CI owns consumer execution. The default local task and `rake spec` still include the complete suite. Performance comparisons use measured example runtime and harness subprocess counts, without timing thresholds.
 
 ## Class Areas
 

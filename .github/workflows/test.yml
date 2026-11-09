@@ -14,18 +14,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ['3.3', '4.0']
+        entry:
+          - { ruby: '3.3' }
+          - { ruby: '4.0' }
     steps:
     - uses: actions/checkout@v7
       with:
         persist-credentials: false
     - uses: ruby/setup-ruby@v1
       with:
-        ruby-version: ${{ matrix.ruby }}
+        ruby-version: ${{ matrix.entry.ruby }}
         bundler-cache: true
-    - run: bundle exec rake spec
+    - run: bundle exec rake spec:unit
     - name: Send Coverage to Coveralls
-      if: matrix.ruby == '4.0'
+      if: matrix.entry.ruby == '4.0'
       uses: coverallsapp/github-action@v2
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
