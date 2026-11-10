@@ -4,8 +4,6 @@ require_relative 'execution_context'
 
 module RubyGemRelease
   class ExecutionProvider
-    attr_reader :outputs
-
     def self.current(environment: ENV)
       return new(environment: environment) unless environment['GITHUB_ACTIONS'] == 'true'
 
@@ -15,7 +13,6 @@ module RubyGemRelease
 
     def initialize(environment: ENV)
       @environment = environment
-      @outputs = {}
     end
 
     def fetch(name, *defaults)
@@ -38,11 +35,6 @@ module RubyGemRelease
     def export(values)
       validate_values(values)
       @environment.update(values)
-    end
-
-    def output(values)
-      validate_values(values)
-      @outputs.update(values)
     end
 
     def context(**attributes)

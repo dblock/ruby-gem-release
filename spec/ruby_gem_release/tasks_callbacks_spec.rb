@@ -289,7 +289,6 @@ RSpec.describe RubyGemRelease::Tasks do
       end
     end
     expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /validation failed/)
-    expect(provider.outputs).to be_empty
     expect(received).to be_an_instance_of(RubyGemRelease::ExecutionContext)
     expect(received.release.version).to eq('3.0.0')
   end
@@ -309,6 +308,26 @@ RSpec.describe RubyGemRelease::Tasks do
       expect(received).to have_attributes(phase: 'release:publish', error: have_attributes(message: 'custom provider failure'))
       expect(received.context).to be_an_instance_of(RubyGemRelease::ExecutionContext)
       expect(File.stat(File.join(directory, 'ruby-gem-release-failure.json')).mode & 0o777).to eq(0o600)
+    end
+  end
+
+  it 'uses one coherent failure snapshot when state changes while reporting the failure' do
+    Dir.mktmpdir do |directory|
+      path = File.join(directory, 'state.json')
+      decision = RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [],
+                                                               release_type: 'minor', version: '2.0.0', notes: 'Original notes.')
+      values = { schema_version: 2, next_version: '2.0.1', analysis: decision.to_h }
+      File.write(path, JSON.generate(values))
+      ENV['RELEASE_STATE_FILE'] = path
+      allow(File).to receive(:read).and_call_original
+      allow(File).to receive(:read).with(path).and_wrap_original do |read, *arguments|
+        read.call(*arguments).tap { File.write(path, JSON.generate(values.merge(next_version: '2.0.2', analysis: nil))) }
+      end
+      received = nil
+      described_class.install { |tasks| tasks.failure { |failure| received = failure.context } }
+      Rake::Task['release:failure'].invoke
+      expect(received.release).to have_attributes(next_version: '2.0.1', notes: 'Original notes.')
+      expect(received.analysis.to_h).to eq(decision.to_h)
     end
   end
 

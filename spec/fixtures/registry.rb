@@ -10,12 +10,6 @@ class FixtureRegistry < RubyGemRelease::Destination
     provider.export('FIXTURE_REGISTRY_TOKEN' => 'fixture-registry-token')
   end
 
-  def check_version!(name:, version:)
-    File.open(File.join(ENV.fetch('RUNNER_TEMP'), 'registry-checks.jsonl'), 'a') do |file|
-      file.puts JSON.generate([name, version])
-    end
-  end
-
   def publish!(release, package:)
     return if published?(release, package: package)
 
@@ -25,7 +19,7 @@ class FixtureRegistry < RubyGemRelease::Destination
   end
 
   def published?(release, package:)
-    check_version!(name: package.name, version: release.version)
+    record_check(package.name, release.version)
     return false unless File.file?(publication_path)
 
     publication = JSON.parse(File.read(publication_path))
@@ -36,6 +30,12 @@ class FixtureRegistry < RubyGemRelease::Destination
   end
 
   private
+
+  def record_check(name, version)
+    File.open(File.join(ENV.fetch('RUNNER_TEMP'), 'registry-checks.jsonl'), 'a') do |file|
+      file.puts JSON.generate([name, version])
+    end
+  end
 
   def record_publication(path)
     spec = Gem::Package.new(path).spec

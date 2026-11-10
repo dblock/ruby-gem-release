@@ -31,12 +31,6 @@ module RubyGemRelease
         run('show', '-s', '--format=%ct', commit).strip
       end
 
-      def check_tag!(version)
-        output, _error, status = Open3.capture3('git', 'show-ref', '--verify', '--quiet', "refs/tags/v#{version}")
-        raise "Release tag already exists: v#{version}" if status.success?
-        raise "Cannot check release tag: #{output}" unless status.exitstatus == 1
-      end
-
       def check_current!(_release, expected: head, allow_ancestor: false)
         run('fetch', @remote, branch, '--tags')
         raise 'Default branch advanced; start a new release' unless remote_head == expected || (allow_ancestor && ancestor?(expected, remote_head))
@@ -102,14 +96,6 @@ module RubyGemRelease
         raise "Cannot inspect release tag: #{error}" unless status.success?
 
         run('rev-parse', "#{ref}^{commit}").strip
-      end
-
-      def published?(version, commit:)
-        fetch!
-        existing = remote_tag(version)
-        raise 'Remote release tag points at another commit' if existing && existing != commit
-
-        existing == commit && ancestor?(commit, remote_head)
       end
 
       def next_iteration(release)

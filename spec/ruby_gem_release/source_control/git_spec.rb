@@ -66,8 +66,6 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(Open3).to have_received(:capture3).with('git', 'push', '--atomic', 'origin', 'HEAD:refs/heads/master', 'refs/tags/v1.2.3')
     expect(command('--git-dir', remote, 'rev-parse', 'master')).to eq(release_commit)
     expect(command('--git-dir', remote, 'rev-parse', 'v1.2.3')).to eq(release_commit)
-    expect(git.published?(release.version, commit: release_commit)).to be(true)
-    expect { git.published?(release.version, commit: initial) }.to raise_error(/points at another commit/)
     expect(File).to exist(File.join(directory, 'release.bundle'))
     git.stage_changes! { File.write('version', '1.2.4') }
     git.commit_next!(release.with_next_version('1.2.4'))

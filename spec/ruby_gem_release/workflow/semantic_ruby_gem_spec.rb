@@ -14,7 +14,7 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
       version: instance_double(RubyGemRelease::Version::RubyConstant, set!: nil, increment!: '1.3.1', next_version: '1.3.1'),
       git: instance_double(RubyGemRelease::SourceControl::Git, commit!: nil, tag!: nil, push!: nil, commit_next!: nil),
       package: instance_double(RubyGemRelease::Package::RubyGem, name: 'example', build!: nil, built?: false),
-      destination: instance_double(RubyGemRelease::Destination, authenticate!: nil, check_version!: nil, publish!: nil),
+      destination: instance_double(RubyGemRelease::Destination, authenticate!: nil, publish!: nil),
       changelog: instance_double(RubyGemRelease::Changelog::Generated, release!: nil, prepare_next!: nil)
     }
   end
@@ -70,7 +70,6 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
     allow(semantic).to receive(:analyze).and_return(skipped)
     install
     expect { invoke('validate') }.to raise_error(ArgumentError, /Nothing to release/)
-    expect(provider.outputs).to be_empty
     Rake::Task['release:validate'].reenable
     expect { invoke('validate') }.to raise_error(ArgumentError, /Nothing to release/)
     expect(semantic).to have_received(:analyze).once

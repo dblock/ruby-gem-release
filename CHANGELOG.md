@@ -16,6 +16,7 @@
 - [#40](https://github.com/dblock/ruby-gem-release/pull/40): Make release tasks independently idempotent with source-commit timestamps, checksum-verified publication, reusable Git refs, and replaceable hosted notes/assets; fail empty-release validation and remove the decision-output protocol (breaking change) - [@dblock](https://github.com/dblock).
 - [#41](https://github.com/dblock/ruby-gem-release/pull/41): Isolate release tests from inherited release context so this project's self-release can run its test suite - [@dblock](https://github.com/dblock).
 - [#42](https://github.com/dblock/ruby-gem-release/pull/42): Standardize environment names into consistent input, gemspec, source, release, and registry families, and rename `release.previous_version` and its constructor keyword to `gemspec_version` to distinguish the captured gemspec version from release history (breaking change) - [@dblock](https://github.com/dblock).
+- [#43](https://github.com/dblock/ruby-gem-release/pull/43): Remove unused output-writing, strict availability, and Git/hosting readback methods and legacy state support; report failures from one coherent state snapshot (breaking change) - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

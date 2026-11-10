@@ -28,7 +28,7 @@ Execution platform, package registry, and release hosting remain separate choice
 
 ## 2. Implement GitLab Execution
 
-The `GitLab` placeholder subclasses [`ExecutionProvider`](../../docs/execution_provider.md). Implement environment and output transport, full Git refs, execution snapshots, phase identities, failure reporting, identity tokens, and safe secret handling. Keep exports available through `fetch` both in the current process and subsequent processes.
+The `GitLab` placeholder subclasses [`ExecutionProvider`](../../docs/execution_provider.md). Implement environment transport, full Git refs, execution snapshots, phase identities, failure reporting, identity tokens, and safe secret handling. Keep exports available through `fetch` both in the current process and subsequent processes.
 
 Configure `DEFAULT_BRANCH`, `INPUT_GEMSPEC_PATH`, `INPUT_VERSION` (empty for commit-driven selection), and `TZ`. Set `RELEASE_DATA_DIR` to a private directory outside the checkout. Preserve it and the exported `RELEASE_STATE_FILE`, initial commit, initial version, and release date throughout the pipeline, including failure handling. The inherited neutral Git identity can be overridden with `GIT_USER_NAME` and `GIT_USER_EMAIL`.
 
@@ -44,7 +44,7 @@ See the [semantic workflow reference](../../docs/workflow/semantic_ruby_gem.md) 
 
 ## 4. Implement GitLab Hosting
 
-`GitLabRelease#publish!(release, package:)` replaces only hosting. Use `release.notes` for the captured body and `package.artifact(release)` for the verified archive. Implement `published?` to verify metadata and asset bytes; publication may replace mutable notes/assets but must reject immutable tag conflicts. Do not regenerate notes or rebuild inside hosting.
+`GitLabRelease#publish!(release, package:)` replaces only hosting. Use `release.notes` for the captured body and `package.artifact(release)` for the verified archive. Verify metadata and asset bytes during publication; replace mutable notes/assets but reject immutable tag conflicts. Do not regenerate notes or rebuild inside hosting.
 
 The standard publication callback commits, builds reproducibly, tags locally, verifies or uploads the exact gem, pushes commit and tag atomically, then invokes hosting. Registry failure prevents the push and hosted release; artifacts remain available for manual inspection.
 

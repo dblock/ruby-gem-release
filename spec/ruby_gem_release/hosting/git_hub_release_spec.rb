@@ -107,14 +107,12 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
     end
 
     it 'verifies matching assets without creating or uploading again' do
-      expect(publisher.published?(release, artifacts: [artifact])).to be(true)
       publisher.publish!(release, artifacts: [artifact])
       expect(Open3).not_to have_received(:capture3).with('gh', 'release', any_args)
     end
 
     it 'uploads missing assets with replacement enabled for retry-safe publication' do
       metadata[:assets] = []
-      expect(publisher.published?(release, artifacts: [artifact])).to be(false)
       publisher.publish!(release, artifacts: [artifact])
       expect(Open3).to have_received(:capture3).with('gh', 'release', 'upload', 'v1.2.3', '--clobber', '--repo', 'example/gem', artifact)
       expect(Open3).not_to have_received(:capture3).with('gh', 'release', 'create', any_args)

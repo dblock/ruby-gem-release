@@ -12,10 +12,6 @@ module GitLabSemanticReleaseExample
       raise NotImplementedError, 'Update the current environment and persist exports for subsequent processes'
     end
 
-    def output(_values)
-      raise NotImplementedError, 'Transport release decisions to the GitLab pipeline'
-    end
-
     def context(**)
       raise NotImplementedError, 'Construct execution snapshots from GitLab job metadata'
     end

@@ -43,7 +43,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:changelog)).to receive_messages(pending?: true, released?: false)
     record_operations(:package, [:build!])
     allow(objects.fetch(:package)).to receive(:name).and_return('example')
-    record_operations(:destination, %i[authenticate! check_version! publish!])
+    record_operations(:destination, %i[authenticate! publish!])
     allow(objects.fetch(:destination)).to receive(:authentication).and_return('rubygems')
     record_operations(:git, %i[commit! tag! push! commit_next!])
     allow(objects.fetch(:git)).to receive(:stage_changes!).and_yield
@@ -263,14 +263,6 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect { Rake::Task['release:publish'].invoke }.to raise_error('registry unavailable')
     expect(events).to eq([%i[destination authenticate!], %i[git commit!], %i[package build!], %i[git tag!]])
     expect(objects.fetch(:destination)).to have_received(:publish!).with(an_instance_of(RubyGemRelease::Release), package: objects.fetch(:package))
-  end
-
-  it 'lets publication verify existing versions by checksum instead of rejecting duplicates in preflight' do
-    allow(objects.fetch(:destination)).to receive(:check_version!).with(name: 'example', version: '2.0.0').and_raise('already published')
-    install
-    Rake::Task['release:publish'].invoke
-    expect(objects.fetch(:destination)).not_to have_received(:check_version!)
-    expect(objects.fetch(:destination)).to have_received(:publish!)
   end
 
   it 'stops before publication operations when destination authentication fails' do

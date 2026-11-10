@@ -8,7 +8,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
   let(:directory) { Dir.mktmpdir }
   let(:environment_file) { File.join(directory, 'environment') }
   let(:git) do
-    instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_clean!: nil, check_current!: nil, check_tag!: nil,
+    instance_double(RubyGemRelease::SourceControl::Git, configure!: nil, check_clean!: nil, check_current!: nil,
                                                         stage_changes!: nil, head: 'initial-commit', timestamp: '1794054896')
   end
 
@@ -138,27 +138,23 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
   end
 
   it 'leaves existing tags and publication checks to the publishing tasks' do
-    allow(git).to receive(:check_tag!).and_raise('Release tag already exists')
     File.write('version.rb', "VERSION = '2.0.0'\n")
     described_class.new.resolve!
-    expect(git).not_to have_received(:check_tag!)
     expect(Net::HTTP).not_to have_received(:start)
     expect(git).to have_received(:stage_changes!)
     expect(File.read(environment_file)).to include("RELEASE_VERSION=2.0.0\n")
   end
 
   it 'uses the supplied destination authentication policy without contacting RubyGems' do
-    destination = instance_double(RubyGemRelease::Destination, check_version!: nil, authentication: nil)
+    destination = instance_double(RubyGemRelease::Destination, authentication: nil)
     described_class.new.resolve!(destination: destination)
-    expect(destination).not_to have_received(:check_version!)
     expect(Net::HTTP).not_to have_received(:start)
     expect(File.read(environment_file)).to include("RELEASE_VERSION=1.2.3\n", "RELEASE_AUTH_MODE=\n")
   end
 
   it 'rejects unsupported automatic authentication before version checks or staging' do
-    destination = instance_double(RubyGemRelease::Destination, authentication: 'unsupported', check_version!: nil)
+    destination = instance_double(RubyGemRelease::Destination, authentication: 'unsupported')
     expect { described_class.new.resolve!(destination: destination) }.to raise_error(ArgumentError, /unsupported destination authentication/)
-    expect(destination).not_to have_received(:check_version!)
     expect(git).not_to have_received(:stage_changes!)
     expect(File.read(environment_file)).to eq('')
   end
@@ -186,7 +182,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     it 'captures and resolves without using Actions files or RubyGems' do
       File.write('other.gemspec', "raise 'unselected gemspec must not load'\n")
       values['INPUT_GEMSPEC_PATH'] = 'fixture.gemspec'
-      destination = instance_double(RubyGemRelease::Destination, check_version!: nil, authentication: nil)
+      destination = instance_double(RubyGemRelease::Destination, authentication: nil)
       instance = described_class.new(provider: provider)
       instance.capture!
       File.write('version.rb', "VERSION = '2.0.0'\n")
@@ -194,7 +190,6 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
       expect(values).to include('GEMSPEC_VERSION' => '1.2.3', 'RELEASE_VERSION' => '2.0.0', 'RELEASE_DATA_DIR' => directory)
       expect(File).to exist(values.fetch('RELEASE_STATE_FILE'))
       expect(git).to have_received(:configure!).with(name: 'ruby-gem-release', email: 'ruby-gem-release@localhost')
-      expect(destination).not_to have_received(:check_version!)
       expect(Net::HTTP).not_to have_received(:start)
       expect(File.read(environment_file)).to eq('')
     end

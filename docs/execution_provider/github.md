@@ -2,7 +2,7 @@
 
 Implements [`ExecutionProvider`](../execution_provider.md) for GitHub Actions. It reads `GITHUB_REF` and `RUNNER_TEMP`, retains the GitHub bot identity defaults, and supplies [`ExecutionContext::GitHub`](../execution_context/github.md) snapshots and original failed-step outcomes.
 
-Environment exports append to `GITHUB_ENV` and update the current process environment. Step outputs append to `GITHUB_OUTPUT` when available. Names and values are validated before writing files. Capture exports the runner directory as the provider-neutral `RELEASE_DATA_DIR` used by Git and package operations.
+Environment exports append to `GITHUB_ENV` and update the current process environment. Names and values are validated before writing files. Capture exports the runner directory as the provider-neutral `RELEASE_DATA_DIR` used by Git and package operations. Observed step outputs remain available through the execution context.
 
 `oidc_token(audience:)` requests an identity token through the public Actions OIDC endpoint, replacing any previous audience without discarding other query parameters. It requires HTTPS, bounds request timeouts, disables retries, and rejects malformed responses without including their bodies in errors. The caller must grant `id-token: write`.
 

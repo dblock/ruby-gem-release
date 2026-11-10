@@ -43,35 +43,25 @@ RSpec.describe RubyGemRelease::Destination::RubyGems do
     expect(Open3).to have_received(:capture3).once
   end
 
-  it 'accepts only an unpublished version' do
-    expect { described_class.new.check_version!(name: 'release-fixture', version: '1.2.3') }.not_to raise_error
-  end
-
-  it 'rejects an existing version without building or uploading' do
-    allow(response).to receive(:code).and_return('200')
-    expect { described_class.new.check_version!(name: 'release-fixture', version: '1.2.3') }.to raise_error(/release-fixture 1.2.3.*already published.*recovery/)
-    expect(File).not_to exist(artifacts)
-    expect(Net::HTTP).to have_received(:start).once
-  end
-
   it 'rejects unexpected responses rather than treating them as missing versions' do
+    package.build!(release)
+    allow(Open3).to receive(:capture3).and_raise('Unexpected uploader')
     %w[301 401 429 503].each do |code|
       allow(response).to receive(:code).and_return(code)
-      expect { described_class.new.check_version!(name: 'release-fixture', version: '1.2.3') }.to raise_error(/Cannot check RubyGems.*HTTP #{code}/)
+      expect { described_class.new.publish!(release, package: package) }.to raise_error(/Cannot verify RubyGems publication.*HTTP #{code}/)
     end
+    expect(Open3).not_to have_received(:capture3)
   end
 
   it 'stops on connection and timeout failures without retrying' do
+    package.build!(release)
+    allow(Open3).to receive(:capture3).and_raise('Unexpected uploader')
     [Net::OpenTimeout, SocketError, OpenSSL::SSL::SSLError].each do |error|
       allow(Net::HTTP).to receive(:start).and_raise(error, 'unavailable')
-      expect { described_class.new.check_version!(name: 'release-fixture', version: '1.2.3') }.to raise_error(/Cannot check RubyGems.*verify connectivity/)
+      expect { described_class.new.publish!(release, package: package) }.to raise_error(/Cannot check RubyGems.*verify connectivity/)
     end
     expect(Net::HTTP).to have_received(:start).exactly(3).times
-  end
-
-  it 'rejects invalid names before making a registry request' do
-    expect { described_class.new.check_version!(name: '../other', version: '1.2.3') }.to raise_error(/Invalid package name/)
-    expect(Net::HTTP).not_to have_received(:start)
+    expect(Open3).not_to have_received(:capture3)
   end
 
   it 'refuses to upload a built artifact that has already been published' do

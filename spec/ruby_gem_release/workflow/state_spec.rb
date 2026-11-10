@@ -26,18 +26,6 @@ RSpec.describe RubyGemRelease::Workflow::State do
     end
   end
 
-  it 'reads legacy state and upgrades it only when analysis is recorded' do
-    Dir.mktmpdir do |directory|
-      path = File.join(directory, 'state.json')
-      File.write(path, JSON.generate('schema_version' => 1, 'next_version' => '0.9.9'))
-      state = described_class.new(path: path)
-      expect(state.analysis).to be_nil
-      state.record_analysis!(decision)
-      expect(state.next_version).to eq('0.9.9')
-      expect(JSON.parse(File.read(path)).fetch('schema_version')).to eq(2)
-    end
-  end
-
   it 'retains immutable process-local analysis and rejects unsupported payloads' do
     state = described_class.new
     expect { state.record_analysis!({}) }.to raise_error(ArgumentError, /semantic release decision/)
@@ -86,10 +74,12 @@ RSpec.describe RubyGemRelease::Workflow::State do
       expect { state.next_version }.to raise_error(JSON::ParserError)
       [
         [],
+        { 'schema_version' => 1, 'next_version' => nil },
+        { 'schema_version' => 1, 'next_version' => '0.9.9' },
         { 'schema_version' => 2, 'next_version' => nil },
-        { 'schema_version' => 1 },
-        { 'schema_version' => 1, 'next_version' => '01.2.3' },
-        { 'schema_version' => 1, 'next_version' => nil, 'extra' => 'unsupported' }
+        { 'schema_version' => 3, 'next_version' => nil, 'analysis' => nil },
+        { 'schema_version' => 2, 'next_version' => '01.2.3', 'analysis' => nil },
+        { 'schema_version' => 2, 'next_version' => nil, 'analysis' => nil, 'extra' => 'unsupported' }
       ].each do |attributes|
         File.write(path, JSON.generate(attributes))
         expect { state.next_version }.to raise_error(ArgumentError)

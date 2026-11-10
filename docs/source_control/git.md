@@ -18,10 +18,6 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 `check_current!(release, expected: head, allow_ancestor: false)` fetches the remote branch and tags and rejects an advanced branch before new publication or pushing. Capture permits an ancestor checkout so reruns can use the original source commit after its release has advanced the branch.
 
-## Check Tag
-
-`check_tag!(version)` is an optional strict availability check. Standard publication instead reuses matching tags and rejects immutable conflicts after fetching.
-
 ## Commit
 
 `commit!(release)` commits previously staged preparation changes if needed; it never stages files. It rejects unexpected unstaged, untracked non-ignored, or index changes by comparing the index with the saved preparation tree. It retains the source checkout commit for subsequent concurrency checks; the workflow supplies `SOURCE_COMMIT`.
@@ -44,7 +40,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 `push!(release)` checks the remote branch again, then atomically pushes the release commit and tag. After `commit_next!`, `push!` uses the retained release context and pushes only the next development iteration commit. Pushes never force or move existing tags.
 
-Matching remote refs are no-ops; a remote branch already containing the release is never rewound. `commit!` can reuse an existing release tag only when its entire tree matches the intended preparation. `commit_next!` likewise compares the full development tree. Readback uses `tag_commit(version)`, `published?(version, commit:)`, and `next_iteration(release)`; no workflow state or artifact is restored. Unrelated advancement still fails before publication.
+Matching remote refs are no-ops; a remote branch already containing the release is never rewound. `commit!` can reuse an existing release tag only when its entire tree matches the intended preparation. `commit_next!` likewise compares the full development tree. Readback uses `tag_commit(version)` and `next_iteration(release)`; no workflow state or artifact is restored. Unrelated advancement still fails before publication.
 
 ## Errors
 

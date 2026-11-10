@@ -27,13 +27,6 @@ module RubyGemRelease
         output.strip
       end
 
-      def published?(release, package: nil, artifacts: [])
-        paths = release_paths(release, package, artifacts)
-        existing = Existing.new(repository: @repository)
-        missing = existing.missing(release, paths)
-        existing.exists? && !existing.changed?(release) && missing.empty?
-      end
-
       private
 
       def release_paths(release, package, artifacts)

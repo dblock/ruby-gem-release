@@ -55,10 +55,6 @@ module PortableConsumer
       PortableConsumer.record('authenticate')
     end
 
-    def check_version!(name:, version:)
-      PortableConsumer.record('check', name: name, version: version)
-    end
-
     def publish!(release, package:)
       return if published?(release, package: package)
 

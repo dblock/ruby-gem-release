@@ -22,16 +22,6 @@ module RubyGemRelease
         'rubygems'
       end
 
-      def check_version!(name:, version:)
-        raise 'Invalid package name' unless name.is_a?(String) && /\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/.match?(name)
-
-        response = version_response(name, version)
-        raise "#{name} #{version} is already published on RubyGems; do not republish it, see RELEASING.md for recovery" if response.code == '200'
-        return if response.code == '404'
-
-        raise "Cannot check RubyGems for #{name} #{version} (HTTP #{response.code}); verify RubyGems availability before retrying"
-      end
-
       def publish!(release, package:)
         path = package.artifact(release)
         return if published?(release, package: package)

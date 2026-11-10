@@ -216,12 +216,12 @@ module RubyGemRelease
     def failure_context
       phase = @provider.fetch('RELEASE_FAILED_STEP_ID', 'unknown')
       error = Workflow::Failure.error_for(phase, provider: @provider) unless phase == 'unknown'
-      safe_state = failure_state
-      execution = @provider.context(release: failure_release_context(safe_state.analysis), task: 'release:failure', state: safe_state, workflow: @workflow)
+      safe_state, snapshot = failure_snapshot
+      execution = @provider.context(release: failure_release_context(**snapshot), task: 'release:failure', state: safe_state, workflow: @workflow, analysis: snapshot.fetch(:analysis))
       ReleaseFailure.new(phase: phase, error: error, context: execution)
     end
 
-    def failure_release_context(analysis = nil)
+    def failure_release_context(analysis: nil, next_version: nil)
       gemspec_version = @provider.fetch('GEMSPEC_VERSION', nil)
       date = @provider.fetch('RELEASE_DATE', '')
       return unless gemspec_version && date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
@@ -229,24 +229,17 @@ module RubyGemRelease
       version = @provider.fetch('RELEASE_VERSION', '')
       version = preparation_version(gemspec_version, analysis: analysis) if version.empty?
       validate_context_versions(version, gemspec_version)
-      Release.new(version: version, gemspec_version: gemspec_version, date: Date.iso8601(date), next_version: failure_next_version, notes: analysis&.notes)
+      Release.new(version: version, gemspec_version: gemspec_version, date: Date.iso8601(date), next_version: next_version, notes: analysis&.notes)
     rescue ArgumentError
       nil
     end
 
-    def failure_next_version
-      state.next_version
+    def failure_snapshot
+      [state, state.snapshot]
     rescue ArgumentError, JSON::ParserError, SystemCallError => e
       warn "Unable to read release state for failure callback: #{e.message}"
-      nil
-    end
-
-    def failure_state
-      state.analysis
-      state
-    rescue ArgumentError, JSON::ParserError, SystemCallError => e
-      warn "Unable to read release state for failure callback: #{e.message}"
-      Workflow::State.new
+      safe_state = Workflow::State.new
+      [safe_state, safe_state.snapshot]
     end
 
     def with_failure_capture(task)

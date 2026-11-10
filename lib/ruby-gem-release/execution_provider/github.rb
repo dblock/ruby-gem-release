@@ -27,11 +27,6 @@ module RubyGemRelease
         super
       end
 
-      def output(values)
-        append_file('GITHUB_OUTPUT', values) if fetch('GITHUB_OUTPUT', nil)
-        super
-      end
-
       def context(**attributes)
         ExecutionContext::GitHub.new(**attributes, environment: @environment)
       end

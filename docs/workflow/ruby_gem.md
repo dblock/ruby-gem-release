@@ -28,11 +28,11 @@ The optional `git:` defaults to [`SourceControl::Git`](../source_control/git.md)
 
 ## Execution Provider
 
-The optional `provider:` defaults to [`ExecutionProvider.current`](../execution_provider.md). It supplies inputs, environment and output transport, execution contexts, temporary storage, and platform-specific authentication services. The same provider is passed to the installed tasks and context checks. Execution providers do not select hosting or registry destinations; no GitLab implementation is included.
+The optional `provider:` defaults to [`ExecutionProvider.current`](../execution_provider.md). It supplies inputs, environment transport, execution contexts, temporary storage, and platform-specific authentication services. The same provider is passed to the installed tasks and context checks. Execution providers do not select hosting or registry destinations; no GitLab implementation is included.
 
 ## Hosting
 
-The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github_release.md). Custom objects implement `publish!(release, package:)` and read-only `published?(release, package:)`. Set `hosting: nil` to disable hosting without disabling registry publication or Git.
+The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github_release.md). Custom objects implement idempotent `publish!(release, package:)`. Set `hosting: nil` to disable hosting without disabling registry publication or Git.
 
 ## Install Tasks
 

@@ -4,20 +4,20 @@
 
 ## Component Boundaries
 
-| Component                   | Responsibility                                                                       |
-| ---                         | ---                                                                                  |
-| `Workflow::RubyGem`         | Install the manual release callbacks.                                                |
-| `Workflow::SemanticRubyGem` | Select and persist a commit-driven release, then use the same publication sequence.  |
-| `Tasks`                     | Register callbacks, construct contexts, and capture failures.                        |
-| `ExecutionProvider`         | Transport inputs, exports, outputs, execution metadata, and authentication services. |
-| `Workflow::Environment`     | Check the checkout and capture initial or prepared package metadata.                 |
-| `Workflow::State`           | Persist supported callback data in private, versioned JSON.                          |
-| `Package::RubyGem`          | Read metadata, build reproducibly, and verify the exact archive.                     |
-| `Destination::RubyGems`     | Authenticate, check availability, and upload the verified artifact.                  |
-| `SourceControl::Git`        | Stage trusted edits, check concurrency, commit, tag, and push.                       |
-| `Hosting::GitHubRelease`    | Create the hosted release after the remote tag exists.                               |
+| Component                   | Responsibility                                                                      |
+| ---                         | ---                                                                                 |
+| `Workflow::RubyGem`         | Install the manual release callbacks.                                               |
+| `Workflow::SemanticRubyGem` | Select and persist a commit-driven release, then use the same publication sequence. |
+| `Tasks`                     | Register callbacks, construct contexts, and capture failures.                       |
+| `ExecutionProvider`         | Transport inputs, exports, execution metadata, and authentication services.         |
+| `Workflow::Environment`     | Check the checkout and capture initial or prepared package metadata.                |
+| `Workflow::State`           | Persist supported callback data in private, versioned JSON.                         |
+| `Package::RubyGem`          | Read metadata, build reproducibly, and verify the exact archive.                    |
+| `Destination::RubyGems`     | Authenticate, check availability, and upload the verified artifact.                 |
+| `SourceControl::Git`        | Stage trusted edits, check concurrency, commit, tag, and push.                      |
+| `Hosting::GitHubRelease`    | Create the hosted release after the remote tag exists.                              |
 
-Execution platform, registry, and hosting are independent choices. Built-in external support covers GitHub Actions, RubyGems, and GitHub Releases. Hosting providers need `publish!(release, package:)` and read-only `published?(release, package:)`, not a shared base class. Class, reference, and spec paths mirror namespaces.
+Execution platform, registry, and hosting are independent choices. Built-in external support covers GitHub Actions, RubyGems, and GitHub Releases. Hosting providers need idempotent `publish!(release, package:)`, not a shared base class. Class, reference, and spec paths mirror namespaces.
 
 ## Lifecycle and Publication
 
@@ -43,9 +43,9 @@ Version objects update exactly one constant assignment without evaluating the fi
 
 Callbacks receive frozen execution snapshots containing an immutable `Release`, current step, observed history, configured workflow, run metadata, and optional semantic analysis. Domain operations receive only `Release`. Contexts are data, not platform clients; workflow objects are reconstructed from the Rakefile in each process.
 
-The provider-neutral base uses logical task IDs and process-local outputs. Automatic selection chooses GitHub when `GITHUB_ACTIONS=true`; explicit `provider:` overrides detection. GitHub owns Actions transport, refs, temporary storage, bot identity, masking, and OIDC. It supplies enclosing step IDs and prior observed results, keeping outcome and conclusion distinct. Absent steps are unknown, not skipped; run metadata excludes credentials and the event payload.
+The provider-neutral base uses logical task IDs and process-local environment exports. Automatic selection chooses GitHub when `GITHUB_ACTIONS=true`; explicit `provider:` overrides detection. GitHub owns Actions transport, refs, temporary storage, bot identity, masking, and OIDC. It supplies enclosing step IDs and prior observed results, keeping outcome and conclusion distinct. Absent steps are unknown, not skipped; run metadata excludes credentials and the event payload.
 
-Capture creates a unique private state file outside the checkout when provider storage is available. Atomic updates retain semantic analysis and the completed next development version; legacy schema 1 remains readable. Regular callback contexts read one validated snapshot, without caching across invocations. Without a file, tasks share process-local state. Corrupt state fails closed; failure callbacks omit unreadable metadata without hiding the original exception.
+Capture creates a unique private state file outside the checkout when provider storage is available. Atomic updates retain semantic analysis and the completed next development version; only schema 2 is supported. Regular and failure callback contexts read one validated snapshot, without caching across invocations. Without a file, tasks share process-local state. Corrupt state fails closed; failure callbacks omit unreadable metadata without hiding the original exception.
 
 Failure callbacks receive the failed phase, captured Ruby exception when available, and context whose release may be absent. Shell-only failures may lack exception details. See [execution contexts](docs/execution_context.md) and [tasks](docs/tasks.md).
 

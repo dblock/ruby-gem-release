@@ -11,9 +11,9 @@ RSpec.describe 'Documented release configurations' do
   let(:version) { RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION') }
   let(:objects) do
     {
-      git: instance_double(RubyGemRelease::SourceControl::Git, check_tag!: nil, commit!: nil, tag!: nil, push!: nil, commit_next!: nil),
+      git: instance_double(RubyGemRelease::SourceControl::Git, commit!: nil, tag!: nil, push!: nil, commit_next!: nil),
       package: instance_double(RubyGemRelease::Package::RubyGem, name: 'example', build!: nil, built?: false),
-      destination: instance_double(RubyGemRelease::Destination::RubyGems, authentication: nil, authenticate!: nil, check_version!: nil, publish!: nil),
+      destination: instance_double(RubyGemRelease::Destination::RubyGems, authentication: nil, authenticate!: nil, publish!: nil),
       hosting: instance_double(RubyGemRelease::Hosting::GitHubRelease, publish!: nil)
     }
   end

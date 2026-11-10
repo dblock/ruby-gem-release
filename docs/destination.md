@@ -4,8 +4,6 @@ The base for package registry destinations. A destination owns registry authenti
 
 ## Contract
 
-Implement `check_version!(name:, version:)` to reject versions that cannot be published, propagating registry lookup failures instead of treating them as absence.
-
 Implement read-only `published?(release, package:)`: return true only when the registry proves that the exact archive is present, false only for confirmed absence, and raise on mismatches or unverifiable responses. The base raises rather than assuming success.
 
 Implement `publish!(release, package:)` to verify existing publication first, skip an exact match, and upload only a confirmed missing artifact through `package.artifact(release)`. Never rebuild, overwrite, or blindly retry an ambiguous upload.
