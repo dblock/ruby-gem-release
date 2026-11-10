@@ -1,6 +1,6 @@
 # Releasing `ruby-gem-release` Itself
 
-This project uses the standard workflow with three small customizations: its existing changelog format, a version object that also updates README pins, and a caller-selected timezone. GitHub Actions, RubyGems Trusted Publishing, package construction, Git publication, and hosted releases retain their defaults.
+This project uses the standard workflow with three small customizations: its existing changelog format, a version object that also updates README and documentation pins, and a caller-selected timezone. GitHub Actions, RubyGems Trusted Publishing, package construction, Git publication, and hosted releases retain their defaults.
 
 The working implementation lives in the root [Rakefile](../../Rakefile), [`ReleaseVersion`](../../tasks/release_version.rb), and [publish workflow](../../.github/workflows/publish.yml). This walkthrough explains those files rather than maintaining a second release configuration.
 
@@ -23,13 +23,13 @@ The root Rakefile also installs development tasks; those are unrelated to releas
 
 ## 2. Extend Only the Version Update
 
-The project-local `ReleaseVersion` subclasses `Version::RubyConstant`, inheriting `read` and `set!`. Its constructor accepts an additional `readme_path:`. Its `increment!(from:)` implementation pins this repository's action and reusable workflow to the supplied release version, calls `super` to calculate the next version from that same input, writes the README, and returns the next version. Repetition leaves both files unchanged.
+The project-local `ReleaseVersion` subclasses `Version::RubyConstant`, inheriting `read` and `set!`. Its constructor accepts an additional `readme_path:`. Its `increment!(from:)` implementation pins this repository's action and reusable workflow in README and every `docs/**/*.md` file to the supplied release version, calls `super` to calculate the next version from that same input, writes changed files, and returns the next version. Repetition leaves the version and pins unchanged.
 
-For example, publishing `0.5.0` results in README references to `v0.5.0` and a development version of `0.5.1`. These are deliberately different values.
+For example, publishing `0.5.0` results in README and documentation references to `v0.5.0` and a development version of `0.5.1`. These are deliberately different values.
 
-The standard workflow wraps `increment!` and changelog preparation in the same trusted Git staging boundary. Both files therefore belong to the **next development iteration commit**, after the release commit and tag have already been published. The `v0.5.0` tag does not receive a later README edit. No custom publication callback or hard-coded staging list is necessary.
+The standard workflow wraps `increment!` and changelog preparation in the same trusted Git staging boundary. All changed files therefore belong to the **next development iteration commit**, after the release commit and tag have already been published. The `v0.5.0` tag does not receive later README or documentation edits. No custom publication callback or hard-coded staging list is necessary.
 
-Use the [actual subclass](../../tasks/release_version.rb) as the complete implementation. When adapting it to another project, change both the version-file path and the repository-specific README reference pattern.
+Use the [actual subclass](../../tasks/release_version.rb) as the complete implementation. When adapting it to another project, change the version-file path, documentation directory, and repository-specific reference pattern.
 
 ## 3. Configure the Caller
 

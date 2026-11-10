@@ -48,7 +48,7 @@ Only after explicit authorization, successful validation, and confirmed setup:
 gh workflow run publish.yml --ref master
 ```
 
-Every dispatch requests publication; nothing to release is a validation error. Required environment reviewers approve before the job starts. After publication, `ReleaseVersion` updates README pins to the released tag while incrementing the development version; these edits belong to the next-development commit, not the release tag.
+Every dispatch requests publication; nothing to release is a validation error. Required environment reviewers approve before the job starts. After publication, `ReleaseVersion` updates pins in README and every `docs/**/*.md` file to the released tag while incrementing the development version; these edits belong to the next-development commit, not the release tag.
 
 ### Releasing a Consumer Project
 

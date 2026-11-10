@@ -71,6 +71,6 @@ Real-process consumers retain success, failure/recovery, empty-release rejection
 
 ## Self-Release and Artwork
 
-The manual `publish.yml` caller uses the root Rakefile and Ruby 4.0; merges and schedules do not publish. Every dispatch requires release authorization. Its project-local `ReleaseVersion` updates README pins during the next development iteration, after the release tag exists. See the [self-release walkthrough](examples/self_release/README.md).
+The manual `publish.yml` caller uses the root Rakefile and Ruby 4.0; merges and schedules do not publish. Every dispatch requires release authorization. Its project-local `ReleaseVersion` updates README and documentation pins during the next development iteration, after the release tag exists. See the [self-release walkthrough](examples/self_release/README.md).
 
 `assets/logo.png` is the original AI-generated ruby rocket; no editable source was provided. Preserve its provenance and 160-pixel README placement. Replacements should be centered, text-free red faceted rubies with an upward launch motif and transparent background. Generation is not deterministic; inspect the full-size image and README rendering for clipping and legibility.
