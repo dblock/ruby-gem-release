@@ -16,7 +16,7 @@ module RubyGemRelease
       end
 
       def configure!
-        names = %w[INPUT_VERSION INPUT_GEMSPEC DEFAULT_BRANCH GIT_USER_NAME GIT_USER_EMAIL RUBYGEMS_OWNER]
+        names = %w[INPUT_VERSION INPUT_GEMSPEC_PATH DEFAULT_BRANCH GIT_USER_NAME GIT_USER_EMAIL RUBYGEMS_OWNER_ID]
         timezone = @provider.fetch('TZ', 'UTC')
         validate_timezone(timezone)
         @provider.export(names.to_h { |name| [name, @provider.fetch(name)] }.merge('TZ' => timezone))
@@ -27,19 +27,19 @@ module RubyGemRelease
         validate_timezone(@provider.fetch('TZ', 'UTC'))
         git = configured_git
         git.check_clean!
-        package ||= Package::RubyGem.new(gemspec: @provider.fetch('INPUT_GEMSPEC', @provider.fetch('GEMSPEC', '')) || '', directory: @provider.directory)
+        package ||= Package::RubyGem.new(gemspec: @provider.fetch('INPUT_GEMSPEC_PATH', @provider.fetch('GEMSPEC_PATH', '')) || '', directory: @provider.directory)
         release = initial_release(package)
         git.check_current!(release, allow_ancestor: true)
         @provider.export(captured_values(package, git, release))
       end
 
-      def resolve!(package: nil, destination: Destination::RubyGems.new, analysis: State.new(path: @provider.fetch('RELEASE_STATE', nil)).analysis)
-        package ||= Package::RubyGem.new(gemspec: @provider.fetch('GEMSPEC', @provider.fetch('INPUT_GEMSPEC', '')) || '', directory: @provider.directory)
+      def resolve!(package: nil, destination: Destination::RubyGems.new, analysis: State.new(path: @provider.fetch('RELEASE_STATE_FILE', nil)).analysis)
+        package ||= Package::RubyGem.new(gemspec: @provider.fetch('GEMSPEC_PATH', @provider.fetch('INPUT_GEMSPEC_PATH', '')) || '', directory: @provider.directory)
         authentication = authentication_for(destination)
         version = prepared_version(package, analysis)
         git = SourceControl::Git.new(directory: @provider.directory)
         git.stage_changes!
-        @provider.export('RELEASE_VERSION' => version, 'RELEASE_AUTHENTICATION' => authentication)
+        @provider.export('RELEASE_VERSION' => version, 'RELEASE_AUTH_MODE' => authentication)
       end
 
       private
@@ -54,9 +54,9 @@ module RubyGemRelease
       def captured_values(package, git, release)
         commit = git.head
         state = State.create!(directory: @provider.directory) if @provider.directory
-        { 'TZ' => @provider.fetch('TZ', 'UTC'), 'GEMSPEC' => package.respond_to?(:gemspec) ? package.gemspec.to_s : '', 'RELEASE_PREVIOUS_VERSION' => release.version,
-          'RELEASE_DIRECTORY' => @provider.directory.to_s,
-          'RELEASE_DATE' => release.date.iso8601, 'RELEASE_INITIAL_COMMIT' => commit, 'RELEASE_STATE' => state.to_s,
+        { 'TZ' => @provider.fetch('TZ', 'UTC'), 'GEMSPEC_PATH' => package.respond_to?(:gemspec) ? package.gemspec.to_s : '', 'GEMSPEC_VERSION' => release.version,
+          'RELEASE_DATA_DIR' => @provider.directory.to_s,
+          'RELEASE_DATE' => release.date.iso8601, 'SOURCE_COMMIT' => commit, 'RELEASE_STATE_FILE' => state.to_s,
           'SOURCE_DATE_EPOCH' => source_date_epoch(git, commit) }
       end
 
@@ -68,7 +68,7 @@ module RubyGemRelease
       def prepared_version(package, analysis)
         version = package.version
         validate_version(version)
-        analysis&.check!(head: @provider.fetch('RELEASE_INITIAL_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: version)
+        analysis&.check!(head: @provider.fetch('SOURCE_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: version)
         selected = analysis ? analysis.version : @provider.fetch('INPUT_VERSION', '')
         raise "Prepared version #{version} does not match selected version #{selected}" unless selected.empty? || version == selected
 
@@ -79,7 +79,7 @@ module RubyGemRelease
         version = package.version
         validate_version(version)
         validate_version(@provider.fetch('INPUT_VERSION')) unless @provider.fetch('INPUT_VERSION', '').empty?
-        Release.new(version: version, previous_version: version, date: release_date)
+        Release.new(version: version, gemspec_version: version, date: release_date)
       end
 
       def release_date

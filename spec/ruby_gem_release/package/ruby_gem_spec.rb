@@ -8,11 +8,11 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
   let(:directory) { Dir.mktmpdir }
   let(:artifacts) { File.join(directory, 'artifacts') }
   let(:package) { described_class.new(gemspec: 'fixture.gemspec', directory: artifacts) }
-  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today) }
+  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.3', date: Date.today) }
 
   around do |example|
     original = ENV.to_h
-    ENV.delete('GEMSPEC')
+    ENV.delete('GEMSPEC_PATH')
     ENV.delete('SOURCE_DATE_EPOCH')
     Dir.chdir(directory) { example.run }
   ensure

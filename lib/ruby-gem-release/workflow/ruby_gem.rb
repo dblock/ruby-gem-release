@@ -12,7 +12,7 @@ module RubyGemRelease
       attr_reader :version, :changelog, :package, :destination, :git, :hosting, :provider
 
       def initialize(version:, changelog:, provider: ExecutionProvider.current,
-                     package: Package::RubyGem.new(gemspec: provider.fetch('GEMSPEC', provider.fetch('INPUT_GEMSPEC', '')) || '', directory: provider.directory),
+                     package: Package::RubyGem.new(gemspec: provider.fetch('GEMSPEC_PATH', provider.fetch('INPUT_GEMSPEC_PATH', '')) || '', directory: provider.directory),
                      destination: Destination::RubyGems.new,
                      git: SourceControl::Git.new(directory: provider.directory), hosting: Hosting::GitHubRelease.new,
                      validate: nil, success: nil, failure: nil)

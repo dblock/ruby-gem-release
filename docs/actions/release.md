@@ -87,26 +87,29 @@ New releases require the current default-branch commit. Recovery can restore an 
 
 Commands run through `bash -euo pipefail`. Overrides replace the corresponding phase and must perform its required operations; callback registration alone does not cause an overridden command to invoke a task.
 
-| Variable                          | Availability     | Meaning                                                                 |
-| ---                               | ---              | ---                                                                     |
-| `INPUT_VERSION`                   | All phases       | Optional selected release version.                                      |
-| `RELEASE_FAILURE_PHASE`           | Failure callback | Failed workflow step when available.                                    |
-| `RELEASE_STEP_ID`                 | Commands         | Current enclosing Actions step ID.                                      |
-| `RELEASE_STEPS`                   | Commands         | JSON snapshot of previously observed Actions steps.                     |
-| `RELEASE_STATE`                   | After capture    | Private invocation-specific state file for callback data.               |
-| `RELEASE_DIRECTORY`               | After capture    | Provider directory; maps to `RUNNER_TEMP` on Actions.                   |
-| `RELEASE_AUTHENTICATION`          | After resolution | Destination authentication strategy, or empty for existing credentials. |
-| `INPUT_GEMSPEC`                   | All phases       | Optional gemspec input.                                                 |
-| `RUBYGEMS_OWNER`                  | All phases       | Optional numeric RubyGems account ID for owner-bound authentication.    |
-| `GEMSPEC`                         | After capture    | Selected absolute gemspec path.                                         |
-| `RELEASE_PREVIOUS_VERSION`        | After capture    | Initial gemspec version, retained across callbacks.                     |
-| `RELEASE_DATE`                    | After capture    | Date captured once in the configured timezone, as `YYYY-MM-DD`.         |
-| `TZ`                              | All phases       | Configured timezone; defaults to `UTC`.                                 |
-| `RELEASE_INITIAL_COMMIT`          | After capture    | Checkout commit used for concurrency checks.                            |
-| `RELEASE_VERSION`                 | After resolution | Prepared version to publish.                                            |
-| `DEFAULT_BRANCH`                  | All phases       | Repository default branch.                                              |
-| `GIT_USER_NAME`, `GIT_USER_EMAIL` | All phases       | Configured checkout-local commit identity.                              |
-| `GH_TOKEN`                        | Capture/publish  | GitHub Actions token for artifact discovery and hosted releases.        |
+| Variable                          | Availability     | Meaning                                                                              |
+| ---                               | ---              | ---                                                                                  |
+| `INPUT_VERSION`                   | All phases       | Optional selected release version.                                                   |
+| `INPUT_GEMSPEC_PATH`              | All phases       | Optional gemspec path supplied by the caller.                                        |
+| `GEMSPEC_PATH`                    | After capture    | Selected absolute gemspec path.                                                      |
+| `GEMSPEC_VERSION`                 | After capture    | Gemspec version captured before preparation, retained across callbacks.              |
+| `SOURCE_REF`                      | Provider-neutral | Source Git ref; GitHub uses `GITHUB_REF` instead.                                    |
+| `SOURCE_COMMIT`                   | After capture    | Source commit hash captured before release preparation.                              |
+| `RELEASE_VERSION`                 | After resolution | Prepared version to publish.                                                         |
+| `RELEASE_DATE`                    | After capture    | Date captured once in the configured timezone, as `YYYY-MM-DD`.                      |
+| `RELEASE_DATA_DIR`                | After capture    | Artifacts and private task data; maps to `RUNNER_TEMP` on Actions, not the checkout. |
+| `RELEASE_STATE_FILE`              | After capture    | Private invocation-specific JSON file for callback data.                             |
+| `RELEASE_COMMAND`                 | Commands         | Configured shell command for the current phase.                                      |
+| `RELEASE_STEP_ID`                 | Commands         | Current enclosing Actions step ID.                                                   |
+| `RELEASE_STEPS_JSON`              | Commands         | JSON snapshot of previously observed Actions steps.                                  |
+| `RELEASE_FAILED_STEP_ID`          | Failure callback | Failed step or task ID, or `unknown`.                                                |
+| `RELEASE_AUTH_MODE`               | After resolution | Destination authentication strategy, or empty for existing credentials.              |
+| `DEFAULT_BRANCH`                  | All phases       | Repository default branch.                                                           |
+| `GIT_USER_NAME`, `GIT_USER_EMAIL` | All phases       | Configured checkout-local commit identity.                                           |
+| `RUBYGEMS_OWNER_ID`               | All phases       | Optional numeric RubyGems account ID for owner-bound authentication.                 |
+| `TZ`                              | All phases       | Configured timezone; defaults to `UTC`.                                              |
+| `SOURCE_DATE_EPOCH`               | After capture    | Source commit timestamp for reproducible packages, unless explicitly supplied.       |
+| `GH_TOKEN`                        | Publish          | GitHub Actions token for hosted releases.                                            |
 
 GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_TEMP`. See [Execution Context](../execution_context.md) for step, run, and state semantics, [`Tasks`](../tasks.md) for callbacks, and [`Workflow::Environment`](../workflow/environment.md) for capture and resolution methods.
 

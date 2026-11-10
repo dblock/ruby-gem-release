@@ -21,9 +21,9 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     application = Rake.application
     environment = ENV.to_h
     Rake.application = Rake::Application.new
-    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
+    ENV.update('RELEASE_VERSION' => '2.0.0', 'GEMSPEC_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     ENV.delete('GITHUB_OUTPUT')
-    %w[RELEASE_STATE RELEASE_STEP_ID RELEASE_STEPS RELEASE_DIRECTORY GEMSPEC GITHUB_ACTIONS].each { |key| ENV.delete(key) }
+    %w[RELEASE_STATE_FILE RELEASE_STEP_ID RELEASE_STEPS_JSON RELEASE_DATA_DIR GEMSPEC_PATH GITHUB_ACTIONS].each { |key| ENV.delete(key) }
     example.run
   ensure
     Rake.application = application
@@ -131,8 +131,8 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     Rake::Task['release:success'].invoke
     Rake::Task['release:failure'].invoke
     expect(received.map(&:first)).to eq(%i[success failure])
-    expect(received.first.last).to have_attributes(workflow: install, release: have_attributes(version: '2.0.0', previous_version: '1.2.3'))
-    expect(received.last.last).to have_attributes(phase: 'unknown', error: nil, context: have_attributes(workflow: install, release: have_attributes(version: '2.0.0', previous_version: '1.2.3')))
+    expect(received.first.last).to have_attributes(workflow: install, release: have_attributes(version: '2.0.0', gemspec_version: '1.2.3'))
+    expect(received.last.last).to have_attributes(phase: 'unknown', error: nil, context: have_attributes(workflow: install, release: have_attributes(version: '2.0.0', gemspec_version: '1.2.3')))
   end
 
   it 'makes configured components and the completed next development version available to success' do
@@ -163,7 +163,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     allow(objects.fetch(:changelog)).to receive(:prepare_next!) { |release| received << release }
     install
     run_callbacks
-    expect(received.map { |release| [release.version, release.previous_version, release.next_version, release.date] })
+    expect(received.map { |release| [release.version, release.gemspec_version, release.next_version, release.date] })
       .to eq([['2.0.0', '1.2.3', nil, Date.new(2026, 11, 7)], ['2.0.0', '1.2.3', '2.0.1', Date.new(2026, 11, 7)]])
     expect(received).to all(be_frozen)
     expect(objects.fetch(:git)).to have_received(:commit!).with(an_instance_of(RubyGemRelease::Release))
@@ -178,7 +178,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     install
     Rake::Task['release:prepare'].invoke
     expect(events).to eq([:set, %i[changelog release!]])
-    expect(objects.fetch(:changelog)).to have_received(:release!).with(have_attributes(version: '3.0.0', previous_version: '1.2.3'))
+    expect(objects.fetch(:changelog)).to have_received(:release!).with(have_attributes(version: '3.0.0', gemspec_version: '1.2.3'))
   end
 
   it 'sets a selected version even when changelog updates are disabled', :aggregate_failures do
@@ -191,7 +191,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
   end
 
   it 'passes its execution provider to tasks and uses its selected version during preparation' do
-    provider = RubyGemRelease::ExecutionProvider.new(environment: ENV.to_h.merge('INPUT_VERSION' => '3.0.0', 'INPUT_GEMSPEC' => 'selected.gemspec'))
+    provider = RubyGemRelease::ExecutionProvider.new(environment: ENV.to_h.merge('INPUT_VERSION' => '3.0.0', 'INPUT_GEMSPEC_PATH' => 'selected.gemspec'))
     allow(version).to receive(:set!).with('3.0.0')
     instance = described_class.new(version: version, changelog: nil, provider: provider)
     instance.install_tasks

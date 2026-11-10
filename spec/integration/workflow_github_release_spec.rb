@@ -30,11 +30,11 @@ RSpec.describe 'Workflow release lifecycle' do
       'DEFAULT_BRANCH' => 'master',
       'GITHUB_REF' => 'refs/heads/master',
       'INPUT_VERSION' => '',
-      'INPUT_GEMSPEC' => '',
+      'INPUT_GEMSPEC_PATH' => '',
       'SOURCE_DATE_EPOCH' => '',
       'GIT_USER_NAME' => 'Fixture',
       'GIT_USER_EMAIL' => 'fixture@example.com',
-      'RUBYGEMS_OWNER' => '',
+      'RUBYGEMS_OWNER_ID' => '',
       'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://oidc.example.test/token',
       'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'fixture-request-token',
       'TZ' => inputs.fetch('timezone').fetch('default'),
@@ -59,7 +59,7 @@ RSpec.describe 'Workflow release lifecycle' do
   def result_callback(name)
     if name == 'success'
       "->(ctx) { #{context_record('ctx')}; File.write(File.join(ENV.fetch('RUNNER_TEMP'), 'success.json'), " \
-        'JSON.generate([ctx.release.version, ctx.release.previous_version, ctx.release.next_version])) }'
+        'JSON.generate([ctx.release.version, ctx.release.gemspec_version, ctx.release.next_version])) }'
     else
       "->(failure) { #{context_record('failure.context')}; File.write(File.join(ENV.fetch('RUNNER_TEMP'), 'failure.json'), " \
         'JSON.generate([failure.context.release&.version, failure.phase, failure.error&.message])) }'
@@ -77,13 +77,13 @@ RSpec.describe 'Workflow release lifecycle' do
   around do |example|
     original = ENV.to_h
     ENV.update(
-      'GEMSPEC' => File.expand_path('ruby-gem-release.gemspec'),
+      'GEMSPEC_PATH' => File.expand_path('ruby-gem-release.gemspec'),
       'RELEASE_VERSION' => '9.9.9',
-      'RELEASE_PREVIOUS_VERSION' => '9.9.8',
+      'GEMSPEC_VERSION' => '9.9.8',
       'RELEASE_DATE' => '2020-01-01',
-      'RELEASE_DIRECTORY' => File.join(directory, 'outer-release'),
-      'RELEASE_STATE' => File.join(directory, 'outer-state.json'),
-      'RELEASE_AUTHENTICATION' => 'rubygems'
+      'RELEASE_DATA_DIR' => File.join(directory, 'outer-release'),
+      'RELEASE_STATE_FILE' => File.join(directory, 'outer-state.json'),
+      'RELEASE_AUTH_MODE' => 'rubygems'
     )
     example.run
   ensure
@@ -201,7 +201,7 @@ RSpec.describe 'Workflow release lifecycle' do
     step = steps.find { |item| item['name'] == name }
     return step.fetch('run') if name == 'Validate Release'
 
-    command_input = step.dig('env', 'COMMAND')
+    command_input = step.dig('env', 'RELEASE_COMMAND')
     command_input ? inputs.fetch(command_input[/inputs\.(\w+)/, 1]).fetch('default') : step.fetch('run')
   end
 
@@ -262,9 +262,9 @@ RSpec.describe 'Workflow release lifecycle' do
   def phase_environment(name)
     step = steps.find { |item| item['name'] == name }
     values = environment.dup
-    values['COMMAND'] = validation_command if name == 'Validate Release'
+    values['RELEASE_COMMAND'] = validation_command if name == 'Validate Release'
     values['RELEASE_STEP_ID'] = step.dig('env', 'RELEASE_STEP_ID') if step.dig('env', 'RELEASE_STEP_ID')
-    values['RELEASE_STEPS'] = JSON.generate(executed_steps) if step.dig('env', 'RELEASE_STEPS')
+    values['RELEASE_STEPS_JSON'] = JSON.generate(executed_steps) if step.dig('env', 'RELEASE_STEPS_JSON')
     values
   end
 
@@ -280,7 +280,7 @@ RSpec.describe 'Workflow release lifecycle' do
     it 'publishes, transports credentials, and bumps using real separate processes', :aggregate_failures do
       environment['HOME'] = File.join(directory, 'home')
       FileUtils.mkdir_p(environment.fetch('HOME'))
-      environment['RUBYGEMS_OWNER'] = owner.to_s
+      environment['RUBYGEMS_OWNER_ID'] = owner.to_s
       source_epoch = run_git('-C', checkout, 'show', '-s', '--format=%ct', 'HEAD')
       configure_inputs
       run_phase('Capture Release Context')
@@ -391,7 +391,7 @@ RSpec.describe 'Workflow release lifecycle' do
       run_phase('Validate Release')
       run_phase('Prepare Release')
       run_phase('Resolve Prepared Version')
-      expect(environment.fetch('RELEASE_AUTHENTICATION')).to eq('')
+      expect(environment.fetch('RELEASE_AUTH_MODE')).to eq('')
       run_phase('Checkpoint Release')
       run_phase('Publish Release')
       expect(environment.fetch('FIXTURE_REGISTRY_TOKEN')).to eq('fixture-registry-token')
@@ -425,7 +425,7 @@ RSpec.describe 'Workflow release lifecycle' do
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
       expect(run_git('--git-dir', remote, 'tag')).to eq('')
       expect(File.readlines(File.join(directory, 'publication.jsonl')).length).to eq(1)
-      environment['RELEASE_STEPS'] = JSON.generate('publish_release' => { 'outcome' => 'failure' })
+      environment['RELEASE_STEPS_JSON'] = JSON.generate('publish_release' => { 'outcome' => 'failure' })
       run_phase('Determine Release Failure Phase')
       run_phase('Run Release Failure Callback')
       failure = JSON.parse(File.read(File.join(directory, 'failure.json')))
@@ -455,7 +455,7 @@ RSpec.describe 'Workflow release lifecycle' do
       head = run_git('--git-dir', remote, 'rev-parse', 'master')
       run_phase('Prepare Next Development Iteration')
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(head)
-      original = environment.fetch('RELEASE_INITIAL_COMMIT')
+      original = environment.fetch('SOURCE_COMMIT')
       run_git('-C', checkout, 'switch', '--detach', original)
       run_phase('Configure Release Inputs') if steps.any? { |step| step['name'] == 'Configure Release Inputs' }
       ['Capture Release Context', 'Validate Release', 'Prepare Release', 'Resolve Prepared Version', 'Checkpoint Release', 'Publish Release', 'Prepare Next Development Iteration'].each { |phase| run_phase(phase) }

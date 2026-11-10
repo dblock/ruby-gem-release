@@ -8,7 +8,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
   let(:directory) { Dir.mktmpdir }
   let(:remote) { File.join(directory, 'remote.git') }
   let(:git) { described_class.new(branch: 'master', directory: directory) }
-  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today) }
+  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.3', date: Date.today) }
   let(:initial) { git.head }
 
   def checkout
@@ -17,7 +17,7 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
 
   around do |example|
     original = ENV.to_h
-    ENV.delete('RELEASE_INITIAL_COMMIT')
+    ENV.delete('SOURCE_COMMIT')
     command('init', '--bare', '--quiet', '-b', 'master', remote)
     command('init', '--quiet', '-b', 'master', checkout)
     Dir.chdir(checkout) { example.run }

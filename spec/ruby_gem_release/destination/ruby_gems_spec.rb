@@ -9,7 +9,7 @@ RSpec.describe RubyGemRelease::Destination::RubyGems do
   let(:directory) { Dir.mktmpdir }
   let(:artifacts) { File.join(directory, 'artifacts') }
   let(:package) { RubyGemRelease::Package::RubyGem.new(gemspec: 'fixture.gemspec', directory: artifacts) }
-  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.today) }
+  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.3', date: Date.today) }
   let(:response) { instance_double(Net::HTTPResponse, code: '404', body: '{}') }
 
   around do |example|

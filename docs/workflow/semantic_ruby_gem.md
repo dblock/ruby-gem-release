@@ -29,7 +29,7 @@ RubyGemRelease::Workflow::SemanticRubyGem.new(
 ).install_tasks
 ```
 
-Later versions increment the last release, resetting lower components. Development versions do not affect selection. `release.previous_version` remains the initial gemspec version; `ctx.analysis.last_release` is the release baseline.
+Later versions increment the last release, resetting lower components. Development versions do not affect selection. `release.gemspec_version` remains the initial gemspec version; `ctx.analysis.last_release` is the release baseline.
 
 Explicit `version` can force a release without releasable commits. It must exceed the last release, not necessarily the development or suggested version. The version object needs `set!`; all later phases must match the persisted selection.
 
@@ -74,7 +74,7 @@ Validation records one immutable `SemanticRelease::Decision` through `ctx.record
 
 Later contexts expose persisted analysis without rerunning providers or mutating earlier snapshots. Private JSON supports schema 2 and legacy schema 1 next-version data; recording a bump preserves analysis. Corrupt state fails closed. Failure reporting warns and omits unreadable state without hiding the original error.
 
-Preserve `RELEASE_STATE` and captured inputs across processes. Changed `RELEASE_INITIAL_COMMIT`, explicit input, or prepared version fails before publication. In-process tasks can share memory; separate processes need private storage and export transport.
+Preserve `RELEASE_STATE_FILE` and captured inputs across processes. Changed `SOURCE_COMMIT`, explicit input, or prepared version fails before publication. In-process tasks can share memory; separate processes need private storage and export transport.
 
 ## Replacing Providers
 

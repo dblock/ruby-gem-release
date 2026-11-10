@@ -28,9 +28,9 @@ jobs:
     - name: Test with Release Context
       run: bundle exec rake spec:unit
       env:
-        GEMSPEC: ${{ github.workspace }}/ruby-gem-release.gemspec
-        RELEASE_DIRECTORY: ${{ runner.temp }}
-        RELEASE_AUTHENTICATION: rubygems
+        GEMSPEC_PATH: ${{ github.workspace }}/ruby-gem-release.gemspec
+        RELEASE_DATA_DIR: ${{ runner.temp }}
+        RELEASE_AUTH_MODE: rubygems
     - name: Send Coverage to Coveralls
       if: matrix.entry.ruby == '4.0'
       uses: coverallsapp/github-action@v2

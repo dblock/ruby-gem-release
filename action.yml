@@ -67,11 +67,11 @@ runs:
       env:
         RELEASE_STEP_ID: configure_release_inputs
         INPUT_VERSION: ${{ inputs.version }}
-        INPUT_GEMSPEC: ${{ inputs.gemspec }}
+        INPUT_GEMSPEC_PATH: ${{ inputs.gemspec }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         GIT_USER_NAME: ${{ inputs.git-user-name }}
         GIT_USER_EMAIL: ${{ inputs.git-user-email }}
-        RUBYGEMS_OWNER: ${{ inputs.rubygems-owner }}
+        RUBYGEMS_OWNER_ID: ${{ inputs.rubygems-owner }}
         TZ: ${{ inputs.timezone }}
       run: bundle exec rake release:workflow:configure
     - name: Capture Release Context
@@ -84,18 +84,18 @@ runs:
       id: validate_release
       shell: bash
       env:
-        COMMAND: ${{ inputs.validate }}
+        RELEASE_COMMAND: ${{ inputs.validate }}
         RELEASE_STEP_ID: validate_release
-        RELEASE_STEPS: ${{ toJSON(steps) }}
-      run: bash -euo pipefail -c "$COMMAND"
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+      run: bash -euo pipefail -c "$RELEASE_COMMAND"
     - name: Prepare Release
       id: prepare_release
       shell: bash
       env:
-        COMMAND: ${{ inputs.prepare }}
+        RELEASE_COMMAND: ${{ inputs.prepare }}
         RELEASE_STEP_ID: prepare_release
-        RELEASE_STEPS: ${{ toJSON(steps) }}
-      run: bash -euo pipefail -c "$COMMAND"
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+      run: bash -euo pipefail -c "$RELEASE_COMMAND"
     - name: Resolve Prepared Version
       id: resolve_prepared_version
       shell: bash
@@ -106,10 +106,10 @@ runs:
       id: test_release
       shell: bash
       env:
-        COMMAND: ${{ inputs.test }}
+        RELEASE_COMMAND: ${{ inputs.test }}
         RELEASE_STEP_ID: test_release
-        RELEASE_STEPS: ${{ toJSON(steps) }}
-      run: bash -euo pipefail -c "$COMMAND"
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+      run: bash -euo pipefail -c "$RELEASE_COMMAND"
     - name: Checkpoint Release
       id: checkpoint_release
       shell: bash
@@ -132,40 +132,40 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
-        COMMAND: ${{ inputs.publish }}
+        RELEASE_COMMAND: ${{ inputs.publish }}
         RELEASE_STEP_ID: publish_release
-        RELEASE_STEPS: ${{ toJSON(steps) }}
-      run: bash -euo pipefail -c "$COMMAND"
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+      run: bash -euo pipefail -c "$RELEASE_COMMAND"
     - name: Prepare Next Development Iteration
       id: prepare_next_development_iteration
       shell: bash
       env:
-        COMMAND: ${{ inputs.bump }}
+        RELEASE_COMMAND: ${{ inputs.bump }}
         RELEASE_STEP_ID: prepare_next_development_iteration
-        RELEASE_STEPS: ${{ toJSON(steps) }}
-      run: bash -euo pipefail -c "$COMMAND"
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+      run: bash -euo pipefail -c "$RELEASE_COMMAND"
     - name: Run Release Success Callback
       id: release_success_callback
       if: ${{ success() }}
       shell: bash
       env:
-        COMMAND: ${{ inputs.success }}
+        RELEASE_COMMAND: ${{ inputs.success }}
         RELEASE_STEP_ID: release_success_callback
-        RELEASE_STEPS: ${{ toJSON(steps) }}
-      run: bash -euo pipefail -c "$COMMAND"
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+      run: bash -euo pipefail -c "$RELEASE_COMMAND"
     - name: Determine Release Failure Phase
       id: determine_release_failure_phase
       if: ${{ failure() && steps.setup_ruby.outcome == 'success' }}
       shell: bash
       env:
-        RELEASE_STEPS: ${{ toJSON(steps) }}
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
       run: bundle exec rake release:workflow:failure_phase
     - name: Run Release Failure Callback
       id: release_failure_callback
       if: ${{ failure() && steps.setup_ruby.outcome == 'success' }}
       shell: bash
       env:
-        COMMAND: ${{ inputs.failure }}
+        RELEASE_COMMAND: ${{ inputs.failure }}
         RELEASE_STEP_ID: release_failure_callback
-        RELEASE_STEPS: ${{ toJSON(steps) }}
-      run: bash -euo pipefail -c "$COMMAND"
+        RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+      run: bash -euo pipefail -c "$RELEASE_COMMAND"

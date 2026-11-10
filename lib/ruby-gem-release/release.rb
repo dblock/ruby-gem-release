@@ -4,14 +4,14 @@ require 'date'
 
 module RubyGemRelease
   class Release
-    attr_reader :version, :previous_version, :next_version, :date, :notes
+    attr_reader :version, :gemspec_version, :next_version, :date, :notes
 
-    def initialize(date:, version:, previous_version:, next_version: nil, notes: nil)
-      validate_versions(version, previous_version, next_version)
+    def initialize(date:, version:, gemspec_version:, next_version: nil, notes: nil)
+      validate_versions(version, gemspec_version, next_version)
       validate_metadata(date, notes)
 
       @version = version.dup.freeze
-      @previous_version = previous_version.dup.freeze
+      @gemspec_version = gemspec_version.dup.freeze
       @next_version = next_version&.dup&.freeze
       @date = date.dup.freeze
       @notes = notes&.dup&.freeze
@@ -19,11 +19,11 @@ module RubyGemRelease
     end
 
     def with_version(version)
-      self.class.new(version: version, previous_version: @previous_version, date: @date, next_version: @next_version, notes: @notes)
+      self.class.new(version: version, gemspec_version: @gemspec_version, date: @date, next_version: @next_version, notes: @notes)
     end
 
     def with_next_version(version)
-      self.class.new(version: @version, previous_version: @previous_version, date: @date, next_version: version, notes: @notes)
+      self.class.new(version: @version, gemspec_version: @gemspec_version, date: @date, next_version: version, notes: @notes)
     end
 
     private
@@ -33,8 +33,8 @@ module RubyGemRelease
       raise ArgumentError, 'release notes must be a string or nil' unless notes.nil? || notes.is_a?(String)
     end
 
-    def validate_versions(version, previous_version, next_version)
-      raise ArgumentError, 'release versions must be strings' unless [version, previous_version].all?(String) && (next_version.nil? || next_version.is_a?(String))
+    def validate_versions(version, gemspec_version, next_version)
+      raise ArgumentError, 'release versions must be strings' unless [version, gemspec_version].all?(String) && (next_version.nil? || next_version.is_a?(String))
     end
   end
 end

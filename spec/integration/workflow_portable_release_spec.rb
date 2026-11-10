@@ -17,10 +17,10 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       'GEM_HOME' => ENV.fetch('RELEASE_CONSUMER_GEM_HOME', Gem.dir),
       'GEM_PATH' => ENV.fetch('RELEASE_CONSUMER_GEM_PATH', Gem.path.join(File::PATH_SEPARATOR)),
       'GIT_CONFIG_NOSYSTEM' => '1', 'GIT_CONFIG_GLOBAL' => File::NULL,
-      'RELEASE_DIRECTORY' => File.join(directory, 'artifacts'),
+      'RELEASE_DATA_DIR' => File.join(directory, 'artifacts'),
       'CONSUMER_ENVIRONMENT' => File.join(directory, 'environment.json'),
-      'RELEASE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master',
-      'INPUT_VERSION' => '0.2.0', 'INPUT_GEMSPEC' => 'example.gemspec',
+      'SOURCE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master',
+      'INPUT_VERSION' => '0.2.0', 'INPUT_GEMSPEC_PATH' => 'example.gemspec',
       'RELEASE_TEST_REMOTE' => remote, 'TZ' => 'UTC'
     )
   end
@@ -31,7 +31,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
 
   before do
     FileUtils.mkdir_p(File.join(checkout, 'lib/example'))
-    FileUtils.mkdir_p(environment.fetch('RELEASE_DIRECTORY'))
+    FileUtils.mkdir_p(environment.fetch('RELEASE_DATA_DIR'))
     File.write(File.join(checkout, 'lib/example/version.rb'), "module Example\n  VERSION = '0.1.0'\nend\n")
     File.write(File.join(checkout, 'example.gemspec'), <<~RUBY)
       require_relative 'lib/example/version'
@@ -81,19 +81,19 @@ RSpec.describe 'Provider-neutral release lifecycle' do
   def fresh_runner
     runner[:checkout] = 'fresh-checkout'
     run_git('clone', '--quiet', remote, checkout)
-    environment['RELEASE_DIRECTORY'] = File.join(directory, 'fresh-artifacts')
+    environment['RELEASE_DATA_DIR'] = File.join(directory, 'fresh-artifacts')
     reset_invocation
   end
 
   def reset_invocation
-    FileUtils.mkdir_p(environment.fetch('RELEASE_DIRECTORY'))
-    %w[RELEASE_STATE RELEASE_VERSION RELEASE_PREVIOUS_VERSION RELEASE_DATE RELEASE_INITIAL_COMMIT
-       CONSUMER_FAIL_PUBLICATION CONSUMER_FORBID_ANALYSIS GEMSPEC].each { |key| environment.delete(key) }
+    FileUtils.mkdir_p(environment.fetch('RELEASE_DATA_DIR'))
+    %w[RELEASE_STATE_FILE RELEASE_VERSION GEMSPEC_VERSION RELEASE_DATE SOURCE_COMMIT
+       CONSUMER_FAIL_PUBLICATION CONSUMER_FORBID_ANALYSIS GEMSPEC_PATH].each { |key| environment.delete(key) }
     File.delete(environment.fetch('CONSUMER_ENVIRONMENT')) if File.file?(environment.fetch('CONSUMER_ENVIRONMENT'))
   end
 
   def artifact(name)
-    File.join(environment.fetch('RELEASE_DIRECTORY'), name)
+    File.join(environment.fetch('RELEASE_DATA_DIR'), name)
   end
 
   def events
@@ -102,8 +102,8 @@ RSpec.describe 'Provider-neutral release lifecycle' do
 
   it 'publishes and bumps across independent processes without an Actions environment' do
     prepare_release
-    expect(environment.fetch('RELEASE_AUTHENTICATION')).to eq('')
-    expect(File.stat(environment.fetch('RELEASE_STATE')).mode & 0o777).to eq(0o600)
+    expect(environment.fetch('RELEASE_AUTH_MODE')).to eq('')
+    expect(File.stat(environment.fetch('RELEASE_STATE_FILE')).mode & 0o777).to eq(0o600)
     run_task('release:publish')
     release_commit = run_git('--git-dir', remote, 'rev-parse', 'v0.2.0')
     expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(release_commit)
@@ -124,7 +124,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
     expect(Gem::Package.new(artifact('release.gem')).spec.version.to_s).to eq('0.2.0')
     expect(File).to exist(artifact('release.bundle'))
     success = events.find { |event| event['event'] == 'success' }
-    expect(success).to include('version' => '0.2.0', 'previous_version' => '0.1.0', 'next_version' => '0.2.1',
+    expect(success).to include('version' => '0.2.0', 'gemspec_version' => '0.1.0', 'next_version' => '0.2.1',
                                'context_class' => 'RubyGemRelease::ExecutionContext', 'step' => 'release:success',
                                'provider' => 'PortableConsumer::Provider', 'run' => nil, 'steps' => {})
     invocations = events.select { |event| event['event'] == 'invocation' }
@@ -192,7 +192,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       decision = analysis.first.fetch('decision')
       expect(decision).to include('version' => '0.5.0', 'release_type' => 'minor', 'last_release' => include('version' => '0.4.0'))
       success = events.find { |event| event['event'] == 'success' }
-      expect(success).to include('version' => '0.5.0', 'previous_version' => '9.9.9', 'next_version' => nil, 'analysis' => decision)
+      expect(success).to include('version' => '0.5.0', 'gemspec_version' => '9.9.9', 'next_version' => nil, 'analysis' => decision)
       hosted = events.find { |event| event['event'] == 'hosting' }
       expect(hosted).to include('notes' => decision.fetch('notes'), 'tags' => %w[v0.4.0 v0.5.0])
       expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include(decision.fetch('notes'))
@@ -204,7 +204,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       initial = run_git('--git-dir', remote, 'rev-parse', 'master')
       run_task('release:workflow:capture')
       expect { run_task('release:validate') }.to raise_error(/Nothing to release/)
-      decision = RubyGemRelease::Workflow::State.new(path: environment.fetch('RELEASE_STATE')).analysis
+      decision = RubyGemRelease::Workflow::State.new(path: environment.fetch('RELEASE_STATE_FILE')).analysis
       expect(decision).not_to be_release
       expect(decision.last_release.fetch('version')).to eq('0.4.0')
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
@@ -226,7 +226,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       run_task('release:failure')
       failure = events.find { |event| event['event'] == 'failure' }
       expect(failure).to include('phase' => 'release:publish', 'error' => 'Registry rejected release',
-                                 'version' => '0.5.0', 'previous_version' => '9.9.9',
+                                 'version' => '0.5.0', 'gemspec_version' => '9.9.9',
                                  'analysis' => events.find { |event| event['event'] == 'analysis' }.fetch('decision'))
       expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(initial)
       expect(run_git('--git-dir', remote, 'tag')).to eq('v0.4.0')

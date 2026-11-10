@@ -17,28 +17,28 @@ RSpec.describe RubyGemRelease::Workflow::Failure do
   end
 
   it 'prefers the failed step with a captured exception when multiple steps fail' do
-    ENV['RELEASE_STEPS'] = JSON.generate(
+    ENV['RELEASE_STEPS_JSON'] = JSON.generate(
       'preserve_release_artifacts' => { 'outcome' => 'failure' },
       'publish_release' => { 'outcome' => 'failure' }
     )
     described_class.capture!('publish_release', RuntimeError.new('publication failed'))
     described_class.phase!
-    expect(File.read(ENV.fetch('GITHUB_ENV'))).to include("RELEASE_FAILURE_PHASE=publish_release\n")
+    expect(File.read(ENV.fetch('GITHUB_ENV'))).to include("RELEASE_FAILED_STEP_ID=publish_release\n")
   end
 
   it 'uses an unmapped failed step ID without captured exception details' do
-    ENV['RELEASE_STEPS'] = JSON.generate(
+    ENV['RELEASE_STEPS_JSON'] = JSON.generate(
       'prepare_release' => { 'outcome' => 'success' },
       'custom_validation' => { 'outcome' => 'failure' }
     )
     described_class.phase!
-    expect(File.read(ENV.fetch('GITHUB_ENV'))).to include("RELEASE_FAILURE_PHASE=custom_validation\n")
+    expect(File.read(ENV.fetch('GITHUB_ENV'))).to include("RELEASE_FAILED_STEP_ID=custom_validation\n")
   end
 
   it 'uses unknown when no step failed' do
-    ENV['RELEASE_STEPS'] = JSON.generate('publish_release' => { 'outcome' => 'success' })
+    ENV['RELEASE_STEPS_JSON'] = JSON.generate('publish_release' => { 'outcome' => 'success' })
     described_class.phase!
-    expect(File.read(ENV.fetch('GITHUB_ENV'))).to include("RELEASE_FAILURE_PHASE=unknown\n")
+    expect(File.read(ENV.fetch('GITHUB_ENV'))).to include("RELEASE_FAILED_STEP_ID=unknown\n")
   end
 
   it 'reconstructs a captured Ruby exception only for its failed phase' do

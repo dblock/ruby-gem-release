@@ -15,8 +15,8 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
   around do |example|
     original = ENV.to_h
     ENV.update('GITHUB_ACTIONS' => 'true', 'GITHUB_ENV' => environment_file, 'INPUT_VERSION' => '', 'GITHUB_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RUNNER_TEMP' => directory)
-    ENV.delete('GEMSPEC')
-    ENV.delete('INPUT_GEMSPEC')
+    ENV.delete('GEMSPEC_PATH')
+    ENV.delete('INPUT_GEMSPEC_PATH')
     ENV.delete('TZ')
     ENV.delete('SOURCE_DATE_EPOCH')
     Dir.chdir(directory) { example.run }
@@ -40,15 +40,15 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     described_class.new.capture!
     File.write('version.rb', "VERSION = '2.0.0'\n")
     described_class.new.resolve!
-    expect(File.read(environment_file)).to include("RELEASE_PREVIOUS_VERSION=1.2.3\n", "RELEASE_VERSION=2.0.0\n", "RELEASE_INITIAL_COMMIT=initial-commit\n")
+    expect(File.read(environment_file)).to include("GEMSPEC_VERSION=1.2.3\n", "RELEASE_VERSION=2.0.0\n", "SOURCE_COMMIT=initial-commit\n")
   end
 
   it 'exports independent private state files for successive captures' do
     described_class.new.capture!
-    first = File.readlines(environment_file, chomp: true).grep(/\ARELEASE_STATE=/).last.delete_prefix('RELEASE_STATE=')
+    first = File.readlines(environment_file, chomp: true).grep(/\ARELEASE_STATE_FILE=/).last.delete_prefix('RELEASE_STATE_FILE=')
     RubyGemRelease::Workflow::State.new(path: first).record_next_version!('1.2.4')
     described_class.new.capture!
-    second = File.readlines(environment_file, chomp: true).grep(/\ARELEASE_STATE=/).last.delete_prefix('RELEASE_STATE=')
+    second = File.readlines(environment_file, chomp: true).grep(/\ARELEASE_STATE_FILE=/).last.delete_prefix('RELEASE_STATE_FILE=')
     expect(first).not_to eq(second)
     expect(RubyGemRelease::Workflow::State.new(path: second).next_version).to be_nil
   end
@@ -108,7 +108,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
   end
 
   it 'enforces the persisted semantic selection even when no explicit version was supplied' do
-    ENV['RELEASE_INITIAL_COMMIT'] = 'a' * 40
+    ENV['SOURCE_COMMIT'] = 'a' * 40
     decision = RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [],
                                                              release_type: 'minor', version: '2.0.0', notes: 'Generated.')
     expect { described_class.new.resolve!(analysis: decision) }.to raise_error(ArgumentError, /differs/)
@@ -119,7 +119,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
   end
 
   it 'rejects a missing specification before recording a release', :aggregate_failures do
-    ENV['GEMSPEC'] = 'missing.gemspec'
+    ENV['GEMSPEC_PATH'] = 'missing.gemspec'
     expect { described_class.new.resolve! }.to raise_error(ArgumentError, /existing file/)
     expect(File.read(environment_file)).to eq('')
   end
@@ -152,7 +152,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     described_class.new.resolve!(destination: destination)
     expect(destination).not_to have_received(:check_version!)
     expect(Net::HTTP).not_to have_received(:start)
-    expect(File.read(environment_file)).to include("RELEASE_VERSION=1.2.3\n", "RELEASE_AUTHENTICATION=\n")
+    expect(File.read(environment_file)).to include("RELEASE_VERSION=1.2.3\n", "RELEASE_AUTH_MODE=\n")
   end
 
   it 'rejects unsupported automatic authentication before version checks or staging' do
@@ -164,35 +164,35 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
   end
 
   context 'with a provider-neutral environment' do
-    let(:values) { { 'RELEASE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RELEASE_DIRECTORY' => directory } }
+    let(:values) { { 'SOURCE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master', 'RELEASE_DATA_DIR' => directory } }
     let(:provider) { RubyGemRelease::ExecutionProvider.new(environment: values) }
 
     it 'captures the explicitly configured package instead of rediscovering root specifications' do
       File.write('other.gemspec', "raise 'unselected gemspec must not load'\n")
       package = RubyGemRelease::Package::RubyGem.new(gemspec: 'fixture.gemspec', directory: directory)
       described_class.new(provider: provider).capture!(package: package)
-      expect(values).to include('GEMSPEC' => package.gemspec, 'RELEASE_PREVIOUS_VERSION' => '1.2.3')
+      expect(values).to include('GEMSPEC_PATH' => package.gemspec, 'GEMSPEC_VERSION' => '1.2.3')
       expect(git).to have_received(:check_clean!)
       expect(git).to have_received(:check_current!).with(have_attributes(version: '1.2.3'), allow_ancestor: true)
     end
 
     it 'captures custom package metadata without requiring a gemspec accessor' do
       package = Struct.new(:version).new('2.3.4')
-      values['GEMSPEC'] = 'stale.gemspec'
+      values['GEMSPEC_PATH'] = 'stale.gemspec'
       described_class.new(provider: provider).capture!(package: package)
-      expect(values).to include('GEMSPEC' => '', 'RELEASE_PREVIOUS_VERSION' => '2.3.4')
+      expect(values).to include('GEMSPEC_PATH' => '', 'GEMSPEC_VERSION' => '2.3.4')
     end
 
     it 'captures and resolves without using Actions files or RubyGems' do
       File.write('other.gemspec', "raise 'unselected gemspec must not load'\n")
-      values['INPUT_GEMSPEC'] = 'fixture.gemspec'
+      values['INPUT_GEMSPEC_PATH'] = 'fixture.gemspec'
       destination = instance_double(RubyGemRelease::Destination, check_version!: nil, authentication: nil)
       instance = described_class.new(provider: provider)
       instance.capture!
       File.write('version.rb', "VERSION = '2.0.0'\n")
       instance.resolve!(destination: destination)
-      expect(values).to include('RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_VERSION' => '2.0.0', 'RELEASE_DIRECTORY' => directory)
-      expect(File).to exist(values.fetch('RELEASE_STATE'))
+      expect(values).to include('GEMSPEC_VERSION' => '1.2.3', 'RELEASE_VERSION' => '2.0.0', 'RELEASE_DATA_DIR' => directory)
+      expect(File).to exist(values.fetch('RELEASE_STATE_FILE'))
       expect(git).to have_received(:configure!).with(name: 'ruby-gem-release', email: 'ruby-gem-release@localhost')
       expect(destination).not_to have_received(:check_version!)
       expect(Net::HTTP).not_to have_received(:start)
@@ -200,7 +200,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
     end
 
     it 'checks the provider ref rather than an unrelated GitHub ref' do
-      values['RELEASE_REF'] = 'refs/heads/topic'
+      values['SOURCE_REF'] = 'refs/heads/topic'
       expect { described_class.new(provider: provider).capture! }.to raise_error(/default branch/)
       expect(git).not_to have_received(:configure!)
     end
@@ -208,13 +208,13 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
 
   context 'when configuring composite action inputs' do
     before do
-      ENV.update('INPUT_GEMSPEC' => 'fixture.gemspec', 'DEFAULT_BRANCH' => 'master',
-                 'GIT_USER_NAME' => 'Fixture', 'GIT_USER_EMAIL' => 'fixture@example.com', 'RUBYGEMS_OWNER' => '123')
+      ENV.update('INPUT_GEMSPEC_PATH' => 'fixture.gemspec', 'DEFAULT_BRANCH' => 'master',
+                 'GIT_USER_NAME' => 'Fixture', 'GIT_USER_EMAIL' => 'fixture@example.com', 'RUBYGEMS_OWNER_ID' => '123')
     end
 
     it 'exports inputs for later action steps' do
       described_class.new.configure!
-      expect(File.read(environment_file)).to include("INPUT_GEMSPEC=fixture.gemspec\n", "RUBYGEMS_OWNER=123\n", "TZ=UTC\n")
+      expect(File.read(environment_file)).to include("INPUT_GEMSPEC_PATH=fixture.gemspec\n", "RUBYGEMS_OWNER_ID=123\n", "TZ=UTC\n")
     end
 
     it 'exports the configured timezone for subsequent steps' do

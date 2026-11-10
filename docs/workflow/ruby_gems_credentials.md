@@ -12,7 +12,7 @@ For first publication, find the ID on your Pending Trusted Publishers page. The 
 
 `configure!` asks the [execution provider](../execution_provider.md) for an OIDC token with audience `rubygems.org` and posts `{jwt: token}` to RubyGems' trusted-publisher exchange endpoint, adding `owner` only when supplied. It delegates masking of the OIDC token and returned API key, then exports `RUBYGEMS_API_KEY`, `BUNDLE_GEM__PUSH_KEY`, and `GEM_HOST_API_KEY` through the provider. Only the GitHub provider reads Actions token-request variables or emits Actions logging commands.
 
-The direct task `release:workflow:credentials` remains available for custom commands and reads optional `RUBYGEMS_OWNER` through its configured provider. GitHub Actions supplies `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, and `GITHUB_ENV`; the caller must grant `id-token: write`. Another provider must supply its own identity-token acquisition and export behavior; this does not add another platform's Trusted Publishing support.
+The direct task `release:workflow:credentials` remains available for custom commands and reads optional `RUBYGEMS_OWNER_ID` through its configured provider. GitHub Actions supplies `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, and `GITHUB_ENV`; the caller must grant `id-token: write`. Another provider must supply its own identity-token acquisition and export behavior; this does not add another platform's Trusted Publishing support.
 
 ## Custom Publication Commands
 

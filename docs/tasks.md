@@ -26,15 +26,15 @@ end
 
 ## Prepare
 
-`tasks.prepare` prepares files after release validation and before testing and publication. The callback receives an [ExecutionContext](execution_context.md); `ctx.release` is an immutable [Release](release.md). Its `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `previous_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `ctx.release.with_version(version.read)` before updating a changelog.
+`tasks.prepare` prepares files after release validation and before testing and publication. The callback receives an [ExecutionContext](execution_context.md); `ctx.release` is an immutable [Release](release.md). Its `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `gemspec_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `ctx.release.with_version(version.read)` before updating a changelog.
 
-The default `prepare` command invokes `bundle exec rake release:prepare`. The task reads optional `INPUT_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. It validates the selected version before invoking the callback, but does not itself write a version file; the standard workflow callback does that through its configured object.
+The default `prepare` command invokes `bundle exec rake release:prepare`. The task reads optional `INPUT_VERSION`, `GEMSPEC_VERSION`, and `RELEASE_DATE` from the environment. It validates the selected version before invoking the callback, but does not itself write a version file; the standard workflow callback does that through its configured object.
 
 ## Bump
 
-`tasks.bump` prepares the next development iteration after publication. In `ctx.release`, `version` contains the published version and `previous_version` retains the initial version. Use `next_release = ctx.release.with_next_version(version.increment!(from: ctx.release.version))` before preparing the next changelog section, so repetition writes the same version rather than incrementing twice.
+`tasks.bump` prepares the next development iteration after publication. In `ctx.release`, `version` contains the published version and `gemspec_version` retains the initial version. Use `next_release = ctx.release.with_next_version(version.increment!(from: ctx.release.version))` before preparing the next changelog section, so repetition writes the same version rather than incrementing twice.
 
-The default `bump` command invokes `bundle exec rake release:bump`. The task reads `RELEASE_VERSION`, `RELEASE_PREVIOUS_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
+The default `bump` command invokes `bundle exec rake release:bump`. The task reads `RELEASE_VERSION`, `GEMSPEC_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
 
 After those operations succeed, call `ctx.record_next_version!(next_release.next_version)` to make the value available to later callbacks. The standard workflow does this automatically.
 
@@ -60,4 +60,4 @@ The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, p
 
 ## Workflow Credentials
 
-`release:workflow:credentials` directly invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with optional `RUBYGEMS_OWNER`. It remains available for custom RubyGems commands, but neither Actions interface calls a separate authentication task. Normal authentication belongs to `release:publish` through the configured destination.
+`release:workflow:credentials` directly invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with optional `RUBYGEMS_OWNER_ID`. It remains available for custom RubyGems commands, but neither Actions interface calls a separate authentication task. Normal authentication belongs to `release:publish` through the configured destination.

@@ -13,9 +13,9 @@ module RubyGemRelease
   class Destination
     class RubyGems < Destination
       def authenticate!(provider:)
-        return unless provider.fetch('RELEASE_AUTHENTICATION', '') == authentication
+        return unless provider.fetch('RELEASE_AUTH_MODE', '') == authentication
 
-        Workflow::RubyGemsCredentials.new(owner: provider.fetch('RUBYGEMS_OWNER', ''), provider: provider).configure!
+        Workflow::RubyGemsCredentials.new(owner: provider.fetch('RUBYGEMS_OWNER_ID', ''), provider: provider).configure!
       end
 
       def authentication

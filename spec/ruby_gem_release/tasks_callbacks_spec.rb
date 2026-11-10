@@ -6,9 +6,9 @@ RSpec.describe RubyGemRelease::Tasks do
   around do |example|
     original = Rake.application
     environment = ENV.to_h
-    %w[RELEASE_STATE RELEASE_STEPS RELEASE_STEP_ID RELEASE_DIRECTORY RELEASE_AUTHENTICATION GITHUB_ACTIONS].each { |key| ENV.delete(key) }
+    %w[RELEASE_STATE_FILE RELEASE_STEPS_JSON RELEASE_STEP_ID RELEASE_DATA_DIR RELEASE_AUTH_MODE GITHUB_ACTIONS].each { |key| ENV.delete(key) }
     ENV.delete('GITHUB_OUTPUT')
-    ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
+    ENV.update('RELEASE_VERSION' => '2.0.0', 'GEMSPEC_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     Rake.application = Rake::Application.new
     example.run
   ensure
@@ -30,7 +30,7 @@ RSpec.describe RubyGemRelease::Tasks do
       ENV['INPUT_VERSION'] = '3.0.0'
       described_class.install do |tasks|
         tasks.validate do |ctx|
-          expect(ctx.release).to have_attributes(version: '3.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
+          expect(ctx.release).to have_attributes(version: '3.0.0', gemspec_version: '1.2.3', date: Date.new(2026, 11, 7))
           nil
         end
       end
@@ -52,7 +52,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'delivers validation exceptions to the failure callback' do
     Dir.mktmpdir do |directory|
       ENV['RUNNER_TEMP'] = directory
-      ENV['RELEASE_FAILURE_PHASE'] = 'validate_release'
+      ENV['RELEASE_FAILED_STEP_ID'] = 'validate_release'
       ENV['RELEASE_STEP_ID'] = 'validate_release'
       ENV['GITHUB_ACTIONS'] = 'true'
       received = nil
@@ -75,7 +75,7 @@ RSpec.describe RubyGemRelease::Tasks do
 
   it 'retains the enclosing validation identity and history when a command invokes another callback' do
     ENV.update('GITHUB_ACTIONS' => 'true', 'RELEASE_STEP_ID' => 'validate_release',
-               'RELEASE_STEPS' => JSON.generate('capture_release_context' => { 'outcome' => 'success', 'conclusion' => 'success' }))
+               'RELEASE_STEPS_JSON' => JSON.generate('capture_release_context' => { 'outcome' => 'success', 'conclusion' => 'success' }))
     received = nil
     described_class.install do |tasks|
       tasks.success { |ctx| received = ctx }
@@ -93,7 +93,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'starts release preparation with the current version and date' do
     received = nil
     described_class.install do |tasks|
-      tasks.prepare { |ctx| received = [ctx.release.version, ctx.release.previous_version, ctx.release.next_version, ctx.release.date] }
+      tasks.prepare { |ctx| received = [ctx.release.version, ctx.release.gemspec_version, ctx.release.next_version, ctx.release.date] }
     end
     Rake::Task['release:prepare'].invoke
     expect(received).to eq(['1.2.3', '1.2.3', nil, Date.new(2026, 11, 7)])
@@ -102,7 +102,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'keeps one coherent state snapshot per context and reloads it for the next task invocation' do
     Dir.mktmpdir do |directory|
       path = RubyGemRelease::Workflow::State.create!(directory: directory)
-      ENV.update('RELEASE_STATE' => path, 'RELEASE_INITIAL_COMMIT' => 'a' * 40)
+      ENV.update('RELEASE_STATE_FILE' => path, 'SOURCE_COMMIT' => 'a' * 40)
       decision = RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [],
                                                                release_type: 'major', version: '2.0.0', notes: 'Original notes.')
       state = RubyGemRelease::Workflow::State.new(path: path)
@@ -131,16 +131,16 @@ RSpec.describe RubyGemRelease::Tasks do
     ENV['INPUT_VERSION'] = '3.0.0'
     received = nil
     described_class.install do |tasks|
-      tasks.prepare { |ctx| received = [ctx.release.version, ctx.release.previous_version, ctx.release.date] }
+      tasks.prepare { |ctx| received = [ctx.release.version, ctx.release.gemspec_version, ctx.release.date] }
     end
     Rake::Task['release:prepare'].invoke
     expect(received).to eq(['3.0.0', '1.2.3', Date.new(2026, 11, 7)])
   end
 
   it 'attaches a prepared version without changing the original context', :aggregate_failures do
-    original = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
+    original = RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.3', date: Date.new(2026, 11, 7))
     updated = original.with_version('2.0.0')
-    expect([original.version, updated.version, updated.previous_version, updated.next_version]).to eq(['1.2.3', '2.0.0', '1.2.3', nil])
+    expect([original.version, updated.version, updated.gemspec_version, updated.next_version]).to eq(['1.2.3', '2.0.0', '1.2.3', nil])
     expect(updated).to be_frozen
   end
 
@@ -149,7 +149,7 @@ RSpec.describe RubyGemRelease::Tasks do
     described_class.install do |tasks|
       tasks.bump do |ctx|
         updated = ctx.release.with_next_version('2.0.1')
-        received = [updated.version, updated.previous_version, updated.next_version, updated.date]
+        received = [updated.version, updated.gemspec_version, updated.next_version, updated.date]
       end
     end
     Rake::Task['release:bump'].invoke
@@ -173,7 +173,7 @@ RSpec.describe RubyGemRelease::Tasks do
 
   it 'rejects invalid version arguments' do
     described_class.install
-    ENV['RELEASE_PREVIOUS_VERSION'] = 'invalid'
+    ENV['GEMSPEC_VERSION'] = 'invalid'
     expect { Rake::Task['release:prepare'].invoke }.to raise_error(ArgumentError, /invalid version/)
   end
 
@@ -196,7 +196,7 @@ RSpec.describe RubyGemRelease::Tasks do
   it 'passes the released context to the publication callback' do
     received = nil
     described_class.install do |tasks|
-      tasks.publish { |ctx| received = [ctx.release.version, ctx.release.previous_version, ctx.release.next_version, ctx.release.date] }
+      tasks.publish { |ctx| received = [ctx.release.version, ctx.release.gemspec_version, ctx.release.next_version, ctx.release.date] }
     end
     Rake::Task['release:publish'].invoke
     expect(received).to eq(['2.0.0', '1.2.3', nil, Date.new(2026, 11, 7)])
@@ -208,14 +208,14 @@ RSpec.describe RubyGemRelease::Tasks do
       tasks.success { |ctx| received = ctx.release }
     end
     Rake::Task['release:success'].invoke
-    expect(received).to have_attributes(version: '2.0.0', previous_version: '1.2.3', date: Date.new(2026, 11, 7))
+    expect(received).to have_attributes(version: '2.0.0', gemspec_version: '1.2.3', date: Date.new(2026, 11, 7))
   end
 
   it 'passes release context, phase, and captured exception to the failure callback' do
     Dir.mktmpdir do |runner_temp|
       received = nil
       ENV['RUNNER_TEMP'] = runner_temp
-      ENV['RELEASE_FAILURE_PHASE'] = 'publish_release'
+      ENV['RELEASE_FAILED_STEP_ID'] = 'publish_release'
       ENV['RELEASE_STEP_ID'] = 'publish_release'
       ENV['GITHUB_ACTIONS'] = 'true'
       described_class.install do |tasks|
@@ -224,7 +224,7 @@ RSpec.describe RubyGemRelease::Tasks do
       end
       expect { Rake::Task['release:publish'].invoke }.to raise_error('publication failed')
       Rake::Task['release:failure'].invoke
-      expect(received).to have_attributes(phase: 'publish_release', context: have_attributes(release: have_attributes(version: '2.0.0', previous_version: '1.2.3')))
+      expect(received).to have_attributes(phase: 'publish_release', context: have_attributes(release: have_attributes(version: '2.0.0', gemspec_version: '1.2.3')))
       expect(received.error).to have_attributes(original_class: 'RuntimeError', message: 'publication failed')
     end
   end
@@ -233,7 +233,7 @@ RSpec.describe RubyGemRelease::Tasks do
     received = nil
     ENV.delete('RELEASE_DATE')
     ENV.delete('RUNNER_TEMP')
-    ENV['RELEASE_FAILURE_PHASE'] = 'capture_release_context'
+    ENV['RELEASE_FAILED_STEP_ID'] = 'capture_release_context'
     described_class.install do |tasks|
       tasks.failure { |failure| received = failure }
     end
@@ -243,7 +243,7 @@ RSpec.describe RubyGemRelease::Tasks do
 
   it 'attributes errors to the enclosing Actions step even when it invokes a different task' do
     Dir.mktmpdir do |directory|
-      ENV.update('GITHUB_ACTIONS' => 'true', 'RUNNER_TEMP' => directory, 'RELEASE_STEP_ID' => 'custom_prepare', 'RELEASE_FAILURE_PHASE' => 'custom_prepare')
+      ENV.update('GITHUB_ACTIONS' => 'true', 'RUNNER_TEMP' => directory, 'RELEASE_STEP_ID' => 'custom_prepare', 'RELEASE_FAILED_STEP_ID' => 'custom_prepare')
       received = nil
       described_class.install do |tasks|
         tasks.publish { raise 'custom command failed' }
@@ -279,7 +279,7 @@ RSpec.describe RubyGemRelease::Tasks do
   end
 
   it 'rejects false validation results through the injected provider without emitting a skip' do
-    values = ENV.to_h.merge('GITHUB_ACTIONS' => 'true', 'INPUT_VERSION' => '3.0.0', 'RELEASE_STEPS' => 'not JSON')
+    values = ENV.to_h.merge('GITHUB_ACTIONS' => 'true', 'INPUT_VERSION' => '3.0.0', 'RELEASE_STEPS_JSON' => 'not JSON')
     provider = RubyGemRelease::ExecutionProvider.new(environment: values)
     received = nil
     described_class.install(provider: provider) do |tasks|
@@ -296,7 +296,7 @@ RSpec.describe RubyGemRelease::Tasks do
 
   it 'captures and delivers failures through an injected provider without Actions transport' do
     Dir.mktmpdir do |directory|
-      provider = RubyGemRelease::ExecutionProvider.new(environment: ENV.to_h.merge('RELEASE_DIRECTORY' => directory))
+      provider = RubyGemRelease::ExecutionProvider.new(environment: ENV.to_h.merge('RELEASE_DATA_DIR' => directory))
       allow(provider).to receive(:failed_steps).and_return(['release:publish'])
       received = nil
       described_class.install(provider: provider) do |tasks|
@@ -316,7 +316,7 @@ RSpec.describe RubyGemRelease::Tasks do
     Dir.mktmpdir do |directory|
       path = File.join(directory, 'state.json')
       File.write(path, '{')
-      ENV.update('GITHUB_ACTIONS' => 'true', 'RUNNER_TEMP' => directory, 'RELEASE_STATE' => path, 'RELEASE_STEP_ID' => 'publish_release', 'RELEASE_FAILURE_PHASE' => 'publish_release')
+      ENV.update('GITHUB_ACTIONS' => 'true', 'RUNNER_TEMP' => directory, 'RELEASE_STATE_FILE' => path, 'RELEASE_STEP_ID' => 'publish_release', 'RELEASE_FAILED_STEP_ID' => 'publish_release')
       received = nil
       described_class.install do |tasks|
         tasks.publish { raise 'must not run' }

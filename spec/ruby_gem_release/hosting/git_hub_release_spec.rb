@@ -6,7 +6,7 @@ require 'tmpdir'
 
 RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
   let(:publisher) { described_class.new(repository: 'example/gem') }
-  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.new(2026, 11, 7)) }
+  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.3', date: Date.new(2026, 11, 7)) }
   let(:status) { instance_double(Process::Status, success?: true) }
   let(:directory) { Dir.mktmpdir }
 
@@ -36,7 +36,7 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
   end
 
   it 'uses the persisted notes verbatim instead of requesting platform-generated notes and cleans up the private file' do
-    semantic = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.4', date: release.date, notes: "### Features\n\n- Add endpoint.")
+    semantic = RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.4', date: release.date, notes: "### Features\n\n- Add endpoint.")
     path = nil
     allow(Open3).to receive(:capture3).with('gh', 'release', 'create', any_args) do |*arguments|
       expect(arguments).not_to include('--generate-notes')
@@ -50,7 +50,7 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
   end
 
   it 'rejects empty custom notes before creating a hosted release' do
-    semantic = RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: release.date, notes: ' ')
+    semantic = RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.3', date: release.date, notes: ' ')
     expect { publisher.publish!(semantic) }.to raise_error(ArgumentError, /must not be empty/)
     expect(Open3).not_to have_received(:capture3)
   end
@@ -129,7 +129,7 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
 
     it 'replaces differing metadata, explicit notes and assets, then treats matching outputs as complete' do
       metadata[:draft] = true
-      semantic = RubyGemRelease::Release.new(version: release.version, previous_version: release.previous_version, date: release.date, notes: 'Expected notes')
+      semantic = RubyGemRelease::Release.new(version: release.version, gemspec_version: release.gemspec_version, date: release.date, notes: 'Expected notes')
       metadata[:body] = 'Other notes'
       metadata[:assets].first[:digest] = "sha256:#{'0' * 64}"
       notes_path = nil

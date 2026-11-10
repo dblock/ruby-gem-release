@@ -6,7 +6,7 @@ Separates execution-platform services from release operations. Pass `provider:` 
 
 ## Base Behavior
 
-The base reads release inputs through `fetch(name, *defaults)` from its `environment:` argument, defaulting to `ENV`. `ref` reads a full Git ref from `RELEASE_REF`, and `directory` reads optional `RELEASE_DIRECTORY`. Git identity defaults to `ruby-gem-release` and `ruby-gem-release@localhost`, with `GIT_USER_NAME` and `GIT_USER_EMAIL` overrides.
+The base reads release inputs through `fetch(name, *defaults)` from its `environment:` argument, defaulting to `ENV`. `ref` reads a full Git ref from `SOURCE_REF`, and `directory` reads optional `RELEASE_DATA_DIR`. Git identity defaults to `ruby-gem-release` and `ruby-gem-release@localhost`, with `GIT_USER_NAME` and `GIT_USER_EMAIL` overrides.
 
 `export(values)` validates names and single-line string values before updating the current environment. `output(values)` retains validated values in `outputs`, including the release validation decision. These operations do not persist values across processes; an external execution provider must implement its own transport for subsequent steps. Separate processes must share the exported release values and artifact directory.
 

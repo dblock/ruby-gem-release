@@ -9,8 +9,8 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
   let(:directory) { Dir.mktmpdir }
   let(:path) { File.join(directory, 'CHANGELOG.md') }
   let(:date) { Date.new(2026, 11, 7) }
-  let(:release) { RubyGemRelease::Release.new(version: '1.0.0', previous_version: '1.0.0', date: date) }
-  let(:next_release) { RubyGemRelease::Release.new(version: '1.0.0', previous_version: '1.0.0', next_version: '1.0.1', date: date) }
+  let(:release) { RubyGemRelease::Release.new(version: '1.0.0', gemspec_version: '1.0.0', date: date) }
+  let(:next_release) { RubyGemRelease::Release.new(version: '1.0.0', gemspec_version: '1.0.0', next_version: '1.0.1', date: date) }
 
   after { FileUtils.remove_entry(directory) }
 

@@ -38,7 +38,7 @@ Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` 
 
 Before edits, `release:validate` requires pending notes or an existing heading for the selected release. Otherwise it raises, even with an explicit version. Override with a `validate:` lambda that raises on failure; returning `false` also fails. Without a changelog, validation passes.
 
-The package uses `GEMSPEC` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
+The package uses `GEMSPEC_PATH` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
 ## Object Overrides
 

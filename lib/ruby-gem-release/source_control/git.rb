@@ -11,7 +11,7 @@ module RubyGemRelease
       def initialize(branch: nil, remote: 'origin', directory: nil)
         @remote = remote
         @branch = branch || ENV.fetch('DEFAULT_BRANCH', nil)
-        directory ||= ENV.fetch('RELEASE_DIRECTORY', nil)
+        directory ||= ENV.fetch('RELEASE_DATA_DIR', nil)
         @directory = directory.to_s.empty? ? Dir.mktmpdir('ruby-gem-release-git-') : directory
       end
 
@@ -53,7 +53,7 @@ module RubyGemRelease
       def commit!(release)
         @release = release
         @next_commit_parent = nil
-        @initial_commit = ENV['RELEASE_INITIAL_COMMIT'] || head
+        @source_commit = ENV['SOURCE_COMMIT'] || head
         existing = tag_commit(release.version)
         return reuse_release!(existing) if existing
 
@@ -145,7 +145,7 @@ module RubyGemRelease
       end
 
       def release_current?(existing)
-        expected = @initial_commit || ENV.fetch('RELEASE_INITIAL_COMMIT')
+        expected = @source_commit || ENV.fetch('SOURCE_COMMIT')
         remote_head == expected || (existing && ancestor?(head, remote_head))
       end
 
@@ -164,7 +164,7 @@ module RubyGemRelease
       def push_release!(release)
         return push_missing_tag(release) if ancestor?(head, remote_head)
 
-        check_current!(release, expected: @initial_commit || ENV.fetch('RELEASE_INITIAL_COMMIT'))
+        check_current!(release, expected: @source_commit || ENV.fetch('SOURCE_COMMIT'))
         run('push', '--atomic', @remote, "HEAD:refs/heads/#{branch}", "refs/tags/v#{release.version}")
       end
 

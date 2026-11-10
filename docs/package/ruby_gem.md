@@ -4,11 +4,11 @@ Owns gem metadata, building, and artifact verification independently of the publ
 
 ## Gemspec
 
-`RubyGem.new(gemspec: 'example.gemspec')` selects an explicit specification; otherwise it uses `GEMSPEC` or the only root gemspec. Missing or ambiguous selections fail. The standard workflow uses this package during capture and resolution, exporting its absolute `gemspec` path.
+`RubyGem.new(gemspec: 'example.gemspec')` selects an explicit specification; otherwise it uses `GEMSPEC_PATH` or the only root gemspec. Missing or ambiguous selections fail. The standard workflow uses this package during capture and resolution, exporting its absolute `gemspec` path.
 
 ## Directory
 
-The optional `directory:` defaults to a nonempty `RELEASE_DIRECTORY` or a new temporary directory. The standard workflow supplies the execution provider's directory explicitly; Actions capture also exports it for manual callbacks and subsequent processes. `directory` returns this location. Keep it outside the working tree so build artifacts do not enter release commits.
+The optional `directory:` defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory. The standard workflow supplies the execution provider's directory explicitly; Actions capture also exports it for manual callbacks and subsequent processes. `directory` returns this location. Keep it outside the working tree so build artifacts do not enter release commits.
 
 ## Version
 

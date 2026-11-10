@@ -11,7 +11,7 @@ RSpec.describe RubyGemRelease::ExecutionProvider do
   end
 
   it 'keeps environment and output transport independent of GitHub metadata' do
-    values = { 'GITHUB_ENV' => 'missing/path', 'GITHUB_OUTPUT' => 'missing/path', 'RELEASE_STEPS' => 'not JSON' }
+    values = { 'GITHUB_ENV' => 'missing/path', 'GITHUB_OUTPUT' => 'missing/path', 'RELEASE_STEPS_JSON' => 'not JSON' }
     provider = described_class.new(environment: values)
     provider.export('RELEASE_VERSION' => '1.2.3')
     provider.output('proceed' => 'false')

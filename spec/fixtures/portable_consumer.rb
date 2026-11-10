@@ -13,7 +13,7 @@ raise 'Consumer loaded the wrong release library' unless loaded && File.realpath
 
 module PortableConsumer
   def self.record(event, **attributes)
-    File.open(File.join(ENV.fetch('RELEASE_DIRECTORY'), 'events.jsonl'), 'a') do |file|
+    File.open(File.join(ENV.fetch('RELEASE_DATA_DIR'), 'events.jsonl'), 'a') do |file|
       file.puts JSON.generate({ event: event, pid: Process.pid }.merge(attributes))
     end
   end
@@ -25,7 +25,7 @@ module PortableConsumer
 
   def self.release_context(ctx)
     {
-      version: ctx.release&.version, previous_version: ctx.release&.previous_version, next_version: ctx.release&.next_version,
+      version: ctx.release&.version, gemspec_version: ctx.release&.gemspec_version, next_version: ctx.release&.next_version,
       analysis: ctx.analysis&.to_h
     }
   end

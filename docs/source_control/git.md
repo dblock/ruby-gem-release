@@ -4,7 +4,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Branch and Remote
 
-`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the recovery bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DIRECTORY` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
+`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the recovery bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
 
 ## Configure
 
@@ -24,7 +24,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Commit
 
-`commit!(release)` commits previously staged preparation changes if needed; it never stages files. It rejects unexpected unstaged, untracked non-ignored, or index changes by comparing the index with the saved preparation tree. It retains the initial commit for subsequent concurrency checks; the workflow supplies `RELEASE_INITIAL_COMMIT`.
+`commit!(release)` commits previously staged preparation changes if needed; it never stages files. It rejects unexpected unstaged, untracked non-ignored, or index changes by comparing the index with the saved preparation tree. It retains the source checkout commit for subsequent concurrency checks; the workflow supplies `SOURCE_COMMIT`.
 
 ## Clean Checkout and Preparation
 

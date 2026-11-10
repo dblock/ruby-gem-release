@@ -11,7 +11,7 @@ module RubyGemRelease
         def phase!(provider: ExecutionProvider.current)
           failed = provider.failed_steps
           phase = failed.find { |step| error_for(step, provider: provider) } || failed.first || 'unknown'
-          provider.export('RELEASE_FAILURE_PHASE' => phase)
+          provider.export('RELEASE_FAILED_STEP_ID' => phase)
         end
 
         def capture!(phase, error, provider: ExecutionProvider.current)

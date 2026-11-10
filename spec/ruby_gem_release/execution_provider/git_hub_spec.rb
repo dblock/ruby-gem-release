@@ -21,7 +21,7 @@ RSpec.describe RubyGemRelease::ExecutionProvider::GitHub do
   end
 
   it 'uses original failures rather than conclusions when selecting failed steps' do
-    environment['RELEASE_STEPS'] = JSON.generate(
+    environment['RELEASE_STEPS_JSON'] = JSON.generate(
       'continued' => { 'outcome' => 'failure', 'conclusion' => 'success' },
       'skipped' => { 'outcome' => 'skipped', 'conclusion' => 'skipped' }
     )

@@ -22,9 +22,9 @@ RSpec.describe 'Release interface contracts' do
     end
 
     it 'transports enclosing step identities and observed history to configurable commands' do
-      steps.select { |step| step.dig('env', 'COMMAND') }.each do |step|
+      steps.select { |step| step.dig('env', 'RELEASE_COMMAND') }.each do |step|
         expect(step.dig('env', 'RELEASE_STEP_ID')).to eq(step.fetch('id'))
-        expect(step.dig('env', 'RELEASE_STEPS')).to eq('${{ toJSON(steps) }}')
+        expect(step.dig('env', 'RELEASE_STEPS_JSON')).to eq('${{ toJSON(steps) }}')
       end
     end
 
@@ -36,11 +36,11 @@ RSpec.describe 'Release interface contracts' do
       expect(steps.index(artifacts)).to be < steps.index { |step| step['id'] == 'publish_release' }
       phase = steps.find { |step| step['id'] == 'determine_release_failure_phase' }
       failure = steps.find { |step| step['id'] == 'release_failure_callback' }
-      expect(phase.dig('env', 'RELEASE_STEPS')).to eq('${{ toJSON(steps) }}')
+      expect(phase.dig('env', 'RELEASE_STEPS_JSON')).to eq('${{ toJSON(steps) }}')
       expect(phase.fetch('run')).to eq('bundle exec rake release:workflow:failure_phase')
       expect(steps.index(phase)).to be < steps.index(failure)
       expect(failure.fetch('if')).to include("failure() && steps.setup_ruby.outcome == 'success'")
-      expect(failure.dig('env', 'RELEASE_FAILURE_PHASE')).to be_nil
+      expect(failure.dig('env', 'RELEASE_FAILED_STEP_ID')).to be_nil
       success = steps.find { |step| step['id'] == 'release_success_callback' }
       expect(success.fetch('if')).to eq('${{ success() }}')
       expect(steps.index(success)).to be > steps.index { |step| step['id'] == 'prepare_next_development_iteration' }
@@ -89,7 +89,7 @@ RSpec.describe 'Release interface contracts' do
 
   def run_step(id, directory:, command: '')
     values = ENV.to_h.slice('PATH', 'HOME', 'TMPDIR').merge(
-      'RUNNER_TEMP' => directory, 'COMMAND' => command,
+      'RUNNER_TEMP' => directory, 'RELEASE_COMMAND' => command,
       'GITHUB_ENV' => File.join(directory, 'environment'), 'GITHUB_OUTPUT' => File.join(directory, 'output'),
       'GITHUB_STEP_SUMMARY' => File.join(directory, 'summary')
     )

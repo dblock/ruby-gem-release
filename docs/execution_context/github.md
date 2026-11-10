@@ -8,7 +8,7 @@ Extends the provider-neutral [`ExecutionContext`](../execution_context.md) with 
 
 `ctx.steps` is a frozen hash keyed by observed Actions step IDs. GitHub step objects expose `id`, `outcome`, `conclusion`, and frozen `outputs`. Outcome is the original result; conclusion reflects `continue-on-error`. Statuses are `success`, `failure`, `cancelled`, or `skipped`; missing values are `nil`. Missing entries mean unobserved, not skipped.
 
-Both Actions interfaces supply a snapshot through `RELEASE_STEPS` before each configurable command. The snapshot is not live history, does not include future results, and may include other visible caller steps. If unavailable, it defaults to an empty hash. Invalid snapshots raise rather than inventing history. Only supported outputs are exposed; arbitrary action outputs and credentials are not retained.
+Both Actions interfaces supply a snapshot through `RELEASE_STEPS_JSON` before each configurable command. The snapshot is not live history, does not include future results, and may include other visible caller steps. If unavailable, it defaults to an empty hash. Invalid snapshots raise rather than inventing history. Only supported outputs are exposed; arbitrary action outputs and credentials are not retained.
 
 ```ruby
 tasks.prepare do |ctx|

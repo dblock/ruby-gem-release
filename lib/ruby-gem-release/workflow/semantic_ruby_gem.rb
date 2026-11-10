@@ -38,7 +38,7 @@ module RubyGemRelease
       end
 
       def validate_release(ctx)
-        decision = ctx.analysis || @semantic_release.analyze(head: @provider.fetch('RELEASE_INITIAL_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''))
+        decision = ctx.analysis || @semantic_release.analyze(head: @provider.fetch('SOURCE_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''))
         ctx.record_analysis!(decision) unless ctx.analysis
         raise ArgumentError, 'Nothing to release: no release-eligible commits' unless decision.release?
 
@@ -48,7 +48,7 @@ module RubyGemRelease
       def checked_decision(ctx)
         raise ArgumentError, 'semantic release requires a persisted release decision' unless ctx.analysis&.release?
 
-        ctx.analysis.check!(head: @provider.fetch('RELEASE_INITIAL_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: ctx.release.version)
+        ctx.analysis.check!(head: @provider.fetch('SOURCE_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: ctx.release.version)
         ctx.analysis
       end
 

@@ -23,12 +23,12 @@ module RubyGemRelease
     end
 
     def directory
-      value = fetch('RELEASE_DIRECTORY', nil)
+      value = fetch('RELEASE_DATA_DIR', nil)
       value unless value.to_s.empty?
     end
 
     def ref
-      fetch('RELEASE_REF')
+      fetch('SOURCE_REF')
     end
 
     def git_identity

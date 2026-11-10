@@ -4,7 +4,7 @@ Installs the standard Ruby gem release sequence through [`Tasks`](../tasks.md), 
 
 ## Version
 
-The required `version:` object implements `read` and `increment!(from:)`, plus `set!(value)` when selecting a version. Bumps always calculate from `release.version`, so repetition writes the same next version. The default [`RubyConstant`](../version/ruby_constant.md) uses patch increments. The initial gemspec version remains `release.previous_version`.
+The required `version:` object implements `read` and `increment!(from:)`, plus `set!(value)` when selecting a version. Bumps always calculate from `release.version`, so repetition writes the same next version. The default [`RubyConstant`](../version/ruby_constant.md) uses patch increments. The initial gemspec version remains `release.gemspec_version`.
 
 ## Changelog
 

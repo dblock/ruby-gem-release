@@ -13,8 +13,8 @@ module RubyGemRelease
       attr_reader :directory, :gemspec
 
       def initialize(gemspec: nil, directory: nil)
-        @gemspec = resolve_gemspec(gemspec || ENV.fetch('GEMSPEC', nil))
-        directory ||= ENV.fetch('RELEASE_DIRECTORY', nil)
+        @gemspec = resolve_gemspec(gemspec || ENV.fetch('GEMSPEC_PATH', nil))
+        directory ||= ENV.fetch('RELEASE_DATA_DIR', nil)
         @directory = directory.to_s.empty? ? Dir.mktmpdir('ruby-gem-release-') : directory
       end
 

@@ -4,7 +4,7 @@ require 'spec_helper'
 require 'ruby-gem-release/execution_context/github'
 
 RSpec.describe RubyGemRelease::ExecutionContext::GitHub do
-  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', previous_version: '1.2.3', date: Date.new(2026, 11, 9)) }
+  let(:release) { RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.3', date: Date.new(2026, 11, 9)) }
 
   def build_ctx(environment = {})
     described_class.new(release: release, task: 'release:prepare', state: RubyGemRelease::Workflow::State.new, environment: environment)
@@ -13,7 +13,7 @@ RSpec.describe RubyGemRelease::ExecutionContext::GitHub do
   it 'preserves step outcomes separately from conclusions and exposes only supported outputs' do
     ctx = build_ctx(
       'RELEASE_STEP_ID' => 'custom_prepare',
-      'RELEASE_STEPS' => JSON.generate(
+      'RELEASE_STEPS_JSON' => JSON.generate(
         'validate_release' => { 'outcome' => 'success', 'conclusion' => 'success', 'outputs' => { 'proceed' => 'true', 'private' => 'hidden' } },
         'optional_check' => { 'outcome' => 'failure', 'conclusion' => 'success' },
         'unused_auth' => { 'outcome' => 'skipped', 'conclusion' => 'skipped' }
@@ -43,8 +43,8 @@ RSpec.describe RubyGemRelease::ExecutionContext::GitHub do
 
   it 'rejects malformed or invalid step snapshots instead of inventing execution history' do
     ['[]', '{"bad":null}', '{"bad":{"outcome":"invented"}}', '{"bad":{"outputs":[]}}'].each do |json|
-      expect { build_ctx('RELEASE_STEPS' => json) }.to raise_error(ArgumentError)
+      expect { build_ctx('RELEASE_STEPS_JSON' => json) }.to raise_error(ArgumentError)
     end
-    expect { build_ctx('RELEASE_STEPS' => '{') }.to raise_error(JSON::ParserError)
+    expect { build_ctx('RELEASE_STEPS_JSON' => '{') }.to raise_error(JSON::ParserError)
   end
 end

@@ -100,7 +100,7 @@ module RubyGemRelease
         task(:failure_phase) { Workflow::Failure.phase!(provider: @provider) }
         task(:credentials) do
           with_failure_capture('release:workflow:credentials') do
-            Workflow::RubyGemsCredentials.new(owner: @provider.fetch('RUBYGEMS_OWNER', ''), provider: @provider).configure!
+            Workflow::RubyGemsCredentials.new(owner: @provider.fetch('RUBYGEMS_OWNER_ID', ''), provider: @provider).configure!
           end
         end
       end
@@ -183,7 +183,7 @@ module RubyGemRelease
     end
 
     def state
-      path = @provider.fetch('RELEASE_STATE', nil)
+      path = @provider.fetch('RELEASE_STATE_FILE', nil)
       if !defined?(@state) || @state_path != path
         @state_path = path
         @state = Workflow::State.new(path: path)
@@ -192,29 +192,29 @@ module RubyGemRelease
     end
 
     def release_context(preparing: false, analysis: nil, next_version: nil, validating: false)
-      previous_version = @provider.fetch('RELEASE_PREVIOUS_VERSION')
-      version = preparing ? preparation_version(previous_version, analysis: analysis, validating: validating) : @provider.fetch('RELEASE_VERSION')
+      gemspec_version = @provider.fetch('GEMSPEC_VERSION')
+      version = preparing ? preparation_version(gemspec_version, analysis: analysis, validating: validating) : @provider.fetch('RELEASE_VERSION')
       date = @provider.fetch('RELEASE_DATE')
-      analysis&.check!(head: @provider.fetch('RELEASE_INITIAL_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: validating ? nil : version)
-      validate_context_versions(version, previous_version)
+      analysis&.check!(head: @provider.fetch('SOURCE_COMMIT'), explicit_version: @provider.fetch('INPUT_VERSION', ''), version: validating ? nil : version)
+      validate_context_versions(version, gemspec_version)
       raise ArgumentError, 'release date is required in YYYY-MM-DD format' unless date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
-      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: next_version, notes: analysis&.notes)
+      Release.new(version: version, gemspec_version: gemspec_version, date: Date.iso8601(date), next_version: next_version, notes: analysis&.notes)
     end
 
-    def preparation_version(previous_version, analysis: nil, validating: false)
+    def preparation_version(gemspec_version, analysis: nil, validating: false)
       if analysis
         return analysis.version if analysis.release?
-        return previous_version if validating
+        return gemspec_version if validating
 
         raise ArgumentError, 'semantic analysis selected no release'
       end
       selected = @provider.fetch('INPUT_VERSION', '')
-      selected.empty? ? previous_version : selected
+      selected.empty? ? gemspec_version : selected
     end
 
     def failure_context
-      phase = @provider.fetch('RELEASE_FAILURE_PHASE', 'unknown')
+      phase = @provider.fetch('RELEASE_FAILED_STEP_ID', 'unknown')
       error = Workflow::Failure.error_for(phase, provider: @provider) unless phase == 'unknown'
       safe_state = failure_state
       execution = @provider.context(release: failure_release_context(safe_state.analysis), task: 'release:failure', state: safe_state, workflow: @workflow)
@@ -222,14 +222,14 @@ module RubyGemRelease
     end
 
     def failure_release_context(analysis = nil)
-      previous_version = @provider.fetch('RELEASE_PREVIOUS_VERSION', nil)
+      gemspec_version = @provider.fetch('GEMSPEC_VERSION', nil)
       date = @provider.fetch('RELEASE_DATE', '')
-      return unless previous_version && date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+      return unless gemspec_version && date.match?(/\A\d{4}-\d{2}-\d{2}\z/)
 
       version = @provider.fetch('RELEASE_VERSION', '')
-      version = preparation_version(previous_version, analysis: analysis) if version.empty?
-      validate_context_versions(version, previous_version)
-      Release.new(version: version, previous_version: previous_version, date: Date.iso8601(date), next_version: failure_next_version, notes: analysis&.notes)
+      version = preparation_version(gemspec_version, analysis: analysis) if version.empty?
+      validate_context_versions(version, gemspec_version)
+      Release.new(version: version, gemspec_version: gemspec_version, date: Date.iso8601(date), next_version: failure_next_version, notes: analysis&.notes)
     rescue ArgumentError
       nil
     end
