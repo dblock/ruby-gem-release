@@ -17,6 +17,7 @@
 - [#41](https://github.com/dblock/ruby-gem-release/pull/41): Isolate release tests from inherited release context so this project's self-release can run its test suite - [@dblock](https://github.com/dblock).
 - [#42](https://github.com/dblock/ruby-gem-release/pull/42): Standardize environment names into consistent input, gemspec, source, release, and registry families, and rename `release.previous_version` and its constructor keyword to `gemspec_version` to distinguish the captured gemspec version from release history (breaking change) - [@dblock](https://github.com/dblock).
 - [#43](https://github.com/dblock/ruby-gem-release/pull/43): Remove unused output-writing, strict availability, and Git/hosting readback methods and legacy state support; report failures from one coherent state snapshot (breaking change) - [@dblock](https://github.com/dblock).
+- [#44](https://github.com/dblock/ruby-gem-release/pull/44): Share local commit, build, and tag preparation between artifact checkpoints and publication while preserving independent, idempotent publication - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

@@ -35,10 +35,7 @@ module RubyGemRelease
       end
 
       def checkpoint!(context)
-        release = context.release
-        @git.commit!(release)
-        @package.build!(release)
-        @git.tag!(release)
+        prepare_publication(context.release)
       end
 
       def published?(release)
@@ -77,10 +74,14 @@ module RubyGemRelease
         @version.set!(version)
       end
 
-      def publish(release)
+      def prepare_publication(release)
         @git.commit!(release)
         @package.build!(release)
         @git.tag!(release)
+      end
+
+      def publish(release)
+        prepare_publication(release)
         @destination.publish!(release, package: @package)
         @git.push!(release)
         @hosting&.publish!(release, package: @package)
