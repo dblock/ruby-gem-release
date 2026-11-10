@@ -23,7 +23,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     Rake.application = Rake::Application.new
     ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     ENV.delete('GITHUB_OUTPUT')
-    %w[RELEASE_STATE RELEASE_STEP_ID RELEASE_STEPS GITHUB_ACTIONS].each { |key| ENV.delete(key) }
+    %w[RELEASE_STATE RELEASE_STEP_ID RELEASE_STEPS RELEASE_DIRECTORY GEMSPEC GITHUB_ACTIONS].each { |key| ENV.delete(key) }
     example.run
   ensure
     Rake.application = application

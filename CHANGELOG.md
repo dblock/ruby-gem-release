@@ -14,6 +14,7 @@
 - [#37](https://github.com/dblock/ruby-gem-release/pull/37): Add opt-in semantic releases with reachable-tag history, configurable Conventional Commits rules and versions, persisted immutable decisions, generated notes and changelog files, and optional development bumps - [@dblock](https://github.com/dblock).
 - [#39](https://github.com/dblock/ruby-gem-release/pull/39): Preserve configured packages during context capture, share workflow installation and coherent state snapshots, and streamline release and migration documentation - [@dblock](https://github.com/dblock).
 - [#40](https://github.com/dblock/ruby-gem-release/pull/40): Make release tasks independently idempotent with source-commit timestamps, checksum-verified publication, reusable Git refs, and replaceable hosted notes/assets; fail empty-release validation and remove the decision-output protocol (breaking change) - [@dblock](https://github.com/dblock).
+- [#41](https://github.com/dblock/ruby-gem-release/pull/41): Isolate release tests from inherited release context so this project's self-release can run its test suite - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

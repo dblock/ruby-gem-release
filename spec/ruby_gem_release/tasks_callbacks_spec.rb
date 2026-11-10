@@ -6,7 +6,7 @@ RSpec.describe RubyGemRelease::Tasks do
   around do |example|
     original = Rake.application
     environment = ENV.to_h
-    %w[RELEASE_STATE RELEASE_STEPS RELEASE_STEP_ID GITHUB_ACTIONS].each { |key| ENV.delete(key) }
+    %w[RELEASE_STATE RELEASE_STEPS RELEASE_STEP_ID RELEASE_DIRECTORY RELEASE_AUTHENTICATION GITHUB_ACTIONS].each { |key| ENV.delete(key) }
     ENV.delete('GITHUB_OUTPUT')
     ENV.update('RELEASE_VERSION' => '2.0.0', 'RELEASE_PREVIOUS_VERSION' => '1.2.3', 'RELEASE_DATE' => '2026-11-07', 'INPUT_VERSION' => '')
     Rake.application = Rake::Application.new

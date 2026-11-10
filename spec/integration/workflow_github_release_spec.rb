@@ -12,7 +12,7 @@ RSpec.describe 'Workflow release lifecycle' do
   let(:remote) { File.join(directory, 'remote.git') }
   let(:workflow) { YAML.load_file('.github/workflows/release.yml') }
   let(:environment) do
-    {
+    ENV.to_h.slice('PATH', 'HOME', 'TMPDIR', 'LANG').merge(
       'BUNDLE_GEMFILE' => ENV.fetch('RELEASE_CONSUMER_GEMFILE', File.expand_path('Gemfile')),
       'RUBYLIB' => ENV.fetch('RELEASE_CONSUMER_LIB', File.expand_path('lib')),
       'RELEASE_TEST_LIB' => ENV.fetch('RELEASE_CONSUMER_LIB', File.expand_path('lib')),
@@ -40,7 +40,7 @@ RSpec.describe 'Workflow release lifecycle' do
       'TZ' => inputs.fetch('timezone').fetch('default'),
       'RELEASE_TEST_REMOTE' => remote,
       'RELEASE_TEST_SERVICE_DIRECTORY' => directory
-    }
+    )
   end
 
   def checkout
@@ -71,6 +71,23 @@ RSpec.describe 'Workflow release lifecycle' do
       "step: #{expression}.step.id, steps: #{expression}.steps.transform_values { |s| [s.outcome, s.conclusion, s.outputs] }, " \
       "repository: #{expression}.run.repository, run_id: #{expression}.run.run_id, attempt: #{expression}.run.run_attempt, " \
       "workflow: #{expression}.workflow&.class&.name, context_class: #{expression}.class.name}))"
+  end
+
+  # Self-release runs this suite after the real workflow has exported its context.
+  around do |example|
+    original = ENV.to_h
+    ENV.update(
+      'GEMSPEC' => File.expand_path('ruby-gem-release.gemspec'),
+      'RELEASE_VERSION' => '9.9.9',
+      'RELEASE_PREVIOUS_VERSION' => '9.9.8',
+      'RELEASE_DATE' => '2020-01-01',
+      'RELEASE_DIRECTORY' => File.join(directory, 'outer-release'),
+      'RELEASE_STATE' => File.join(directory, 'outer-state.json'),
+      'RELEASE_AUTHENTICATION' => 'rubygems'
+    )
+    example.run
+  ensure
+    ENV.replace(original)
   end
 
   before do
@@ -192,7 +209,7 @@ RSpec.describe 'Workflow release lifecycle' do
     step = steps.find { |item| item['name'] == name }
     return record_outcome(step, 'skipped') if skipped_phase?(step)
 
-    output, error, status = Open3.capture3(phase_environment(name), 'bash', '-euo', 'pipefail', '-c', phase_command(name), chdir: checkout)
+    output, error, status = Open3.capture3(phase_environment(name), 'bash', '-euo', 'pipefail', '-c', phase_command(name), chdir: checkout, unsetenv_others: true)
     record_outcome(step, status.success? ? 'success' : 'failure')
     raise "#{output}\n#{error}" unless status.success?
 
@@ -277,7 +294,7 @@ RSpec.describe 'Workflow release lifecycle' do
       exchange['owner'] = owner unless owner.to_s.empty?
       expect(JSON.parse(File.read(File.join(directory, 'authentication.json')))).to eq(exchange)
       command = 'puts JSON.generate(ENV.values_at("RUBYGEMS_API_KEY", "BUNDLE_GEM__PUSH_KEY", "GEM_HOST_API_KEY"))'
-      output, error, status = Open3.capture3(environment, Gem.ruby, '-rjson', '-e', command, chdir: checkout)
+      output, error, status = Open3.capture3(environment, Gem.ruby, '-rjson', '-e', command, chdir: checkout, unsetenv_others: true)
       expect(status.success?).to be(true), error
       expect(JSON.parse(output)).to eq(['fixture-api-key'] * 3)
       expect(File).not_to exist(File.join(environment.fetch('HOME'), '.gem', 'credentials'))
