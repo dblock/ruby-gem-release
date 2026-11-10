@@ -16,7 +16,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 ## Check Current
 
-`check_current!(release, expected: head, allow_ancestor: false)` fetches the remote branch and tags and rejects an advanced branch before new publication or pushing. Capture permits an ancestor checkout so reruns can use the original source commit after its release has advanced the branch.
+`check_current!(expected: head, allow_ancestor: false)` fetches the remote branch and tags and rejects an advanced branch before new publication or pushing. Capture permits an ancestor checkout so reruns can use the original source commit after its release has advanced the branch.
 
 ## Commit
 

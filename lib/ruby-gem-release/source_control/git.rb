@@ -31,7 +31,7 @@ module RubyGemRelease
         run('show', '-s', '--format=%ct', commit).strip
       end
 
-      def check_current!(_release, expected: head, allow_ancestor: false)
+      def check_current!(expected: head, allow_ancestor: false)
         run('fetch', @remote, branch, '--tags')
         raise 'Default branch advanced; start a new release' unless remote_head == expected || (allow_ancestor && ancestor?(expected, remote_head))
       end
@@ -82,7 +82,7 @@ module RubyGemRelease
         raise ArgumentError, 'a release context is required before pushing' unless release
 
         fetch!
-        @next_commit_parent ? push_iteration!(release) : push_release!(release)
+        @next_commit_parent ? push_iteration! : push_release!(release)
       end
 
       def fetch!
@@ -140,17 +140,17 @@ module RubyGemRelease
         run('bundle', 'create', File.join(@directory, 'release.bundle'), 'HEAD', "refs/tags/v#{release.version}")
       end
 
-      def push_iteration!(release)
+      def push_iteration!
         return if ancestor?(head, remote_head)
 
-        check_current!(release, expected: @next_commit_parent)
+        check_current!(expected: @next_commit_parent)
         run('push', @remote, "HEAD:refs/heads/#{branch}")
       end
 
       def push_release!(release)
         return push_missing_tag(release) if ancestor?(head, remote_head)
 
-        check_current!(release, expected: @source_commit || ENV.fetch('SOURCE_COMMIT'))
+        check_current!(expected: @source_commit || ENV.fetch('SOURCE_COMMIT'))
         run('push', '--atomic', @remote, "HEAD:refs/heads/#{branch}", "refs/tags/v#{release.version}")
       end
 

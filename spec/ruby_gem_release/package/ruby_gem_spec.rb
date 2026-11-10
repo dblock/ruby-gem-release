@@ -42,10 +42,11 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
     expect(File.binread(path)).to eq(File.binread(File.join(artifacts, 'release.gem')))
   end
 
-  it 'reads the current gem name after custom preparation' do
-    expect(package.name).to eq('release-fixture')
+  it 'uses the built archive identity after custom preparation' do
     File.write('fixture.gemspec', File.read('fixture.gemspec').sub('release-fixture', 'renamed-fixture'))
-    expect(package.name).to eq('renamed-fixture')
+    path = package.build!(release)
+    expect(File.basename(path)).to eq('renamed-fixture-1.2.3.gem')
+    expect(Gem::Package.new(path).spec.name).to eq('renamed-fixture')
   end
 
   it 'rebuilds reproducibly with a fixed timestamp instead of depending on a previous archive' do

@@ -109,8 +109,8 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     released = git.head
     git.push!
     command('switch', '--detach', initial)
-    expect { git.check_current!(release, allow_ancestor: true) }.not_to raise_error
-    expect { git.check_current!(release) }.to raise_error(/branch advanced/)
+    expect { git.check_current!(allow_ancestor: true) }.not_to raise_error
+    expect { git.check_current! }.to raise_error(/branch advanced/)
     2.times { git.stage_changes! { File.write('version', 'release files') } }
     git.commit!(release)
     expect(git.head).to eq(released)

@@ -5,6 +5,7 @@ require 'yaml'
 require 'open3'
 require 'tmpdir'
 require 'rubygems/package'
+require 'digest'
 
 RSpec.describe 'Workflow release lifecycle' do
   let(:directory) { Dir.mktmpdir }
@@ -68,7 +69,7 @@ RSpec.describe 'Workflow release lifecycle' do
 
   def context_record(expression)
     "File.write(File.join(ENV.fetch('RUNNER_TEMP'), 'context.json'), JSON.generate({" \
-      "step: #{expression}.step.id, steps: #{expression}.steps.transform_values { |s| [s.outcome, s.conclusion, s.outputs] }, " \
+      "step: #{expression}.step.id, steps: #{expression}.steps.transform_values { |s| [s.outcome, s.conclusion] }, " \
       "repository: #{expression}.run.repository, run_id: #{expression}.run.run_id, attempt: #{expression}.run.run_attempt, " \
       "workflow: #{expression}.workflow&.class&.name, context_class: #{expression}.class.name}))"
   end
@@ -316,7 +317,7 @@ RSpec.describe 'Workflow release lifecycle' do
       execution = JSON.parse(File.read(File.join(directory, 'context.json')))
       expect(execution).to include('step' => 'release_success_callback', 'repository' => 'owner/example', 'run_id' => '123', 'attempt' => '2')
       expect(execution.fetch('context_class')).to eq('RubyGemRelease::ExecutionContext::GitHub')
-      expect(execution.fetch('steps').fetch('validate_release')).to eq(['success', 'success', {}])
+      expect(execution.fetch('steps').fetch('validate_release')).to eq(%w[success success])
       expect(execution.fetch('steps').fetch('publish_release').first).to eq('success')
       expect(execution.fetch('steps')).not_to have_key('release_success_callback')
       expect(run_git('-C', checkout, 'log', '-1', '--format=%s')).to eq('Prepare next development iteration, 0.1.1')
@@ -398,8 +399,8 @@ RSpec.describe 'Workflow release lifecycle' do
       path = JSON.parse(File.read(File.join(directory, 'registry-publish.json')))
       expect(File.binread(path)).to eq(File.binread(File.join(directory, 'release.gem')))
       expect(run_git('--git-dir', remote, 'rev-parse', 'v0.1.0')).to eq(run_git('-C', checkout, 'rev-parse', 'HEAD'))
-      checks = File.readlines(File.join(directory, 'registry-checks.jsonl')).map { |line| JSON.parse(line) }
-      expect(checks).to eq([%w[example 0.1.0]] * 2)
+      publication = JSON.parse(File.read(File.join(directory, 'registry-metadata.json')))
+      expect(publication).to eq('name' => 'example', 'version' => '0.1.0', 'sha256' => Digest::SHA256.file(path).hexdigest)
       expect(File).not_to exist(File.join(directory, 'version-lookups.jsonl'))
       expect(File).not_to exist(File.join(directory, 'publication.jsonl'))
       run_phase('Prepare Next Development Iteration')

@@ -14,10 +14,6 @@ The optional `directory:` defaults to a nonempty `RELEASE_DATA_DIR` or a new tem
 
 `version` reads the gemspec version in a fresh Ruby process so callback edits are visible even if the specification was previously loaded.
 
-## Name
-
-`name` reads the current gemspec name in a fresh Ruby process, including custom preparation edits. Destinations use this name for checks before building; publication must use the actual built artifact's identity.
-
 ## Build
 
 `build!(release)` overwrites `release.gem`, checks its version, and records its name, version, and checksum in `release.json`. It returns the package filename. Call it after the release commit and before tagging; `Git#tag!` rejects build mutations in the checkout.

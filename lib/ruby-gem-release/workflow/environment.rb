@@ -29,7 +29,7 @@ module RubyGemRelease
         git.check_clean!
         package ||= Package::RubyGem.new(gemspec: @provider.fetch('INPUT_GEMSPEC_PATH', @provider.fetch('GEMSPEC_PATH', '')) || '', directory: @provider.directory)
         release = initial_release(package)
-        git.check_current!(release, allow_ancestor: true)
+        git.check_current!(allow_ancestor: true)
         @provider.export(captured_values(package, git, release))
       end
 

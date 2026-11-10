@@ -19,11 +19,8 @@ module RubyGemRelease
       end
 
       def version
-        specification.fetch('version')
-      end
-
-      def name
-        specification.fetch('name')
+        script = 'spec = Gem::Specification.load(ARGV.fetch(0)); abort "Cannot load gemspec" unless spec; puts JSON.generate(spec.version.to_s)'
+        JSON.parse(run(Gem.ruby, '-rrubygems', '-rjson', '-e', script, @gemspec))
       end
 
       def build!(release)
@@ -55,11 +52,6 @@ module RubyGemRelease
       def source_date_epoch
         value = ENV.fetch('SOURCE_DATE_EPOCH', '').strip
         value.empty? ? '315619200' : value
-      end
-
-      def specification
-        script = 'spec = Gem::Specification.load(ARGV.fetch(0)); abort "Cannot load gemspec" unless spec; puts JSON.generate(name: spec.name, version: spec.version.to_s)'
-        JSON.parse(run(Gem.ruby, '-rrubygems', '-rjson', '-e', script, @gemspec))
       end
 
       def build_manifest(release)

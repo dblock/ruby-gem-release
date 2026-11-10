@@ -169,7 +169,7 @@ RSpec.describe RubyGemRelease::Workflow::Environment do
       described_class.new(provider: provider).capture!(package: package)
       expect(values).to include('GEMSPEC_PATH' => package.gemspec, 'GEMSPEC_VERSION' => '1.2.3')
       expect(git).to have_received(:check_clean!)
-      expect(git).to have_received(:check_current!).with(have_attributes(version: '1.2.3'), allow_ancestor: true)
+      expect(git).to have_received(:check_current!).with(allow_ancestor: true)
     end
 
     it 'captures custom package metadata without requiring a gemspec accessor' do

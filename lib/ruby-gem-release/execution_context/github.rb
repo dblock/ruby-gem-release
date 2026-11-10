@@ -19,7 +19,7 @@ module RubyGemRelease
         attributes.to_h do |id, values|
           raise ArgumentError, 'release step must be an object' unless values.is_a?(Hash)
 
-          [id.freeze, Step.new(id: id, outcome: values['outcome'], conclusion: values['conclusion'], outputs: values.fetch('outputs', {}))]
+          [id.freeze, Step.new(id: id, outcome: values['outcome'], conclusion: values['conclusion'])]
         end.freeze
       end
 

@@ -42,7 +42,6 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     record_operations(:changelog, %i[release! prepare_next!])
     allow(objects.fetch(:changelog)).to receive_messages(pending?: true, released?: false)
     record_operations(:package, [:build!])
-    allow(objects.fetch(:package)).to receive(:name).and_return('example')
     record_operations(:destination, %i[authenticate! publish!])
     allow(objects.fetch(:destination)).to receive(:authentication).and_return('rubygems')
     record_operations(:git, %i[commit! tag! push! commit_next!])
