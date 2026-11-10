@@ -8,11 +8,9 @@ require_relative '../semantic_release/decision'
 module RubyGemRelease
   module Workflow
     class State
-      ATTRIBUTES = %w[analysis next_version schema_version].freeze
-
       def self.create!(directory:)
         file = Tempfile.create(['ruby-gem-release-state-', '.json'], directory)
-        file.write(JSON.generate('schema_version' => 2, 'next_version' => nil, 'analysis' => nil))
+        file.write(JSON.generate('next_version' => nil, 'analysis' => nil))
         file.path
       ensure
         file&.close
@@ -69,7 +67,7 @@ module RubyGemRelease
 
       def read_state
         values = JSON.parse(File.read(@path))
-        valid = values.is_a?(Hash) && values['schema_version'] == 2 && values.keys.sort == ATTRIBUTES
+        valid = values.is_a?(Hash) && values.keys.sort == %w[analysis next_version]
         raise ArgumentError, 'unsupported release state' unless valid
 
         validate_version(values['next_version']) unless values['next_version'].nil?

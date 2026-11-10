@@ -72,7 +72,7 @@ With default `bump: false`, the installed bump task does nothing and `release.ne
 
 Validation records one immutable `SemanticRelease::Decision` through `ctx.record_analysis!`. Its fields are `head`, `last_release`, `commits`, `release_type`, `version`, `notes`, and `explicit_version`. `last_release` is `nil` or a frozen hash with string keys `tag`, `version`, and `commit`. `commits` retains the full analyzed range as frozen hashes with `sha` and complete `message`, including commits canceled for release analysis. A no-release decision has `nil` release type, version, and notes.
 
-Later contexts expose persisted analysis without rerunning providers or mutating earlier snapshots. Private JSON supports schema 2; recording a bump preserves analysis. Corrupt or legacy state fails closed. Failure reporting uses one coherent snapshot, warning and omitting unreadable state without hiding the original error.
+Later contexts expose persisted analysis without rerunning providers or mutating earlier snapshots. Private invocation-local JSON contains only `analysis` and `next_version`; recording a bump preserves analysis. Corrupt state or unexpected fields fail closed. Failure reporting uses one coherent snapshot, warning and omitting unreadable state without hiding the original error.
 
 Preserve `RELEASE_STATE_FILE` and captured inputs across processes. Changed `SOURCE_COMMIT`, explicit input, or prepared version fails before publication. In-process tasks can share memory; separate processes need private storage and export transport.
 

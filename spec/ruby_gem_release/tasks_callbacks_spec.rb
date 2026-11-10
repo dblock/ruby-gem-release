@@ -316,7 +316,7 @@ RSpec.describe RubyGemRelease::Tasks do
       path = File.join(directory, 'state.json')
       decision = RubyGemRelease::SemanticRelease::Decision.new(head: 'a' * 40, last_release: nil, commits: [],
                                                                release_type: 'minor', version: '2.0.0', notes: 'Original notes.')
-      values = { schema_version: 2, next_version: '2.0.1', analysis: decision.to_h }
+      values = { next_version: '2.0.1', analysis: decision.to_h }
       File.write(path, JSON.generate(values))
       ENV['RELEASE_STATE_FILE'] = path
       allow(File).to receive(:read).and_call_original

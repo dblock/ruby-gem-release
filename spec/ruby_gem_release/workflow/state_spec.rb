@@ -36,7 +36,7 @@ RSpec.describe RubyGemRelease::Workflow::State do
     expect { state.record_analysis!(decision) }.to raise_error(ArgumentError, /already recorded/)
     Dir.mktmpdir do |directory|
       path = described_class.create!(directory: directory)
-      File.write(path, JSON.generate('schema_version' => 2, 'next_version' => nil, 'analysis' => {}))
+      File.write(path, JSON.generate('next_version' => nil, 'analysis' => {}))
       expect { described_class.new(path: path).next_version }.to raise_error(ArgumentError, /unsupported semantic decision/)
     end
   end
@@ -74,12 +74,11 @@ RSpec.describe RubyGemRelease::Workflow::State do
       expect { state.next_version }.to raise_error(JSON::ParserError)
       [
         [],
-        { 'schema_version' => 1, 'next_version' => nil },
-        { 'schema_version' => 1, 'next_version' => '0.9.9' },
-        { 'schema_version' => 2, 'next_version' => nil },
-        { 'schema_version' => 3, 'next_version' => nil, 'analysis' => nil },
-        { 'schema_version' => 2, 'next_version' => '01.2.3', 'analysis' => nil },
-        { 'schema_version' => 2, 'next_version' => nil, 'analysis' => nil, 'extra' => 'unsupported' }
+        {},
+        { 'next_version' => nil },
+        { 'analysis' => nil },
+        { 'next_version' => '01.2.3', 'analysis' => nil },
+        { 'next_version' => nil, 'analysis' => nil, 'extra' => 'unsupported' }
       ].each do |attributes|
         File.write(path, JSON.generate(attributes))
         expect { state.next_version }.to raise_error(ArgumentError)
