@@ -20,6 +20,7 @@
 - [#44](https://github.com/dblock/ruby-gem-release/pull/44): Share local commit, build, and tag preparation between artifact checkpoints and publication while preserving independent, idempotent publication - [@dblock](https://github.com/dblock).
 - [#45](https://github.com/dblock/ruby-gem-release/pull/45): Remove the unused state format version and validate only invocation-local analysis and next-version fields - [@dblock](https://github.com/dblock).
 - [#47](https://github.com/dblock/ruby-gem-release/pull/47): Remove obsolete step-output parsing, registry lookup instrumentation, package name access, and the unused release argument from Git branch checks; verify custom registry publication by archive identity instead of lookup counts (breaking change) - [@dblock](https://github.com/dblock).
+- [#46](https://github.com/dblock/ruby-gem-release/pull/46): Correct rerun and preparation-order documentation, remove obsolete migration notes from reference pages, and keep upgrade guidance in the migration guide - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.4.0 (2026/11/08)

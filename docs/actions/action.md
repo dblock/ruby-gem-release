@@ -37,7 +37,7 @@ jobs:
     environment: release
     steps:
       - name: Release Gem
-        uses: dblock/ruby-gem-release@v0.2.0
+        uses: dblock/ruby-gem-release@v0.4.0
         with:
           ruby-version: '3.3'
           version: ${{ inputs.version }}
@@ -52,11 +52,11 @@ Inputs, command defaults, callback semantics, and exported environment variables
 
 Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `release:workflow:configure` rejects line breaks before exporting any values. Override commands execute with release privileges and must be trusted.
 
-`validate` checks preconditions before preparation and must exit nonzero on failure, including when there is nothing to release. Failure handling runs; downstream release operations do not. No decision output or `skipped` output is exposed. Move former post-preparation validation commands to `test:`. See [Release Validation](release.md#release-validation).
+`validate` checks preconditions before preparation and must exit nonzero on failure, including when there is nothing to release. Failure handling runs; downstream release operations do not. See [Release Validation](release.md#release-validation).
 
-The optional `version` input selects a release version in standard preparation. The configured version object must implement `set!`; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples and migration from assertion-only behavior.
+The optional `version` input selects a release version in standard preparation. The configured version object must implement `set!`; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples.
 
-The optional `timezone` input defaults to `UTC`; set `timezone: America/New_York` for Eastern Time, including daylight saving changes. This input requires gem and action version `0.3.0` or newer, rather than the older pinned example above. The action validates the identifier and exports `TZ`, affecting subsequent release steps and any later steps in the caller's job. See [Timezone](release.md#timezone) for date capture and service timestamp behavior.
+The optional `timezone` input defaults to `UTC`; set `timezone: America/New_York` for Eastern Time, including daylight saving changes. The action validates the identifier and exports `TZ`, affecting subsequent release steps and any later steps in the caller's job. See [Timezone](release.md#timezone) for date capture and service timestamp behavior.
 
 The optional `success` and `failure` command inputs default to `bundle exec rake release:success` and `bundle exec rake release:failure`. Success runs after publication and the next development iteration succeed. Failure runs after a failed phase inside the composite action once Ruby setup has completed and receives a `RubyGemRelease::ReleaseFailure` with a captured Ruby exception when available. It cannot observe or handle failures in caller steps that run outside the action. See [Success and Failure Callbacks](release.md#success-and-failure-callbacks).
 
@@ -72,4 +72,4 @@ For first publication, register a pending trusted publisher and supply its numer
 
 With the sample, dispatch a first release using `gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID`, replacing `YOUR_ACCOUNT_ID` with your numeric account ID. For subsequent releases, omit `rubygems-owner`. Validate locally before authorizing publication.
 
-Recovery artifacts must be preserved before publication. Capture reconciles an unfinished release before selecting new work, including on a fresh workflow run. Failed callbacks prevent later phases; conflicts and missing evidence fail safely. See [Verify and Recover](../../RELEASING.md#verify-and-recover).
+Artifacts must be preserved before publication. Reruns use the supplied checkout and inputs, not restored context or automatically discovered unfinished releases. See [Verify and Recover](../../RELEASING.md#verify-and-recover).

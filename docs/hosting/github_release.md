@@ -31,7 +31,7 @@ Without `package:`, `artifacts:` accepts existing file paths, defaulting to no a
 
 Install `gh` and authenticate using `GH_TOKEN` or its existing credentials. The workflow supplies the GitHub Actions token and requires the caller's `contents: write` permission.
 
-Failed commands raise without retries or overwriting existing releases. If package publication and the tag push succeeded, recover only the missing GitHub Release with the preserved artifact; see [RELEASING.md](../../RELEASING.md).
+Failed commands raise without automatic retries. Reruns verify existing outputs and reconcile missing or changed hosted metadata and assets; see [Verify and Recover](../../RELEASING.md#verify-and-recover).
 
 ## Workflow Command
 

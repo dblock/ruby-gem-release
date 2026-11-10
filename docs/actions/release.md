@@ -33,9 +33,7 @@ Validation runs after context capture, before preparation edits. Empty pending n
 
 A custom `validate` command must exit nonzero on invalid state; normal completion succeeds. Ruby callbacks raise on failure, and returning `false` also fails. No output protocol is required.
 
-A validation error fails the job, stops downstream release operations, and invokes failure handling after successful Ruby setup. There is no successful no-release outcome or `skipped` output.
-
-Move former post-preparation `validate:` test overrides to `test:`. Replace old decision-output commands with failing exit statuses, and upgrade the gem and pinned interface together.
+A validation error fails the job, stops downstream release operations, and invokes failure handling after successful Ruby setup.
 
 ### Release Version
 
@@ -43,17 +41,17 @@ Set `version: '1.2.3'` under `with:` to select a release version instead of the 
 
 Expose a string `version` input in the caller's `workflow_dispatch` form and forward it with `version: ${{ inputs.version }}`. You can then choose it in GitHub's form or run `gh workflow run release.yml -f version=1.2.3`. No release is performed by adding this input.
 
-This changes the former assertion-only behavior. Custom preparation commands and callbacks retain control and must honor the selection; resolution rejects a mismatched prepared gemspec before publication. Custom version objects must implement `set!` when selecting a version. The former `RubyConstant#set` API is removed without an alias; use `set!`. Upgrade the gem and pinned interface together when adopting the new behavior.
+Custom preparation commands and callbacks must honor the selection; resolution rejects a mismatched prepared gemspec before publication. Custom version objects must implement `set!` when selecting a version. See [UPGRADING.md](../../UPGRADING.md) for migrations.
 
 ### Timezone
 
-Starting with version `0.3.0`, set `timezone: America/New_York` under `with:` to use Eastern Time, including daylight saving changes. Upgrade the gem and pinned workflow or action together before adding this input; earlier release tags do not expose it. UTC remains the default.
+Set `timezone: America/New_York` under `with:` to use Eastern Time, including daylight saving changes. UTC remains the default.
 
 The interfaces set `TZ` and capture the local calendar date once as `RELEASE_DATE`, preserving it across callbacks even if the release crosses midnight. Git commits retain their actual creation times with offsets in the selected timezone. GitHub and RubyGems generate their own publication timestamps; this input does not change those service timestamps.
 
 Identifiers must resolve to files under the runner's `/usr/share/zoneinfo` directory. Unknown identifiers, empty values, fixed-offset strings, and traversal paths fail before release preparation or publication. Use a named timezone rather than a fixed offset so daylight saving changes are handled correctly.
 
-The `publish` input replaces the former `github-release` input and controls the whole publication sequence. To disable only GitHub Release creation, set `hosting: nil` in the standard workflow or omit `github.publish!` from manual callbacks rather than disabling `publish`.
+To disable only GitHub Release creation, set `hosting: nil` in the standard workflow or omit `github.publish!` from manual callbacks rather than disabling `publish`.
 
 ### Success and Failure Callbacks
 
@@ -71,17 +69,17 @@ Authentication exports `RUBYGEMS_API_KEY`, `BUNDLE_GEM__PUSH_KEY`, and `GEM_HOST
 
 The caller needs `contents: write` for Git and hosting and `id-token: write` for RubyGems Trusted Publishing. Configure the `release` environment and publisher as described in [Usage](../../README.md#3-enable-trusted-publishing). No stored RubyGems API key is required.
 
-The base destination's authentication hook retains preconfigured credentials. Custom destinations can override it without adding or changing YAML steps; prepared-version checks also use the configured destination. A `publish` command override that bypasses `release:publish` must own authentication as well as publication. See [Registry Destinations](../destination.md).
+The base destination's authentication hook retains preconfigured credentials. Custom destinations can override it without adding or changing YAML steps. A `publish` command override that bypasses `release:publish` must own authentication as well as publication. See [Registry Destinations](../destination.md).
 
-The workflow supplies `GH_TOKEN` during capture and publication. Branch rules must permit fast-forward pushes while retaining force-push and deletion restrictions.
+The workflow supplies `GH_TOKEN` during publication. Branch rules must permit fast-forward pushes while retaining force-push and deletion restrictions.
 
 ## Execution
 
-After `ruby/setup-ruby` installs dependencies, context capture requires a clean checkout before preparation: tracked/index changes and untracked non-ignored files fail with actionable paths. Ignored Bundler output is allowed; tracked dependency artifacts are not. Resolving the prepared version stages the trusted `prepare` command's outputs and records the index tree before validation. The publication callback refuses later working tree or index changes rather than staging unrelated files. Custom commands own their operations; wrap custom next development iteration edits in `git.stage_changes!` as shown in [Detailed Usage](../usage.md#custom-callbacks).
+After `ruby/setup-ruby` installs dependencies, context capture requires a clean checkout before preparation: tracked/index changes and untracked non-ignored files fail with actionable paths. Ignored Bundler output is allowed; tracked dependency artifacts are not. Resolving the prepared version stages the trusted `prepare` command's outputs and records the index tree before testing. The publication callback refuses later working tree or index changes rather than staging unrelated files. Custom commands own their operations; wrap custom next development iteration edits in `git.stage_changes!` as shown in [Detailed Usage](../usage.md#custom-callbacks).
 
 The job runs on `ubuntu-latest` in the `release` environment. After full checkout and Ruby setup, capture uses the current checkout and inputs. Commands always run and own their idempotence; there is no cross-run artifact discovery or state restoration. A checkpoint commits, builds, and tags locally; artifact preservation must succeed before `publish` and `bump`. Failures prevent later phases.
 
-New releases require the current default-branch commit. Recovery can restore an earlier verified release without rewinding remote descendants. Git rejects conflicting tags and unrelated advancement. Concurrency is grouped by repository without canceling a running release.
+New releases require the current default-branch commit. Reruns can reuse matching release commits and tags without rewinding remote descendants. Git rejects conflicting tags and unrelated advancement. Concurrency is grouped by repository without canceling a running release.
 
 ## Command Environment
 

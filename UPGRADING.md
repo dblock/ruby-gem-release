@@ -92,3 +92,7 @@ Set `timezone` explicitly if you need a timezone other than the `UTC` default fo
 ## Upgrading To 0.2.3
 
 Remove `dry-run` inputs, `dry_run` constructor arguments, and `release.dry_run?` checks. Dispatching requests real publication, not a preview; test and build locally first. See [#21](https://github.com/dblock/ruby-gem-release/pull/21).
+
+## Earlier Interfaces
+
+Replace the former `github-release` command input with `publish`, which controls the entire publication sequence. To disable only hosted releases, set `hosting: nil` rather than disabling publication.

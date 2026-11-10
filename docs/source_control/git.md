@@ -1,10 +1,10 @@
 # `RubyGemRelease::SourceControl::Git`
 
-Owns local release commits and tags, branch checks, recovery bundles, and remote pushes.
+Owns local release commits and tags, branch checks, Git bundles, and remote pushes.
 
 ## Branch and Remote
 
-`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the recovery bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
+`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the Git bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
 
 ## Configure
 
@@ -26,7 +26,7 @@ Owns local release commits and tags, branch checks, recovery bundles, and remote
 
 `check_clean!` rejects any tracked changes, including staged changes, and any untracked non-ignored files. Diagnostics list escaped status paths, limit large listings, and suggest removing generated files, restoring unexpected changes, or intentionally ignoring dependency artifacts. Both Actions interfaces call it after dependency installation and before loading the gemspec or preparing release files. Existing ignore rules are honored, but tracked artifacts are never exempt.
 
-`stage_changes! { ... }` requires a clean checkout, runs trusted preparation code, and stages the resulting paths with literal, argument-based Git invocation. This supports custom version, changelog, README, added, renamed, and deleted files without guessing conventions. Without a block, it stages current preparation outputs; the workflow uses this at the end of the configurable `prepare` command, before validation. It saves the exact index tree in `prepared-tree`, so even unrelated files staged later cannot silently enter publication. A failing block does not stage or commit its edits. Do not call this method from publication to accept unexpected validation output.
+`stage_changes! { ... }` requires a clean checkout, runs trusted preparation code, and stages the resulting paths with literal, argument-based Git invocation. This supports custom version, changelog, README, added, renamed, and deleted files without guessing conventions. Without a block, it stages current preparation outputs; the workflow uses this at the end of the configurable `prepare` command, before testing. It saves the exact index tree in `prepared-tree`, so even unrelated files staged later cannot silently enter publication. A failing block does not stage or commit its edits. Do not call this method from publication to accept unexpected test output.
 
 ## Tag
 

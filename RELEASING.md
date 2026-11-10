@@ -54,7 +54,7 @@ Every dispatch requests publication; nothing to release is a validation error. R
 
 Use the [README setup](README.md#usage), dispatch its caller on the default branch, and approve the environment when required. For an explicit version, pass `-f version=1.2.3` to that caller's `gh workflow run` command.
 
-The pipeline captures context, validates, prepares, resolves, and tests. A checkpoint commits, builds, tags locally, and creates a recovery bundle; artifact preservation must succeed before external publication. Publication verifies or uploads the gem, pushes commit and tag atomically, then updates the hosted release. Finally, it optionally bumps. See [Actions inputs](docs/actions/release.md) and [Git preparation](docs/source_control/git.md#clean-checkout-and-preparation).
+The pipeline captures context, validates, prepares, resolves, and tests. A checkpoint commits, builds, tags locally, and creates a Git bundle for manual inspection; artifact preservation must succeed before external publication. Publication verifies or uploads the gem, pushes commit and tag atomically, then updates the hosted release. Finally, it optionally bumps. See [Actions inputs](docs/actions/release.md) and [Git preparation](docs/source_control/git.md#clean-checkout-and-preparation).
 
 Never invoke publication as a preview. Custom commands execute with release privileges and must be trusted; callers bypassing `release:publish` own authentication.
 
