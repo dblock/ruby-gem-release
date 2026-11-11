@@ -47,6 +47,114 @@ RSpec.describe RubyGemRelease::RSpec do
     end
   end
 
+  it 'copies explicit fixture files with relative paths, binary content, and file modes' do
+    with_release_project do |project|
+      root = File.join(project.directory, 'source')
+      FileUtils.mkdir_p(File.join(root, 'tasks'))
+      File.binwrite(File.join(root, 'README.md'), "Project\n")
+      File.binwrite(File.join(root, 'tasks/release.rb'), "\x00\xFF")
+      File.chmod(0o751, File.join(root, 'tasks/release.rb'))
+      File.write(File.join(root, 'ignored'), 'Do not copy.')
+
+      2.times { project.copy_files(path: root, files: %w[README.md tasks/release.rb]) }
+
+      expect(File.binread(File.join(project.checkout, 'README.md'))).to eq("Project\n")
+      expect(File.binread(File.join(project.checkout, 'tasks/release.rb'))).to eq("\x00\xFF".b)
+      expect(File.stat(File.join(project.checkout, 'tasks/release.rb')).mode & 0o777).to eq(0o751)
+      expect(File).not_to exist(File.join(project.checkout, 'ignored'))
+    end
+  end
+
+  it 'copies all files recursively by default, including hidden files but not Git metadata' do
+    with_release_project do |project|
+      root = File.join(project.directory, 'source')
+      FileUtils.mkdir_p(%w[tasks .config .git nested].map { |path| File.join(root, path) })
+      File.write(File.join(root, 'README.md'), 'Project')
+      File.binwrite(File.join(root, 'tasks/release.rb'), "\x00\xFF")
+      File.chmod(0o751, File.join(root, 'tasks/release.rb'))
+      File.write(File.join(root, '.hidden'), 'Hidden file')
+      File.write(File.join(root, '.config/settings'), 'Hidden directory')
+      File.write(File.join(root, '.git/config'), 'Do not copy repository metadata.')
+      File.write(File.join(root, 'nested/.git'), 'Do not copy worktree metadata.')
+      original_config = File.read(File.join(project.checkout, '.git/config'))
+
+      project.copy_files(path: root, files: [])
+      expect(Dir.children(project.checkout)).to eq(['.git'])
+      2.times { project.copy_files(path: root) }
+
+      expect(File.read(File.join(project.checkout, 'README.md'))).to eq('Project')
+      expect(File.binread(File.join(project.checkout, 'tasks/release.rb'))).to eq("\x00\xFF".b)
+      expect(File.stat(File.join(project.checkout, 'tasks/release.rb')).mode & 0o777).to eq(0o751)
+      expect(File.read(File.join(project.checkout, '.hidden'))).to eq('Hidden file')
+      expect(File.read(File.join(project.checkout, '.config/settings'))).to eq('Hidden directory')
+      expect(File.read(File.join(project.checkout, '.git/config'))).to eq(original_config)
+      expect(File).not_to exist(File.join(project.checkout, 'nested/.git'))
+      expect(project.git('remote', 'get-url', 'origin')).to eq(project.remote)
+    end
+  end
+
+  it 'rejects missing files and directories before copying any files' do
+    with_release_project do |project|
+      root = File.join(project.directory, 'source')
+      FileUtils.mkdir_p(File.join(root, 'tasks'))
+      File.write(File.join(root, 'README.md'), 'Project')
+
+      %w[missing tasks].each do |invalid|
+        expect { project.copy_files(path: root, files: ['README.md', invalid]) }.to raise_error(ArgumentError, /regular file/)
+        expect(File).not_to exist(File.join(project.checkout, 'README.md'))
+      end
+    end
+  end
+
+  it 'rejects absolute paths and paths outside the source root' do
+    with_release_project do |project|
+      root = File.join(project.directory, 'source')
+      FileUtils.mkdir_p(root)
+      File.write(File.join(project.directory, 'outside'), 'Keep.')
+
+      ['../outside', File.join(project.directory, 'outside')].each do |invalid|
+        expect { project.copy_files(path: root, files: [invalid]) }.to raise_error(ArgumentError, /relative files inside their root/)
+      end
+      expect(File.read(File.join(project.directory, 'outside'))).to eq('Keep.')
+    end
+  end
+
+  it 'rejects source and destination symbolic links outside their roots' do
+    with_release_project do |project|
+      root = File.join(project.directory, 'source')
+      FileUtils.mkdir_p(File.join(root, 'tasks'))
+      outside = File.join(project.directory, 'outside')
+      FileUtils.mkdir_p(outside)
+      File.write(File.join(outside, 'release.rb'), 'Keep.')
+      File.symlink(File.join(outside, 'release.rb'), File.join(root, 'linked.rb'))
+      expect { project.copy_files(path: root, files: ['linked.rb']) }.to raise_error(ArgumentError, /stay inside/)
+      expect { project.copy_files(path: root) }.to raise_error(ArgumentError, /stay inside/)
+
+      File.write(File.join(root, 'tasks/release.rb'), 'Replace.')
+      File.symlink(outside, File.join(project.checkout, 'tasks'))
+      expect { project.copy_files(path: root, files: ['tasks/release.rb']) }.to raise_error(ArgumentError, /stay inside/)
+      File.symlink(File.join(outside, 'release.rb'), File.join(project.checkout, 'release.rb'))
+      File.write(File.join(root, 'release.rb'), 'Replace.')
+      expect { project.copy_files(path: root, files: ['release.rb']) }.to raise_error(ArgumentError, /stay inside/)
+      expect(File.read(File.join(outside, 'release.rb'))).to eq('Keep.')
+    end
+  end
+
+  it 'rejects explicit Git metadata and destination aliases to it' do
+    with_release_project do |project|
+      root = File.join(project.directory, 'source')
+      FileUtils.mkdir_p(File.join(root, '.git'))
+      File.write(File.join(root, '.git/config'), 'Do not copy.')
+      File.write(File.join(root, 'config'), 'Do not replace.')
+      original_config = File.read(File.join(project.checkout, '.git/config'))
+
+      expect { project.copy_files(path: root, files: ['.git/config']) }.to raise_error(ArgumentError, /Git metadata/)
+      File.symlink(File.join(project.checkout, '.git/config'), File.join(project.checkout, 'config'))
+      expect { project.copy_files(path: root, files: ['config']) }.to raise_error(ArgumentError, /Git metadata/)
+      expect(File.read(File.join(project.checkout, '.git/config'))).to eq(original_config)
+    end
+  end
+
   [RubyGemRelease::RSpec::Destination, RubyGemRelease::RSpec::Hosting].each do |adapter|
     context "with #{adapter}" do
       let(:release) { RubyGemRelease::Release.new(version: '0.1.0', gemspec_version: '0.1.0', date: Date.new(2026, 11, 11)) }

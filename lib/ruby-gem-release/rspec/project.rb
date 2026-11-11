@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'find'
 require 'json'
 require 'open3'
+require 'pathname'
 
 module RubyGemRelease
   module RSpec
@@ -24,6 +26,20 @@ module RubyGemRelease
 
         FileUtils.mkdir_p(File.dirname(destination))
         File.write(destination, content)
+      end
+
+      def copy_files(path:, files: nil)
+        source_root, destination_root = [path, @checkout].map { |directory| File.realpath(directory) }
+        copies = (files || source_files(source_root)).map do |file|
+          source = copy_path(source_root, file)
+          raise ArgumentError, "fixture source must be a regular file: #{file}" unless File.file?(source)
+
+          [source, copy_path(destination_root, file)]
+        end
+        copies.each do |source, destination|
+          FileUtils.mkdir_p(File.dirname(destination))
+          FileUtils.copy_file(source, destination, true)
+        end
       end
 
       def commit!(message = 'Prepare release fixture')
@@ -60,6 +76,37 @@ module RubyGemRelease
       end
 
       private
+
+      def source_files(root)
+        Find.find(root).filter_map do |source|
+          next if source == root
+
+          Find.prune if File.basename(source) == '.git'
+
+          source.delete_prefix("#{root}/") unless File.directory?(source) && !File.symlink?(source)
+        end
+      end
+
+      def copy_path(root, path)
+        path = File.path(path)
+        candidate = File.expand_path(path, root)
+        raise ArgumentError, 'fixture paths must be relative files inside their root' if Pathname.new(path).absolute? || !candidate.start_with?("#{root}/")
+
+        ancestor = candidate
+        ancestor = File.dirname(ancestor) until File.exist?(ancestor) || File.symlink?(ancestor)
+        resolved = File.realpath(ancestor)
+        raise ArgumentError, 'fixture paths must stay inside their root' unless resolved == root || resolved.start_with?("#{root}/")
+
+        check_git_metadata(root, candidate, resolved)
+
+        candidate
+      end
+
+      def check_git_metadata(root, *paths)
+        return unless paths.any? { |path| path.delete_prefix("#{root}/").split('/').include?('.git') }
+
+        raise ArgumentError, 'fixture files must not replace Git metadata'
+      end
 
       def initialize_git
         git('init', '--bare', '--quiet', '-b', 'master', @remote)

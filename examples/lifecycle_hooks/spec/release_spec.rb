@@ -8,9 +8,7 @@ RSpec.describe 'Project release customizations' do
 
   it 'updates README in the release and next development commits' do
     with_release_project do |project|
-      %w[release_notes.rb release_workflow.rb].each do |path|
-        project.write(path, File.read(File.expand_path("../#{path}", __dir__)))
-      end
+      project.copy_files(path: File.expand_path('..', __dir__), files: %w[release_notes.rb release_workflow.rb README.md])
       project.write('Rakefile', <<~RUBY)
         require 'ruby-gem-release/rspec'
         require_relative 'release_workflow'
@@ -32,7 +30,6 @@ RSpec.describe 'Project release customizations' do
         end
       RUBY
       project.write('lib/example/version.rb', "VERSION = '0.1.0'\n")
-      project.write('README.md', File.read(File.expand_path('../README.md', __dir__)))
       project.write('CHANGELOG.md', "# Changelog\n\n## [Unreleased]\n\n- A change.\n")
       project.commit!
 

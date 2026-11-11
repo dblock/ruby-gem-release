@@ -29,6 +29,16 @@ See the [complete spec](../examples/lifecycle_hooks/spec/release_spec.rb) for al
 
 `with_release_project` creates a temporary checkout, local bare `origin`, and private artifact directory, then cleans them up even if the spec fails. `project.write(path, content)` creates files; `commit!` commits and pushes fixture edits to that local remote. No files or commits are changed in your working checkout.
 
+Copy real project files instead of duplicating their contents in the spec:
+
+```ruby
+project.copy_files(path: File.expand_path('..', __dir__))
+```
+
+`path:` is the source directory. By default, `copy_files` copies all files recursively, including hidden files, but skips `.git` metadata to preserve the fixture's isolated repository. Pass `files: %w[README.md tasks/release_notes.rb]` to copy only selected relative files, or `files: []` to copy nothing.
+
+Copying preserves relative paths and file modes. Missing files, directory entries, absolute paths, Git metadata, and paths or symbolic links that escape either root are rejected. All selected files are checked before copying.
+
 `release!` runs capture, validation, preparation, resolution, checkpoint, publication, development bump, and success in separate Rake processes. Pass `test_task: 'verify_release'` to run a fixture-specific check after resolution; the default skips the project's test suite to avoid recursively running this spec. Use `run_task('release:prepare')` for individual tasks and `git(...)` or `remote_file(ref, path)` to inspect results.
 
 The child processes retain Ruby/Bundler paths but do not inherit Actions variables, credentials, Git overrides, or outer release state. `project.environment` lets you add explicit fixture inputs. The helper uses the currently loaded release gem and parent bundle.
