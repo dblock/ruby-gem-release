@@ -43,8 +43,12 @@ module RubyGemRelease
         return if heading_positions(content, /\A\#{1,6} #{Regexp.escape(version)} \(Next\)\z/).one?
 
         check_absent(content, UNRELEASED, 'unreleased heading already exists')
+        write_next_section(content, position, prefix, version, separator)
+      end
 
-        File.write(@path, content.insert(position, ["#{prefix} #{version} (Next)", '', @placeholder, '', ''].join(separator)))
+      def write_next_section(content, position, prefix, version, separator)
+        subsections = subsection_headings(content, position, prefix.length)
+        File.write(@path, content.insert(position, build_next_section(prefix, version, subsections, separator)))
       end
 
       def check_release_absent(content, version)
@@ -62,11 +66,36 @@ module RubyGemRelease
       def remove_placeholder(section, separator)
         positions = []
         editable_lines(section) { |line, offset| positions << offset if line.chomp == @placeholder }
-        raise ArgumentError, "expected exactly one placeholder in #{@path}" unless positions.one?
+        raise ArgumentError, "expected at least one placeholder in #{@path}" if positions.empty?
 
-        position = positions.first
-        section.slice!(position, placeholder_length(section, position, separator))
+        positions.reverse_each { |position| section.slice!(position, placeholder_length(section, position, separator)) }
         section
+      end
+
+      def subsection_headings(content, position, level)
+        section_end = section_end_position(content, position, level)
+        lines = content.lines
+        offsets = line_offsets(lines)
+        subsection_heading_lines(content, level).filter_map do |index|
+          lines[index].chomp if (position...section_end).cover?(offsets[index])
+        end
+      end
+
+      def subsection_heading_lines(content, level)
+        document(content).each.filter_map do |node|
+          node.source_position[:start_line] - 1 if node.type == :heading && node.header_level == level + 1
+        end
+      end
+
+      def build_next_section(prefix, version, subsections, separator)
+        lines = ["#{prefix} #{version} (Next)"]
+        if subsections.empty?
+          lines.push('', @placeholder, '', '')
+        else
+          subsections.each { |subsection| lines.push('', subsection, '', @placeholder) }
+          lines.push('', '')
+        end
+        lines.join(separator)
       end
 
       def placeholder_length(section, position, separator)

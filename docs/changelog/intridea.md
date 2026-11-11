@@ -18,11 +18,15 @@ changelog = RubyGemRelease::Changelog::Intridea.new(path: 'CHANGELOG.md')
 
 `placeholder:` defaults to `'- Your contribution here.'`. Set `placeholder: '* Your contribution here.'` for the alternative bullet. It must be a single nonempty line, configured identically for both phases.
 
+## Sections
+
+When the released section has headings one level below its release heading, `prepare_next!` carries those headings into the new Next section and adds the configured placeholder under each one. With no subsections, it creates the usual single placeholder. Old subsection notes are not copied.
+
 ## Release
 
-During `release:validate`, placeholder-only or structural-only notes fail unless the selected release already has a heading. Invalid headings and missing or duplicate placeholders also fail.
+During `release:validate`, placeholder-only or structural-only notes fail unless the selected release already has a heading. Invalid headings and missing placeholders also fail; multiple matching placeholders are allowed.
 
-`changelog.release!(release)` replaces the single Next heading with the [Release](../release.md) version and date, removing exactly one placeholder from that section. Missing or duplicate headings and placeholders, or an existing release heading, fail without writing the file.
+`changelog.release!(release)` replaces the Next heading with the [Release](../release.md) version and date, removing every matching placeholder from that section. Missing or duplicate headings, a missing placeholder, or an existing release heading fail without writing the file.
 
 Placeholder-only sections and sections containing only headings, comments, or reference definitions also fail without writing. Add actual release notes to the Next section before retrying; older releases do not count. There is no empty-release opt-out. See [Release Notes](base.md#release) for what counts as content.
 

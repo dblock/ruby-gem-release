@@ -24,13 +24,19 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(changelog.pending?).to be(true)
   end
 
-  it 'rejects missing and duplicate placeholders during validation rather than skipping' do
-    ['', "- Your contribution here.\n- Your contribution here.\n"].each do |notes|
-      content = "## 1.0.0 (Next)\n\n#{notes}"
-      File.write(path, content)
-      expect { described_class.new(path: path).pending? }.to raise_error(ArgumentError, /placeholder/)
-      expect(File.read(path)).to eq(content)
-    end
+  it 'ignores multiple placeholders during pending-note validation' do
+    content = "### 1.0.0 (Next)\n\n#### Features\n\n* Your contribution here.\n\n#### Fixes\n\n* Your contribution here.\n"
+    File.write(path, content)
+    changelog = described_class.new(path: path, placeholder: '* Your contribution here.')
+    expect(changelog.pending?).to be(false)
+    expect(File.read(path)).to eq(content)
+  end
+
+  it 'rejects a missing placeholder during pending-note validation' do
+    content = "## 1.0.0 (Next)\n\n- Change.\n"
+    File.write(path, content)
+    expect { described_class.new(path: path).pending? }.to raise_error(ArgumentError, /placeholder/)
+    expect(File.read(path)).to eq(content)
   end
 
   [1, 3, 4, 5, 6].each do |level|
@@ -73,6 +79,20 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(File.read(path)).to include("## 1.0.1 (Next)\n\n- Your contribution here.\n\n## 1.0.0 (2026/11/07)")
   end
 
+  it 'removes multiple placeholders and carries subsections into the next section', :aggregate_failures do
+    content = "### 1.0.0 (Next)\n\n#### Features\n\n* Feature.\n* Your contribution here.\n\n#### Fixes\n\n* Fix.\n* Your contribution here.\n\n### 0.9.0 (2026/11/06)\n\n* Older change.\n"
+    File.write(path, content)
+    updater = described_class.new(path: path, placeholder: '* Your contribution here.')
+
+    updater.release!(release)
+    updater.release!(release)
+    expect(File.read(path)).to eq("### 1.0.0 (2026/11/07)\n\n#### Features\n\n* Feature.\n\n#### Fixes\n\n* Fix.\n\n### 0.9.0 (2026/11/06)\n\n* Older change.\n")
+
+    updater.prepare_next!(next_release)
+    updater.prepare_next!(next_release)
+    expect(File.read(path)).to eq("### 1.0.1 (Next)\n\n#### Features\n\n* Your contribution here.\n\n#### Fixes\n\n* Your contribution here.\n\n### 1.0.0 (2026/11/07)\n\n#### Features\n\n* Feature.\n\n#### Fixes\n\n* Fix.\n\n### 0.9.0 (2026/11/06)\n\n* Older change.\n")
+  end
+
   it 'ignores fenced headings and placeholders while releasing an Intridea section' do
     content = "## 1.0.0 (Next)\n\n```\n## Example\n- Your contribution here.\n```\n\n- Your contribution here.\n"
     File.write(path, content)
@@ -103,13 +123,11 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(File.binread(path)).to eq(content)
   end
 
-  it 'rejects missing or duplicate placeholders without modifying the file', :aggregate_failures do
-    ['', "- Your contribution here.\n- Your contribution here.\n"].each do |section|
-      content = "## 1.0.0 (Next)\n\n#{section}"
-      File.write(path, content)
-      expect { described_class.new(path: path).release!(release) }
-        .to raise_error(ArgumentError, /placeholder/)
-      expect(File.read(path)).to eq(content)
-    end
+  it 'rejects a missing placeholder without modifying the file' do
+    content = "## 1.0.0 (Next)\n\n- Change.\n"
+    File.write(path, content)
+    expect { described_class.new(path: path).release!(release) }
+      .to raise_error(ArgumentError, /placeholder/)
+    expect(File.read(path)).to eq(content)
   end
 end

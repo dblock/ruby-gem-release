@@ -2,6 +2,7 @@
 
 ## 0.5.2 (Next)
 
+- [#51](https://github.com/dblock/ruby-gem-release/pull/51): Carry changelog subsections into the next release and remove multiple contribution placeholders - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.5.1 (2026/11/10)
