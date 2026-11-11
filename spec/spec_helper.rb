@@ -1,21 +1,17 @@
 # frozen_string_literal: true
 
 require 'bundler/setup'
-require 'simplecov'
-require 'simplecov-lcov'
+require_relative 'coverage_setup'
 
-SimpleCov::Formatter::LcovFormatter.config.report_with_single_file = true
-SimpleCov::Formatter::LcovFormatter.config.single_report_path = 'coverage/lcov.info'
-coverage_formatters = [
-  SimpleCov::Formatter::HTMLFormatter,
-  SimpleCov::Formatter::LcovFormatter
-]
-SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new(coverage_formatters)
+SimpleCov.command_name("RSpec#{ENV.fetch('TEST_ENV_NUMBER', '')}")
+SimpleCov.merging(ENV.key?('TEST_ENV_NUMBER'))
 SimpleCov.start do
   skip '/spec/'
   skip 'lib/ruby-gem-release/version.rb'
   cover 'lib/**/*.rb'
 end
+# The Rake task formats coverage after all workers have stored their results.
+SimpleCov.at_exit { SimpleCov.result } if ENV.key?('TEST_ENV_NUMBER')
 
 require 'ruby-gem-release'
 require 'rspec'

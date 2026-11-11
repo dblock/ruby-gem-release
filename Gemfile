@@ -9,6 +9,7 @@ gem 'danger-changelog', require: false
 gem 'danger-pr-comment', require: false
 # Danger 9.6.1 does not load with git 6.
 gem 'git', '< 6', require: false
+gem 'parallel_tests', require: false
 gem 'rake'
 gem 'rspec'
 gem 'rubocop'

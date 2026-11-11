@@ -13,12 +13,25 @@ RubyGemRelease::Workflow::RubyGem.new(
   changelog: RubyGemRelease::Changelog::Intridea.new
 ).install_tasks
 
-RSpec::Core::RakeTask.new(:spec)
+{
+  spec: 'spec/**/*_spec.rb',
+  'spec:integration' => 'spec/integration/**/*_spec.rb'
+}.each do |name, pattern|
+  desc "Run #{name} in parallel"
+  task name do
+    FileUtils.rm_f('coverage/.resultset.json')
+    files = Dir.glob(ENV.fetch('SPEC', pattern))
+    abort "No spec files match #{ENV.fetch('SPEC', pattern).inspect}" if files.empty?
+
+    sh 'bundle', 'exec', 'parallel_rspec', '--serialize-stdout', '--test-options', ENV.fetch('SPEC_OPTS', ''), *files
+  ensure
+    require_relative 'spec/coverage_setup'
+    SimpleCov.collate(['coverage/.resultset.json']) if File.file?('coverage/.resultset.json')
+  end
+end
+RSpec::Core::RakeTask.new('spec:serial')
 RSpec::Core::RakeTask.new('spec:unit') do |task|
   task.exclude_pattern = 'spec/integration/**/*_spec.rb'
-end
-RSpec::Core::RakeTask.new('spec:integration') do |task|
-  task.pattern = 'spec/integration/**/*_spec.rb'
 end
 RuboCop::RakeTask.new
 
