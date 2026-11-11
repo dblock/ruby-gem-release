@@ -8,6 +8,7 @@
 - [#53](https://github.com/dblock/ruby-gem-release/pull/53): Add Markdown section replacement and text substitution for project-specific release documentation - [@dblock](https://github.com/dblock).
 - [#54](https://github.com/dblock/ruby-gem-release/pull/54): Add whole-project or selected fixture file copying to the optional release spec helper - [@dblock](https://github.com/dblock).
 - [#55](https://github.com/dblock/ruby-gem-release/pull/55): Run full and integration specs concurrently while retaining isolated release processes and combined coverage - [@dblock](https://github.com/dblock).
+- [#56](https://github.com/dblock/ruby-gem-release/pull/56): Configure isolated release fixtures from project workflow builders with local test adapters - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.5.1 (2026/11/10)

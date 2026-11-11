@@ -14,7 +14,8 @@ RSpec.describe 'My release configuration' do
 
   it 'updates release documentation' do
     with_release_project do |project|
-      # Write the gemspec, version, changelog, README, and test Rakefile here.
+      # Copy the actual gemspec, version, changelog, README, and workflow files here.
+      project.configure_workflow(require: 'release_workflow', builder: 'ProjectReleaseWorkflow.build')
       project.commit!
       project.release!(version: '0.2.0')
 
@@ -45,16 +46,32 @@ The child processes retain Ruby/Bundler paths but do not inherit Actions variabl
 
 ## Local Publication
 
-Keep the project's real version object, changelog, and hooks. In the fixture Rakefile, pass these test-only overrides to its workflow builder:
+Keep the project's real version object, changelog, and hooks. For a project exposing `GrapeRelease.workflow` in `tasks/release.rb`, configure the fixture after copying that file and its dependencies:
 
 ```ruby
-require 'ruby-gem-release/rspec'
+project.configure_workflow(
+  require: 'tasks/release',
+  builder: 'GrapeRelease.workflow'
+)
+```
 
-ProjectReleaseWorkflow.build(
-  provider: RubyGemRelease::RSpec::Provider.new,
-  destination: RubyGemRelease::RSpec::Destination.new,
-  hosting: RubyGemRelease::RSpec::Hosting.new
-).install_tasks
+`configure_workflow` writes only the fixture's Rakefile. It requires `ruby-gem-release/rspec`, loads the copied Ruby file, calls the builder with the existing local `Provider`, `Destination`, and `Hosting` adapters, and invokes `install_tasks`. Production configuration is unchanged; `release!` and `run_task` still execute the same release tasks in separate processes.
+
+`require:` is a path inside the checkout, with or without `.rb`. Absolute paths, Git metadata, and paths or symbolic links escaping the checkout are rejected. The path is encoded as a Ruby string literal. `builder:` must be a constant path and method, such as `MyProject::Release.workflow`, not an arbitrary Ruby expression. Invalid arguments are rejected before replacing the Rakefile.
+
+For custom setup or adapter options, keep using `project.write('Rakefile', ...)`. For example:
+
+```ruby
+project.write('Rakefile', <<~RUBY)
+  require 'ruby-gem-release/rspec'
+  require_relative 'release_workflow'
+
+  ProjectReleaseWorkflow.build(
+    provider: RubyGemRelease::RSpec::Provider.new,
+    destination: RubyGemRelease::RSpec::Destination.new(failure: 'Publication rejected'),
+    hosting: RubyGemRelease::RSpec::Hosting.new
+  ).install_tasks
+RUBY
 ```
 
 The provider transports exported values and failed-task information between fixture processes. The destination and hosting adapters copy the exact built archive to `registry/VERSION.gem` and `hosting/VERSION.gem` under `RELEASE_DATA_DIR`, without authentication or network publication. Repetition accepts identical archives and rejects checksum conflicts. Set `failure: 'Publication rejected'` on either adapter to exercise a failure.

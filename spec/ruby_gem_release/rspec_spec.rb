@@ -47,6 +47,66 @@ RSpec.describe RubyGemRelease::RSpec do
     end
   end
 
+  it 'loads a literal workflow path and installs the project builder with local adapters' do
+    with_release_project do |project|
+      source = "release-\"\#{raise 'Unexpected interpolation'}"
+      project.write("#{source}.rb", <<~RUBY)
+        module FixtureBuilders
+          module Release
+            def self.workflow(provider:, destination:, hosting:)
+              raise 'Destination is not local' unless destination.is_a?(RubyGemRelease::RSpec::Destination)
+              raise 'Hosting is not local' unless hosting.is_a?(RubyGemRelease::RSpec::Hosting)
+
+              @provider = provider
+              self
+            end
+
+            def self.install_tasks
+              Rake::Task.define_task(:configured_hook) do
+                @provider.export('PROJECT_HOOK' => 'ran')
+              end
+            end
+          end
+        end
+      RUBY
+
+      project.configure_workflow(require: "#{source}.rb", builder: '::FixtureBuilders::Release.workflow')
+      project.run_task('configured_hook')
+
+      expect(project.environment.fetch('PROJECT_HOOK')).to eq('ran')
+    end
+  end
+
+  it 'rejects builder expressions before replacing a custom Rakefile' do
+    with_release_project do |project|
+      project.write('Rakefile', 'Custom setup')
+      [nil, :workflow, '', 'Release', 'release.workflow', 'Release.workflow()', "Release.workflow\nraise 'Injected'"].each do |builder|
+        expect { project.configure_workflow(require: 'release', builder: builder) }.to raise_error(ArgumentError, /builder/)
+      end
+      expect(File.read(File.join(project.checkout, 'Rakefile'))).to eq('Custom setup')
+    end
+  end
+
+  it 'rejects invalid workflow paths and links that escape the checkout without changing files' do
+    with_release_project do |project|
+      project.write('Rakefile', 'Custom setup')
+      outside = File.join(project.directory, 'outside.rb')
+      File.write(outside, 'Do not load.')
+      File.symlink(outside, File.join(project.checkout, 'release.rb'))
+
+      [nil, :release, '', '../outside', outside, '.git/config', 'release', 'release.rb', "release\0"].each do |source|
+        expect { project.configure_workflow(require: source, builder: 'Release.workflow') }.to raise_error(ArgumentError)
+      end
+      expect(File.read(File.join(project.checkout, 'Rakefile'))).to eq('Custom setup')
+
+      File.unlink(File.join(project.checkout, 'Rakefile'))
+      File.symlink(outside, File.join(project.checkout, 'Rakefile'))
+      project.write('workflow.rb', 'Project builder source')
+      expect { project.configure_workflow(require: 'workflow', builder: 'Release.workflow') }.to raise_error(ArgumentError, /stay inside/)
+      expect(File.read(outside)).to eq('Do not load.')
+    end
+  end
+
   it 'copies explicit fixture files with relative paths, binary content, and file modes' do
     with_release_project do |project|
       root = File.join(project.directory, 'source')

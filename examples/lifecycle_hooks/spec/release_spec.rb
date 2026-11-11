@@ -9,16 +9,7 @@ RSpec.describe 'Project release customizations' do
   it 'updates README in the release and next development commits' do
     with_release_project do |project|
       project.copy_files(path: File.expand_path('..', __dir__), files: %w[release_notes.rb release_workflow.rb README.md])
-      project.write('Rakefile', <<~RUBY)
-        require 'ruby-gem-release/rspec'
-        require_relative 'release_workflow'
-
-        ProjectReleaseWorkflow.build(
-          provider: RubyGemRelease::RSpec::Provider.new,
-          destination: RubyGemRelease::RSpec::Destination.new,
-          hosting: RubyGemRelease::RSpec::Hosting.new
-        ).install_tasks
-      RUBY
+      project.configure_workflow(require: 'release_workflow', builder: 'ProjectReleaseWorkflow.build')
       project.write('example.gemspec', <<~RUBY)
         require_relative 'lib/example/version'
         Gem::Specification.new do |spec|
@@ -37,6 +28,11 @@ RSpec.describe 'Project release customizations' do
 
       expect(project.remote_file('v0.2.0', 'README.md')).to include('stable release of the project, 0.2.0')
       expect(project.remote_file('master', 'README.md')).to include('next release of the project, which should be 0.2.1')
+      artifacts = project.environment.fetch('RELEASE_DATA_DIR')
+      archive = File.binread(File.join(artifacts, 'release.gem'))
+      %w[registry hosting].each do |adapter|
+        expect(File.binread(File.join(artifacts, adapter, '0.2.0.gem'))).to eq(archive)
+      end
       expect(project.git('status', '--porcelain')).to eq('')
     end
   end

@@ -42,6 +42,22 @@ module RubyGemRelease
         end
       end
 
+      def configure_workflow(require:, builder:)
+        raise ArgumentError, 'workflow builder must be a constant path and method' unless builder.is_a?(String) && /\A(?:::)?[A-Z]\w*(?:::[A-Z]\w*)*\.[a-z_]\w*[!?]?\z/.match?(builder)
+
+        source = workflow_source(require)
+        write('Rakefile', <<~RUBY)
+          require 'ruby-gem-release/rspec'
+          require_relative #{source.dump}
+
+          #{builder}(
+            provider: RubyGemRelease::RSpec::Provider.new,
+            destination: RubyGemRelease::RSpec::Destination.new,
+            hosting: RubyGemRelease::RSpec::Hosting.new
+          ).install_tasks
+        RUBY
+      end
+
       def commit!(message = 'Prepare release fixture')
         git('add', '.')
         git('commit', '--quiet', '-m', message)
@@ -76,6 +92,16 @@ module RubyGemRelease
       end
 
       private
+
+      def workflow_source(path)
+        raise ArgumentError, 'workflow source must be a nonempty string' unless path.is_a?(String) && !path.empty?
+
+        source = "#{path.delete_suffix('.rb')}.rb"
+        root = File.realpath(@checkout)
+        copy_path(root, source)
+        copy_path(root, 'Rakefile')
+        source
+      end
 
       def source_files(root)
         Find.find(root).filter_map do |source|
