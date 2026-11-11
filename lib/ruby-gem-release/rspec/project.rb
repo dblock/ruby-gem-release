@@ -30,7 +30,7 @@ module RubyGemRelease
 
       def copy_files(path:, files: nil)
         source_root, destination_root = [path, @checkout].map { |directory| File.realpath(directory) }
-        copies = (files || source_files(source_root)).map do |file|
+        copies = selected_files(source_root, files).map do |file|
           source = copy_path(source_root, file)
           raise ArgumentError, "fixture source must be a regular file: #{file}" unless File.file?(source)
 
@@ -101,6 +101,27 @@ module RubyGemRelease
         copy_path(root, source)
         copy_path(root, 'Rakefile')
         source
+      end
+
+      def selected_files(root, files)
+        return source_files(root) if files.nil?
+
+        available = nil
+        Array(files).flat_map do |file|
+          source = copy_path(root, file)
+          pattern = source.delete_prefix("#{root}/")
+          next pattern if File.exist?(source) || !pattern.match?(/[*?{\[]/)
+
+          available ||= source_files(root)
+          glob_files(pattern, available)
+        end.uniq
+      end
+
+      def glob_files(pattern, available)
+        matches = available.select { |file| File.fnmatch?(pattern, file, File::FNM_PATHNAME | File::FNM_DOTMATCH | File::FNM_EXTGLOB) }
+        raise ArgumentError, "fixture source must match at least one regular file: #{pattern}" if matches.empty?
+
+        matches
       end
 
       def source_files(root)

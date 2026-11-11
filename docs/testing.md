@@ -30,19 +30,32 @@ See the [complete spec](../examples/lifecycle_hooks/spec/release_spec.rb) for al
 
 `with_release_project` creates a temporary checkout, local bare `origin`, and private artifact directory, then cleans them up even if the spec fails. `project.write(path, content)` creates files; `commit!` commits and pushes fixture edits to that local remote. No files or commits are changed in your working checkout.
 
-Copy real project files instead of duplicating their contents in the spec:
-
-```ruby
-project.copy_files(path: File.expand_path('..', __dir__))
-```
-
-`path:` is the source directory. By default, `copy_files` copies all files recursively, including hidden files, but skips `.git` metadata to preserve the fixture's isolated repository. Pass `files: %w[README.md tasks/release_notes.rb]` to copy only selected relative files, or `files: []` to copy nothing.
-
-Copying preserves relative paths and file modes. Missing files, directory entries, absolute paths, Git metadata, and paths or symbolic links that escape either root are rejected. All selected files are checked before copying.
-
 `release!` runs capture, validation, preparation, resolution, checkpoint, publication, development bump, and success in separate Rake processes. Pass `test_task: 'verify_release'` to run a fixture-specific check after resolution; the default skips the project's test suite to avoid recursively running this spec. Use `run_task('release:prepare')` for individual tasks and `git(...)` or `remote_file(ref, path)` to inspect results.
 
 The child processes retain Ruby/Bundler paths but do not inherit Actions variables, credentials, Git overrides, or outer release state. `project.environment` lets you add explicit fixture inputs. The helper uses the currently loaded release gem and parent bundle.
+
+## Copy Fixture Files
+
+Copy real project files instead of duplicating their contents in the spec. `path:` is the source directory; `files:` accepts a single relative path or glob, or an array mixing both:
+
+```ruby
+source_root = File.expand_path('..', __dir__)
+
+project.copy_files(path: source_root)
+project.copy_files(path: source_root, files: 'README.md')
+project.copy_files(path: source_root, files: %w[README.md bin/run])
+project.copy_files(path: source_root, files: [])
+project.copy_files(path: source_root, files: '**/*.{js,md}')
+project.copy_files(path: source_root, files: ['README.md', 'lib/**/*.rb', 'bin/*'])
+```
+
+Omitting `files:` or passing `nil` copies all files recursively. An empty array copies nothing. Existing exact paths take precedence over glob syntax, so a file named `[notes].md` is copied literally. Overlapping selectors copy each relative file only once.
+
+Globs are matched relative to `path:`, not the current directory. Supported patterns include `*`, `?`, character classes such as `[ab]` or `[a-z]`, brace alternatives such as `*.{rb,md}`, and recursive `**/`. A leading `./` is accepted. `*` does not cross directory separators; use `**/*` for all nested files. Hidden files and hidden directories participate in matching, including with `**/*`. Git ignore rules are not applied, so select only the files needed by your fixture to avoid copying dependency directories and build outputs.
+
+Whole-project copying and glob expansion skip `.git` files and directories at every level to preserve the fixture's isolated repository. Explicit paths or patterns containing a `.git` component are rejected. Glob expansion selects files rather than ordinary directories and never traverses symbolic-link directories. A matched symbolic link must resolve to a regular file inside the source root; its contents are copied, not the link itself.
+
+Copying preserves relative paths, binary content, and file modes, and replaces selected destination files. Missing literal files, patterns matching no files, explicit directory entries, absolute paths, Git metadata, and paths or symbolic links that escape either root are rejected. Every selector must match at least one file. All selected sources and destinations are checked before any copying, so a bad selector or escaping destination link cannot leave a partially copied fixture. Empty directories are not copied.
 
 ## Local Publication
 

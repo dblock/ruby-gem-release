@@ -8,7 +8,7 @@ RSpec.describe 'Project release customizations' do
 
   it 'updates README in the release and next development commits' do
     with_release_project do |project|
-      project.copy_files(path: File.expand_path('..', __dir__), files: %w[release_notes.rb release_workflow.rb README.md])
+      project.copy_files(path: File.expand_path('..', __dir__), files: %w[*.rb README.md])
       project.configure_workflow(require: 'release_workflow', builder: 'ProjectReleaseWorkflow.build')
       project.write('example.gemspec', <<~RUBY)
         require_relative 'lib/example/version'
