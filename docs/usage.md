@@ -42,6 +42,8 @@ Use [lifecycle hooks](workflow/hooks.md) to add checks or project edits without 
 
 The package uses `GEMSPEC_PATH` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
+When adding project-specific release customizations, use optional `ruby-gem-release/rspec` helpers to test the real workflow in a disposable consumer repository and inspect its commits and release-managed files; see [Testing Custom Workflows](testing.md).
+
 ## Object Overrides
 
 Override `package:`, `destination:`, `git:`, `hosting:`, or `provider:` without changing the sequence. For example, disable hosted releases while retaining RubyGems publication:

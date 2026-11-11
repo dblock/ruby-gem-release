@@ -43,4 +43,4 @@ Existing `success:` and `failure:` callbacks run inside their stages, between be
 
 Hook exceptions keep their original class and message and are recorded as `failure.error.stage`, `.hook`, and `.hook_index`. Built-in failures have no hook timing or index. `failure.phase` remains the enclosing task or Actions step.
 
-See the [consumer example](../../examples/lifecycle_hooks/Rakefile) for project-local edits using the standard workflow.
+See the [consumer example](../../examples/lifecycle_hooks/Rakefile) for project-local edits using the standard workflow, its [complete release spec](../../examples/lifecycle_hooks/spec/release_spec.rb), and [testing helpers](../testing.md).

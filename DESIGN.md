@@ -71,6 +71,8 @@ Source CI runs `rake spec:unit`; installed-gem CI runs `rake spec:integration`. 
 
 Real-process consumers retain success, failure/recovery, empty-release rejection, custom registry, and credential propagation. Portable consumers also verify environment transport, state, and installed-library loading without Actions variables. Git pushes use local bare repositories; publication boundaries are isolated and unexpected network requests fail. These tests do not validate live Actions authentication or artifact uploading. Profile harness changes rather than enforcing timing thresholds.
 
+Optional `ruby-gem-release/rspec` support exposes disposable Git fixtures, isolated Rake processes, a provider for cross-process exports, and local registry and hosting adapters without adding an RSpec runtime dependency. Projects exercise their real workflow configuration with explicit test adapters; the helper does not rewrite production tasks or sandbox arbitrary callbacks. The lifecycle-hook example shares its workflow builder between its Rakefile and complete consumer spec.
+
 ## Self-Release and Artwork
 
 The manual `publish.yml` caller uses the root Rakefile and Ruby 4.0; merges and schedules do not publish. Every dispatch requires release authorization. Its project-local `ReleaseVersion` updates README and documentation pins during the next development iteration, after the release tag exists. See the [self-release walkthrough](examples/self_release/README.md).

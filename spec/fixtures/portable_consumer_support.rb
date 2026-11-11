@@ -3,6 +3,7 @@
 require 'ruby-gem-release/workflow/ruby_gem'
 require 'ruby-gem-release/workflow/semantic_ruby_gem'
 require 'ruby-gem-release/changelog'
+require 'ruby-gem-release/rspec'
 require 'digest'
 
 raise 'Unexpected Actions environment' if ENV.keys.any? { |name| name.start_with?('GITHUB_', 'RUNNER_', 'ACTIONS_', 'GH_') }
@@ -35,19 +36,6 @@ module PortableConsumer
     raise error unless status.success?
 
     output.lines.map(&:strip)
-  end
-
-  class Provider < RubyGemRelease::ExecutionProvider
-    def export(values)
-      super
-      path = fetch('CONSUMER_ENVIRONMENT')
-      previous = File.file?(path) ? JSON.parse(File.read(path)) : {}
-      File.write(path, JSON.generate(previous.merge(values)))
-    end
-
-    def failed_steps
-      JSON.parse(fetch('CONSUMER_FAILURES', '[]'))
-    end
   end
 
   class Destination < RubyGemRelease::Destination
@@ -153,7 +141,7 @@ module PortableConsumer
     {
       version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
       changelog: changelog,
-      provider: Provider.new,
+      provider: RubyGemRelease::RSpec::Provider.new,
       destination: Destination.new,
       hosting: Hosting.new,
       **callback_options

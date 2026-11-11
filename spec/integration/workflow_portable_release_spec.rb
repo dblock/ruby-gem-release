@@ -4,30 +4,27 @@ require 'spec_helper'
 require 'open3'
 require 'tmpdir'
 require 'rubygems/package'
+require 'ruby-gem-release/rspec'
 
 RSpec.describe 'Provider-neutral release lifecycle' do
   let(:directory) { Dir.mktmpdir }
   let(:runner) { { checkout: 'checkout' } }
   let(:consumer_rakefile) { 'spec/fixtures/portable_consumer.rb' }
-  let(:remote) { File.join(directory, 'remote.git') }
+  let(:project) { RubyGemRelease::RSpec::Project.new(directory: directory) }
   let(:environment) do
-    ENV.to_h.slice('PATH', 'HOME', 'TMPDIR', 'LANG').merge(
-      'BUNDLE_GEMFILE' => ENV.fetch('RELEASE_CONSUMER_GEMFILE', File.expand_path('Gemfile')),
-      'RUBYLIB' => ENV.fetch('RELEASE_CONSUMER_LIB', File.expand_path('lib')),
+    project.environment.merge!(
       'RELEASE_TEST_LIB' => ENV.fetch('RELEASE_CONSUMER_LIB', File.expand_path('lib')),
-      'GEM_HOME' => ENV.fetch('RELEASE_CONSUMER_GEM_HOME', Gem.dir),
-      'GEM_PATH' => ENV.fetch('RELEASE_CONSUMER_GEM_PATH', Gem.path.join(File::PATH_SEPARATOR)),
-      'GIT_CONFIG_NOSYSTEM' => '1', 'GIT_CONFIG_GLOBAL' => File::NULL,
-      'RELEASE_DATA_DIR' => File.join(directory, 'artifacts'),
-      'CONSUMER_ENVIRONMENT' => File.join(directory, 'environment.json'),
-      'SOURCE_REF' => 'refs/heads/master', 'DEFAULT_BRANCH' => 'master',
       'INPUT_VERSION' => '0.2.0', 'INPUT_GEMSPEC_PATH' => 'example.gemspec',
-      'RELEASE_TEST_REMOTE' => remote, 'TZ' => 'UTC'
+      'RELEASE_TEST_REMOTE' => remote
     )
   end
 
   def checkout
     File.join(directory, runner.fetch(:checkout))
+  end
+
+  def remote
+    project.remote
   end
 
   before do
@@ -47,31 +44,19 @@ RSpec.describe 'Provider-neutral release lifecycle' do
     File.write(File.join(checkout, 'CHANGELOG.md'), "# Changelog\n\n## [Unreleased]\n\n- Change.\n")
     FileUtils.cp('spec/fixtures/portable_consumer_support.rb', File.join(checkout, 'portable_consumer_support.rb'))
     FileUtils.cp(consumer_rakefile, File.join(checkout, 'Rakefile'))
-    run_git('init', '--bare', '--quiet', '-b', 'master', remote)
-    run_git('init', '--quiet', '-b', 'master', checkout)
     run_git('-C', checkout, 'add', '.')
     run_git('-C', checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--quiet', '-m', 'Initial')
-    run_git('-C', checkout, 'remote', 'add', 'origin', remote)
     run_git('-C', checkout, 'push', '--quiet', '-u', 'origin', 'master')
   end
 
   after { FileUtils.remove_entry(directory) }
 
   def run_git(*arguments)
-    output, error, status = Open3.capture3('git', *arguments)
-    raise error unless status.success?
-
-    output.strip
+    project.git(*arguments)
   end
 
   def run_task(name)
-    output, error, status = Open3.capture3(environment, 'bundle', 'exec', 'rake', name, chdir: checkout, unsetenv_others: true)
-    path = environment.fetch('CONSUMER_ENVIRONMENT')
-    environment.merge!(JSON.parse(File.read(path))) if File.exist?(path)
-    return if status.success?
-
-    environment['CONSUMER_FAILURES'] = JSON.generate([name])
-    raise "#{output}\n#{error}"
+    project.run_task(name, chdir: checkout)
   end
 
   def prepare_release
@@ -90,8 +75,8 @@ RSpec.describe 'Provider-neutral release lifecycle' do
   def reset_invocation
     FileUtils.mkdir_p(environment.fetch('RELEASE_DATA_DIR'))
     %w[RELEASE_STATE_FILE RELEASE_VERSION GEMSPEC_VERSION RELEASE_DATE SOURCE_COMMIT
-       CONSUMER_FAIL_PUBLICATION CONSUMER_FORBID_ANALYSIS GEMSPEC_PATH].each { |key| environment.delete(key) }
-    File.delete(environment.fetch('CONSUMER_ENVIRONMENT')) if File.file?(environment.fetch('CONSUMER_ENVIRONMENT'))
+       CONSUMER_FAIL_PUBLICATION CONSUMER_FORBID_ANALYSIS GEMSPEC_PATH RELEASE_TEST_FAILURES].each { |key| environment.delete(key) }
+    File.delete(environment.fetch('RELEASE_TEST_ENVIRONMENT')) if File.file?(environment.fetch('RELEASE_TEST_ENVIRONMENT'))
   end
 
   def artifact(name)
@@ -128,7 +113,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
     success = events.find { |event| event['event'] == 'success' }
     expect(success).to include('version' => '0.2.0', 'gemspec_version' => '0.1.0', 'next_version' => '0.2.1',
                                'context_class' => 'RubyGemRelease::ExecutionContext', 'step' => 'release:success',
-                               'provider' => 'PortableConsumer::Provider', 'run' => nil, 'steps' => {})
+                               'provider' => 'RubyGemRelease::RSpec::Provider', 'run' => nil, 'steps' => {})
     invocations = events.select { |event| event['event'] == 'invocation' }
     expect(invocations.map { |event| event.fetch('task') }).to eq(%w[release:workflow:capture release:validate release:prepare release:workflow:resolve test release:workflow:checkpoint release:publish release:bump release:success])
     expect(invocations.map { |event| event.fetch('pid') }.uniq.size).to eq(invocations.size)
@@ -147,7 +132,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
     failure = events.find { |event| event['event'] == 'failure' }
     expect(failure).to include('phase' => 'release:publish', 'step' => 'release:failure', 'error' => 'Registry rejected release',
                                'version' => '0.2.0', 'next_version' => nil, 'context_class' => 'RubyGemRelease::ExecutionContext',
-                               'provider' => 'PortableConsumer::Provider')
+                               'provider' => 'RubyGemRelease::RSpec::Provider')
     expect(events.map { |event| event.fetch('event') }).not_to include('hosting', 'success')
     fresh_runner
     prepare_release
@@ -204,7 +189,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
   end
 
   context 'with semantic releases' do
-    let(:environment) { super().merge('CONSUMER_SEMANTIC' => 'true', 'INPUT_VERSION' => '') }
+    let(:environment) { super().merge!('CONSUMER_SEMANTIC' => 'true', 'INPUT_VERSION' => '') }
 
     before do
       run_git('-C', checkout, 'tag', 'v0.4.0')

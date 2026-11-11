@@ -2,6 +2,7 @@
 
 ## 0.5.2 (Next)
 
+- [#50](https://github.com/dblock/ruby-gem-release/pull/50): Add optional release spec helpers, local publication adapters, and a complete example for testing project-specific release customizations in isolated repositories - [@dblock](https://github.com/dblock).
 - [#51](https://github.com/dblock/ruby-gem-release/pull/51): Carry changelog subsections into the next release and remove multiple contribution placeholders - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
