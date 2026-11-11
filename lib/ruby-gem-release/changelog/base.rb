@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
 require 'date'
-require 'commonmarker'
+require_relative '../markdown/source'
 
 module RubyGemRelease
   module Changelog
     class Base
+      include Markdown::Source
+
       def initialize(path: 'CHANGELOG.md')
         @path = path
       end
@@ -44,38 +46,6 @@ module RubyGemRelease
         content[line_end(content, position, separator)...section_end]
       end
 
-      def heading(content, pattern)
-        matches = heading_positions(content, pattern)
-        raise ArgumentError, "expected exactly one matching heading in #{@path}" unless matches.one?
-
-        matches.first
-      end
-
-      def heading_positions(content, pattern, max_level: 6)
-        lines = content.lines
-        offsets = line_offsets(lines)
-        matches = []
-        document(content).each do |node|
-          next unless node.type == :heading && node.header_level <= max_level
-
-          index = node.source_position[:start_line] - 1
-          matches << offsets[index] if pattern.match?(lines[index].chomp)
-        end
-        matches
-      end
-
-      def heading_prefix(content, position)
-        content[position, 6][/\A#+/]
-      end
-
-      def section_end_position(content, position, level)
-        heading_positions(content, /\A\#{1,6} /, max_level: level).find { |offset| offset > position } || content.length
-      end
-
-      def line_end(content, position, separator)
-        content.index(separator, position) || raise(ArgumentError, "heading must end with a newline in #{@path}")
-      end
-
       def check_release_notes(content, position, separator, version)
         section_end = section_end_position(content, position, heading_prefix(content, position).length)
         check_notes(content[line_end(content, position, separator)...section_end], version)
@@ -103,19 +73,6 @@ module RubyGemRelease
         end
       end
 
-      def document(content)
-        Commonmarker.parse(content, options: { extension: { shortcodes: false } })
-      end
-
-      def line_offsets(lines)
-        offset = 0
-        lines.map do |line|
-          position = offset
-          offset += line.length
-          position
-        end
-      end
-
       def excluded_lines(content)
         excluded = Set.new
         document(content).walk do |node|
@@ -125,12 +82,6 @@ module RubyGemRelease
           excluded.merge(position[:start_line]..position[:end_line])
         end
         excluded
-      end
-
-      def newline(content)
-        raise ArgumentError, "mixed or unsupported line endings in #{@path}" if (content.match?(/(?<!\r)\n/) && content.include?("\r\n")) || content.match?(/\r(?!\n)/)
-
-        content.include?("\r\n") ? "\r\n" : "\n"
       end
 
       def validate_version(version)

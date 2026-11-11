@@ -14,6 +14,8 @@ For each stage, before hooks run in registration order, then the built-in operat
 
 Use the built-in [changelog contribution template options](../changelog/keep_a_changelog.md#contribution-templates) for placeholder removal and category restoration rather than implementing those operations as hooks.
 
+For README updates, use the [Markdown section helper](../markdown.md) to validate and replace one heading's body while keeping project-specific wording in the hook.
+
 ## Context
 
 Hooks receive an immutable execution context with the configured `ctx.workflow` and current `ctx.release`. `ctx.stage`, `ctx.hook`, and `ctx.hook_index` identify the stage, timing, and one-based position. Before capture, `ctx.release` is `nil`; semantic hooks see `ctx.analysis` and the selected version after validation. Next-version hooks see `ctx.release.next_version` after development preparation.

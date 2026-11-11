@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-class ProjectReleaseNotes
-  STABLE_PARAGRAPH = /^## Stable Release\n\n[^\n]+$/
+require 'ruby-gem-release/markdown/section'
 
+class ProjectReleaseNotes
   def initialize(readme: 'README.md')
-    @readme = readme
+    @readme_section = RubyGemRelease::Markdown::Section.new(path: readme, heading: '## Stable Release')
   end
 
   def validate!(_ctx)
-    raise ArgumentError, 'expected exactly one stable release paragraph in README.md' unless File.read(@readme).scan(STABLE_PARAGRAPH).one?
+    @readme_section.validate!
   end
 
   def update_stable_readme!(ctx)
@@ -24,6 +24,6 @@ class ProjectReleaseNotes
   private
 
   def write_readme(paragraph)
-    File.write(@readme, File.read(@readme).sub(STABLE_PARAGRAPH, "## Stable Release\n\n#{paragraph}"))
+    @readme_section.replace!(paragraph)
   end
 end
