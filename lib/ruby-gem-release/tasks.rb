@@ -108,11 +108,28 @@ module RubyGemRelease
 
     def install_workflow_context_tasks
       install_checkpoint_task
+      install_capture_task
+      install_resolve_task
       task(:configure) { with_failure_capture('release:workflow:configure') { Workflow::Environment.new(provider: @provider).configure! } }
-      task(:capture) { with_failure_capture('release:workflow:capture') { Workflow::Environment.new(provider: @provider).capture!(package: @package) } }
+    end
+
+    def install_capture_task
+      task(:capture) do
+        with_failure_capture('release:workflow:capture') do
+          capture_context = @provider.context(release: nil, task: 'release:workflow:capture', state: Workflow::State.new, workflow: @workflow)
+          lifecycle(:capture, capture_context, after_context: -> { context('release:workflow:capture', preparing: true) }) do
+            Workflow::Environment.new(provider: @provider).capture!(package: @package)
+          end
+        end
+      end
+    end
+
+    def install_resolve_task
       task(:resolve) do
         with_failure_capture('release:workflow:resolve') do
-          Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination, analysis: state.analysis)
+          lifecycle(:resolve_version, context('release:workflow:resolve', preparing: true), after_context: -> { context('release:workflow:resolve') }) do
+            Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination, analysis: state.analysis)
+          end
         end
       end
     end
@@ -134,20 +151,32 @@ module RubyGemRelease
           next unless @publish
 
           ctx = context('release:publish')
-          @destination.authenticate!(provider: @provider) unless @workflow&.published?(ctx.release)
+          lifecycle(:authenticate, ctx) { @destination.authenticate!(provider: @provider) } unless @workflow&.published?(ctx.release)
           @publish.call(ctx)
         end
       end
     end
 
     def install_result_tasks
-      desc 'Run the release success callback'
-      task :success do
-        with_failure_capture('release:success') { @success&.call(context('release:success')) }
-      end
+      install_success_task
       desc 'Run the release failure callback'
       task :failure do
-        @failure&.call(failure_context)
+        next unless @failure || lifecycle_hooks?(:failure)
+
+        failure = failure_context
+        lifecycle(:failure, failure.context.with(failure: failure)) { @failure&.call(failure) }
+      end
+    end
+
+    def install_success_task
+      desc 'Run the release success callback'
+      task :success do
+        next unless @success || lifecycle_hooks?(:success)
+
+        with_failure_capture('release:success') do
+          ctx = context('release:success')
+          lifecycle(:success, ctx) { @success&.call(ctx) }
+        end
       end
     end
 
@@ -245,8 +274,19 @@ module RubyGemRelease
     def with_failure_capture(task)
       yield
     rescue StandardError => e
-      Workflow::Failure.capture!(@provider.step_id(task), e, provider: @provider)
+      details = @workflow.respond_to?(:failure_details) ? @workflow.failure_details(e) : {}
+      Workflow::Failure.capture!(@provider.step_id(task), e, provider: @provider, **details)
       raise
+    end
+
+    def lifecycle(stage, ctx, **, &)
+      return yield unless @workflow.respond_to?(:run_stage)
+
+      @workflow.run_stage(stage, ctx, **, &)
+    end
+
+    def lifecycle_hooks?(stage)
+      @workflow.respond_to?(:hooks?) && @workflow.hooks?(stage)
     end
 
     def validate_context_versions(*versions)

@@ -14,7 +14,7 @@ Default validation requires `released?(release.version)` or `pending?`. This per
 
 ## Package
 
-The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md), supplying capture, prepared-version checks, and reproducible builds. Implement `name`, `version`, `build!(release)`, `artifact(release)`, and `built?(release)` for equivalent verification and publication. `gemspec` remains optional for capture.
+The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md), supplying capture, prepared-version checks, and reproducible builds. Implement `version`, `build!(release)`, `artifact(release)`, and `built?(release)` for equivalent verification and publication. `gemspec` remains optional for capture.
 
 ## Destination
 
@@ -38,12 +38,16 @@ The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github
 
 `install_tasks` registers preparation, publication, next development iteration, success, failure, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
 
-Preparation updates the changelog with the selected version. Checkpoint commits, builds, and tags locally before artifact preservation. Publication authenticates unless the destination already proves the exact artifact is published, repeats checkpoint, verifies or uploads the package, pushes commit and tag atomically, and updates hosting. The next development iteration calculates from `release.version`, updates the changelog, and reconciles its commit and push.
+Preparation updates the changelog with the selected version. In Actions, the checkpoint commits, builds, and tags before artifacts are preserved. Publication then authenticates as needed, repeats those three operations, publishes the package, pushes the release commit and tag, and updates hosting. The next development iteration prepares, commits, and pushes the next version.
 
-Pass optional `success:` and `failure:` callbacks to the constructor for result notifications. Success receives an [ExecutionContext](../execution_context.md) with the published release and recorded next development version after the next development iteration succeeds. Failure receives a `RubyGemRelease::ReleaseFailure` with `phase`, `error`, and `context` properties; `failure.context.release` may be absent. A captured Ruby exception is reconstructed with its original class name, message, and stack trace; failures only reported by GitHub Actions have no `error`. A failure callback error does not turn a failed workflow into a successful one.
+Pass optional `success:` and `failure:` callbacks for notifications. Success receives an execution context after the next development iteration completes; failure receives a `RubyGemRelease::ReleaseFailure`. Early failures may not have a release context, and failure callbacks do not turn a failed workflow into a successful one.
 
-Callbacks can access this configured workflow through `ctx.workflow`. Public readers expose the configured `version`, `changelog`, `package`, `destination`, `git`, `hosting`, and `provider` objects; they are reconstructed through the Rakefile in each Ruby process, not serialized across Actions steps.
+Contexts expose the configured `ctx.workflow`. Each process reconstructs the workflow from the Rakefile; it is not serialized across Actions steps.
+
+## Lifecycle Hooks
+
+Use `before(stage)` and `after(stage)` hooks to add checks or project edits without replacing callbacks. Preparation hooks run inside trusted Git staging. See the [hook guide](hooks.md) for ordering, safety, and an example.
 
 ## Errors
 
-Errors propagate through the tasks and stop the sequence. The default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag publication. Callbacks receive execution snapshots; the release value inside the failure context is `nil` if capture failed. Overrides must preserve the publication order and artifact identity.
+Errors stop the sequence. Default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag ordering. A failure context may not have a release if capture failed; custom operations must preserve publication order and artifact identity.

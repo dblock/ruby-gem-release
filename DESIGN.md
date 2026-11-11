@@ -23,7 +23,7 @@ Execution platform, registry, and hosting are independent choices. Built-in exte
 
 Both interfaces install dependencies, capture context, validate, prepare files, resolve the version, test, checkpoint and preserve artifacts, publish, prepare the next development iteration, and notify success. Validation raises on invalid state, including nothing to release; normal completion succeeds, while returning `false` also fails. Errors stop downstream operations and reach the failure callback after successful Ruby setup.
 
-The standard publication callback commits prepared edits, builds reproducibly, tags locally and creates a recovery bundle, verifies or uploads the gem, atomically pushes its commit and tag, and creates or updates the hosted release. Git checks for concurrent branch changes before publication and again before pushing.
+The checkpoint task commits prepared edits, builds reproducibly, tags locally, and creates a recovery bundle. After artifacts are preserved, publication repeats commit, build, and tag preparation before verifying or uploading the gem, atomically pushing its commit and tag, and creating or updating the hosted release. Git checks for concurrent branch changes before publication and again before pushing.
 
 Every release action must be idempotent for the same checkout and inputs, without recovery flags, artifact discovery, restored context, or a completion journal. Tasks reconcile their own outputs; a fresh workflow uses its current checkout and inputs rather than discovering an older unfinished release. Registry publication and Git pushes cannot be atomic together, so both interfaces preserve artifacts before publication for manual inspection. See [rerunning releases](RELEASING.md#verify-and-recover).
 
@@ -36,6 +36,8 @@ Capture rejects non-default branches and dirty checkouts after dependency instal
 `Git#stage_changes!` requires a clean checkout or the exact previously prepared index before trusted edits, stages literal changed paths, and records the index tree. Resolution also stages custom preparation-command outputs before testing. Publication rejects later working-tree or index changes and never stages them. Development iteration edits use the same boundary, including custom version-object side effects.
 
 Resolution validates the prepared version; publishing tasks enforce their own postconditions. RubyGems accepts an existing version only when its checksum matches. Git reuses matching release and development trees without moving tags or rewinding remote descendants. Hosting replaces differing metadata and assets. Development increments are anchored to the supplied release version, not a recorded completion marker.
+
+Lifecycle hooks add checks and project edits without replacing the release sequence. Preparation hooks run inside trusted staging; other hooks validate or observe. See the [hook guide](docs/workflow/hooks.md).
 
 Version objects update exactly one constant assignment without evaluating the file. Changelog objects use `Commonmarker` to find sections, then edit original source to preserve formatting. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
 

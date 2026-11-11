@@ -23,6 +23,13 @@ RSpec.describe RubyGemRelease::Tasks do
     expect(Rake::Task.task_defined?('release:version:read')).to be(false)
   end
 
+  it 'does not require release metadata for absent result callbacks' do
+    %w[RELEASE_VERSION GEMSPEC_VERSION RELEASE_DATE].each { |key| ENV.delete(key) }
+    described_class.install
+    expect { Rake::Task['release:success'].invoke }.not_to raise_error
+    expect { Rake::Task['release:failure'].invoke }.not_to raise_error
+  end
+
   it 'validates the selected release context without producing a decision output' do
     Dir.mktmpdir do |directory|
       ENV['GITHUB_ACTIONS'] = 'true'

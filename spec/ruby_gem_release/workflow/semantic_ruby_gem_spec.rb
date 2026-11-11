@@ -32,10 +32,14 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
     Rake.application = original
   end
 
-  before { allow(components.fetch(:git)).to receive(:stage_changes!).and_yield }
+  before do
+    allow(components.fetch(:git)).to receive(:stage_changes!).and_yield
+  end
 
   def install(**options)
-    described_class.new(**components, semantic_release: semantic, provider: provider, hosting: nil, **options).install_tasks
+    workflow = described_class.new(**components, semantic_release: semantic, provider: provider, hosting: nil, **options)
+    yield workflow if block_given?
+    workflow.install_tasks
   end
 
   def invoke(*tasks)
@@ -58,11 +62,15 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
 
   it 'optionally bumps and records the next development version without replacing analysis' do
     received = nil
-    install(bump: true, success: ->(ctx) { received = ctx })
+    prepared = nil
+    install(bump: true, success: ->(ctx) { received = ctx }) do |workflow|
+      workflow.after(:prepare_next) { |ctx| prepared = ctx }
+    end
     invoke('validate', 'prepare', 'publish', 'bump', 'success')
     expect(components.fetch(:version)).to have_received(:increment!)
     expect(received.release.next_version).to eq('1.3.1')
     expect(received.analysis.to_h).to eq(decision.to_h)
+    expect(prepared).to have_attributes(analysis: decision, release: have_attributes(next_version: '1.3.1'))
   end
 
   it 'rejects a no-release decision without consulting handwritten notes or invoking downstream operations' do
@@ -119,5 +127,18 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
     expect(components.fetch(:version)).to have_received(:set!).with('1.3.0')
     expect(components.fetch(:changelog)).not_to have_received(:release!)
     expect { described_class.new(version: components.fetch(:version), bump: :patch) }.to raise_error(ArgumentError, /bump/)
+  end
+
+  it 'exposes the selected decision after validation and shares preparation hooks without enabling development bumps' do
+    received = []
+    workflow = described_class.new(**components, semantic_release: semantic, provider: provider, hosting: nil)
+    %i[validate prepare_release prepare_next commit_next push_next].each do |stage|
+      workflow.after(stage) { |ctx| received << ctx }
+    end
+    workflow.install_tasks
+    invoke('validate', 'prepare', 'publish', 'bump')
+    expect(received.map(&:stage)).to eq(%i[validate prepare_release])
+    expect(received).to all(have_attributes(analysis: decision, release: have_attributes(version: '1.3.0', notes: 'Generated notes.')))
+    expect(semantic).to have_received(:analyze).once
   end
 end

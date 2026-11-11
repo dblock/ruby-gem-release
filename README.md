@@ -97,6 +97,7 @@ For a real-world example of adding release automation to an existing gem, see [r
 Replace only what you need. The [standard workflow](docs/workflow/ruby_gem.md) preserves ordering; [Detailed Usage](docs/usage.md) provides file examples and complete manual callbacks.
 
 - **Project conventions:** Choose [version objects](docs/usage.md#version-objects) and [changelog formats](docs/usage.md#changelog-objects), including custom implementations.
+- **Stage customization:** Add ordered [lifecycle hooks](docs/workflow/hooks.md) for validation, trusted preparation edits, publication observers, and notifications without replacing the pipeline.
 - **Release decisions and callbacks:** Customize [validation, preparation, publication, and notifications](docs/tasks.md). Callbacks receive an [execution context](docs/execution_context.md) with release data, step history, and the configured workflow.
 - **Semantic releases:** Opt into [Conventional Commits, release-history-based versions, and generated notes](docs/workflow/semantic_ruby_gem.md) without changing the execution platform or registry.
 - **Packages and registries:** Override [package construction](docs/package/ruby_gem.md) or supply a [registry destination](docs/destination.md) independently of hosted releases.

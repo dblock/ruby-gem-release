@@ -14,10 +14,10 @@ module RubyGemRelease
           provider.export('RELEASE_FAILED_STEP_ID' => phase)
         end
 
-        def capture!(phase, error, provider: ExecutionProvider.current)
+        def capture!(phase, error, provider: ExecutionProvider.current, **details)
           return unless provider.directory
 
-          captured_error = ReleaseFailure::CapturedError.capture(error)
+          captured_error = ReleaseFailure::CapturedError.capture(error, **details)
           File.open(failure_file(provider), 'w', 0o600) do |file|
             file.write(JSON.generate('phase' => phase, 'error' => captured_error.to_h))
           end

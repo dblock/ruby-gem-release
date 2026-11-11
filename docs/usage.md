@@ -30,13 +30,15 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-This validates, prepares, builds once, publishes the verified gem, pushes commit and tag atomically, creates the hosted release, and prepares the next patch version.
+This validates and prepares the release, publishes the verified gem, pushes the release commit and tag, creates the hosted release, and prepares the next patch version.
 
 The default releases the checked-in version; optional `version` selects another through the version object's `set!`. The initial version remains in the context. Custom preparation callbacks own their file updates.
 
 Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` for notifications; success receives an execution context after the next development iteration succeeds, while failure receives a `RubyGemRelease::ReleaseFailure` with a phase, captured error when available, and execution context.
 
 Before edits, `release:validate` requires pending notes or an existing heading for the selected release. Otherwise it raises, even with an explicit version. Override with a `validate:` lambda that raises on failure; returning `false` also fails. Without a changelog, validation passes.
+
+Use [lifecycle hooks](workflow/hooks.md) to add checks or project edits without replacing callbacks. Preparation hooks run inside trusted Git staging; see the [example](../examples/lifecycle_hooks/Rakefile).
 
 The package uses `GEMSPEC_PATH` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
 
@@ -56,7 +58,7 @@ Set `changelog: nil` for projects without a changelog; version incrementing and 
 
 ## Custom Callbacks
 
-This is the full equivalent of the standard workflow. Keep this ordering to preserve artifact identity, concurrency checks, and package-before-tag publication:
+For a genuinely different sequence, configure replacement callbacks explicitly. Individual project customizations should use lifecycle hooks instead. Keep this ordering to preserve artifact identity, concurrency checks, and package-before-tag publication:
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'
@@ -86,9 +88,7 @@ RubyGemRelease::Tasks.install(workflow: workflow, package: package, destination:
   end
   tasks.publish do |ctx|
     release = ctx.release
-    git.commit!(release)
-    package.build!(release)
-    git.tag!(release)
+    workflow.checkpoint!(ctx)
     destination.publish!(release, package: package)
     git.push!(release)
     github.publish!(release, package: package)

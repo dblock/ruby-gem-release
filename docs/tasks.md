@@ -10,6 +10,8 @@ The composite action first invokes `release:workflow:configure` to validate and 
 
 The provider constructs callback contexts: by default, the provider-neutral `ExecutionContext` locally or its [`GitHub`](execution_context/github.md) subclass on Actions. Explicit `provider:` injection overrides automatic detection. GitHub-specific step statuses and run fields are not part of the local context.
 
+Standard workflows provide additive [lifecycle hooks](workflow/hooks.md) for checks and project edits. Manual callbacks replace task behavior and do not automatically get the standard workflow's inner hooks.
+
 ## Validate
 
 `tasks.validate` checks release preconditions after context capture and before preparation edits. It receives an [ExecutionContext](execution_context.md) containing the same initial or explicitly selected release value as `prepare`. Raise on invalid state; normal completion, including `nil`, succeeds. Returning `false` also fails rather than skipping. Without a callback, validation passes.

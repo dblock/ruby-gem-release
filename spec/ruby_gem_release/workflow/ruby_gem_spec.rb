@@ -277,4 +277,178 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect { Rake::Task['release:bump'].invoke }.to raise_error('changelog failed')
     expect(events).to eq([:increment])
   end
+
+  it 'runs additive preparation hooks in order inside trusted staging without replacing the changelog' do
+    trusted = false
+    allow(objects.fetch(:git)).to receive(:stage_changes!) do |&block|
+      trusted = true
+      block.call
+      trusted = false
+    end
+    workflow = described_class.new(version: version, changelog: objects.fetch(:changelog))
+    %i[before after].each do |timing|
+      2.times do |index|
+        workflow.public_send(timing, :prepare_release) do |ctx|
+          expect(trusted).to be(true)
+          expect(ctx).to have_attributes(workflow: workflow, stage: :prepare_release, hook: timing, hook_index: index + 1)
+          events << [timing, index]
+        end
+      end
+    end
+    workflow.install_tasks
+    Rake::Task['release:prepare'].invoke
+    expect(events).to eq([[:before, 0], [:before, 1], :read, %i[changelog release!], [:after, 0], [:after, 1]])
+  end
+
+  it 'retains built-in validation and suppresses after hooks when it fails' do
+    workflow = described_class.new(version: version, changelog: objects.fetch(:changelog))
+    workflow.before(:validate) { events << :before_validate }
+    workflow.after(:validate) { events << :after_validate }
+    allow(objects.fetch(:changelog)).to receive(:pending?).and_return(false)
+    workflow.install_tasks
+    expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /Nothing to release/)
+    expect(events).to eq([:before_validate])
+  end
+
+  it 'does not run validation after hooks when a replacement validator returns false' do
+    workflow = described_class.new(version: version, changelog: nil, validate: ->(_) { false })
+    workflow.after(:validate) { events << :after_validate }
+    workflow.install_tasks
+    expect { Rake::Task['release:validate'].invoke }.to raise_error(ArgumentError, /callback returned false/)
+    expect(events).to be_empty
+  end
+
+  it 'supplies the calculated next version before the development commit and distinguishes both pushes' do
+    workflow = described_class.new(version: version, changelog: objects.fetch(:changelog))
+    %i[prepare_next push_release push_next].each do |stage|
+      workflow.after(stage) { |ctx| events << [stage, ctx.release.next_version] }
+    end
+    workflow.install_tasks
+    run_callbacks
+    expect(events.last(8)).to eq([
+                                   [:push_release, nil], %i[hosting publish!], :increment, %i[changelog prepare_next!],
+                                   [:prepare_next, '2.0.1'], %i[git commit_next!], %i[git push!], [:push_next, '2.0.1']
+                                 ])
+  end
+
+  it 'preserves result callbacks between ordered hooks and exposes the original failure' do
+    workflow = described_class.new(version: version, changelog: nil,
+                                   success: ->(_) { events << :success_callback }, failure: ->(_) { events << :failure_callback })
+    %i[success failure].each do |stage|
+      workflow.before(stage) do |ctx|
+        expect(ctx.failure).to be_a(RubyGemRelease::ReleaseFailure) if stage == :failure
+        events << :"before_#{stage}"
+      end
+      workflow.after(stage) { events << :"after_#{stage}" }
+    end
+    workflow.install_tasks
+    Rake::Task['release:success'].invoke
+    Rake::Task['release:failure'].invoke
+    expect(events).to eq(%i[before_success success_callback after_success before_failure failure_callback after_failure])
+  end
+
+  it 'captures the exact failing stage and hook without changing the exception class' do
+    Dir.mktmpdir do |directory|
+      ENV.update('RELEASE_DATA_DIR' => directory, 'RELEASE_FAILED_STEP_ID' => 'release:prepare')
+      received = nil
+      workflow = described_class.new(version: version, changelog: nil, failure: ->(failure) { received = failure })
+      workflow.before(:prepare_release) { events << :first }
+      workflow.before(:prepare_release) { raise ArgumentError, 'project notes invalid' }
+      workflow.after(:prepare_release) { events << :after }
+      workflow.install_tasks
+      expect { Rake::Task['release:prepare'].invoke }.to raise_error(ArgumentError, 'project notes invalid')
+      Rake::Task['release:failure'].invoke
+      expect(received.error).to have_attributes(original_class: 'ArgumentError', stage: :prepare_release, hook: :before, hook_index: 2)
+      expect(events).to eq([:first])
+    end
+  end
+
+  it 'reports built-in operation failures with their lifecycle stage' do
+    Dir.mktmpdir do |directory|
+      ENV.update('RELEASE_DATA_DIR' => directory, 'RELEASE_FAILED_STEP_ID' => 'release:publish')
+      received = nil
+      allow(objects.fetch(:package)).to receive(:build!).and_raise('build failed')
+      install(failure: ->(failure) { received = failure })
+      expect { Rake::Task['release:publish'].invoke }.to raise_error('build failed')
+      Rake::Task['release:failure'].invoke
+      expect(received.error).to have_attributes(stage: :build_package, hook: nil, hook_index: nil)
+    end
+  end
+
+  it 'rejects unknown stages and hooks without a block at registration' do
+    workflow = described_class.new(version: version, changelog: nil)
+    expect { workflow.before(:push) { nil } }.to raise_error(ArgumentError, /unknown lifecycle stage/)
+    expect { workflow.after(:validate) }.to raise_error(ArgumentError, /requires a block/)
+  end
+
+  it 'runs checkpoint and publication preparation hooks in both tasks' do
+    workflow = described_class.new(version: version, changelog: nil, hosting: nil)
+    %i[checkpoint commit_release build_package tag_release publish_registry publish_hosted_release].each do |stage|
+      workflow.before(stage) { events << stage }
+    end
+    workflow.install_tasks
+    Rake::Task['release:workflow:checkpoint'].invoke
+    2.times do
+      Rake::Task['release:publish'].reenable
+      Rake::Task['release:publish'].invoke
+    end
+    expect(events.count(:checkpoint)).to eq(1)
+    expect(events.count(:build_package)).to eq(3)
+    expect(events.count(:commit_release)).to eq(3)
+    expect(events.count(:tag_release)).to eq(3)
+    expect(events.count(:publish_registry)).to eq(2)
+    expect(events).not_to include(:publish_hosted_release)
+  end
+
+  it 'skips authentication hooks when the destination already verifies the exact publication' do
+    allow(objects.fetch(:package)).to receive(:built?).and_return(true)
+    allow(objects.fetch(:destination)).to receive(:published?).and_return(true)
+    workflow = described_class.new(version: version, changelog: nil)
+    workflow.before(:authenticate) { events << :authenticate_hook }
+    workflow.install_tasks
+    Rake::Task['release:publish'].invoke
+    expect(events).not_to include(:authenticate_hook, %i[destination authenticate!])
+  end
+
+  it 'does not run subsequent hooks after an after hook fails' do
+    workflow = described_class.new(version: version, changelog: nil)
+    workflow.after(:prepare_release) { raise 'readme update failed' }
+    workflow.after(:prepare_release) { events << :unreachable }
+    workflow.install_tasks
+    expect { Rake::Task['release:prepare'].invoke }.to raise_error('readme update failed')
+    expect(events).to be_empty
+  end
+
+  it 'does not overwrite the original captured error when a failure hook fails' do
+    Dir.mktmpdir do |directory|
+      ENV.update('RELEASE_DATA_DIR' => directory, 'RELEASE_FAILED_STEP_ID' => 'release:validate')
+      workflow = described_class.new(version: version, changelog: nil, validate: ->(_) { raise 'original validation error' })
+      workflow.before(:failure) { raise 'notification failed' }
+      workflow.after(:failure) { events << :unreachable }
+      workflow.install_tasks
+      expect { Rake::Task['release:validate'].invoke }.to raise_error('original validation error')
+      expect { Rake::Task['release:failure'].invoke }.to raise_error('notification failed')
+      original = RubyGemRelease::Workflow::Failure.error_for('release:validate', provider: workflow.provider)
+      expect(original).to have_attributes(message: 'original validation error', stage: :validate)
+      expect(events).to be_empty
+    end
+  end
+
+  it 'retains concurrency checks before registry publication' do
+    allow(objects.fetch(:git)).to receive(:tag!).and_raise('Default branch advanced; start a new release')
+    install
+    expect { Rake::Task['release:publish'].invoke }.to raise_error(/Default branch advanced/)
+    expect(objects.fetch(:destination)).not_to have_received(:publish!)
+    expect(objects.fetch(:package)).to have_received(:build!)
+  end
+
+  it 'runs result hooks without requiring replacement result callbacks' do
+    workflow = described_class.new(version: version, changelog: nil)
+    workflow.after(:success) { events << :success_hook }
+    workflow.after(:failure) { events << :failure_hook }
+    workflow.install_tasks
+    Rake::Task['release:success'].invoke
+    Rake::Task['release:failure'].invoke
+    expect(events).to eq(%i[success_hook failure_hook])
+  end
 end

@@ -8,6 +8,7 @@ require 'rubygems/package'
 RSpec.describe 'Provider-neutral release lifecycle' do
   let(:directory) { Dir.mktmpdir }
   let(:runner) { { checkout: 'checkout' } }
+  let(:consumer_rakefile) { 'spec/fixtures/portable_consumer.rb' }
   let(:remote) { File.join(directory, 'remote.git') }
   let(:environment) do
     ENV.to_h.slice('PATH', 'HOME', 'TMPDIR', 'LANG').merge(
@@ -44,7 +45,8 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       end
     RUBY
     File.write(File.join(checkout, 'CHANGELOG.md'), "# Changelog\n\n## [Unreleased]\n\n- Change.\n")
-    FileUtils.cp('spec/fixtures/portable_consumer.rb', File.join(checkout, 'Rakefile'))
+    FileUtils.cp('spec/fixtures/portable_consumer_support.rb', File.join(checkout, 'portable_consumer_support.rb'))
+    FileUtils.cp(consumer_rakefile, File.join(checkout, 'Rakefile'))
     run_git('init', '--bare', '--quiet', '-b', 'master', remote)
     run_git('init', '--quiet', '-b', 'master', checkout)
     run_git('-C', checkout, 'add', '.')
@@ -152,6 +154,53 @@ RSpec.describe 'Provider-neutral release lifecycle' do
     run_task('release:publish')
     run_task('release:bump')
     expect(run_git('--git-dir', remote, 'show', 'master:lib/example/version.rb')).to include("VERSION = '0.2.1'")
+  end
+
+  context 'with lifecycle hooks and the built-in KeepAChangelog workflow' do
+    let(:consumer_rakefile) { 'spec/fixtures/portable_consumer_hooks.rb' }
+
+    before do
+      FileUtils.cp('examples/lifecycle_hooks/release_notes.rb', File.join(checkout, 'release_notes.rb'))
+      File.write(File.join(checkout, 'README.md'), "# Example Project\n\n## Stable Release\n\nDevelopment documentation.\n")
+      File.write(File.join(checkout, 'CHANGELOG.md'), "# Changelog\n\n## [Unreleased]\n\n### Added\n\n* Change.\n* Your contribution here.\n\n### Fixed\n\n* Your contribution here.\n")
+      path = File.join(checkout, 'example.gemspec')
+      File.write(path, File.read(path).sub("['lib/example/version.rb']", "['lib/example/version.rb', 'README.md', 'CHANGELOG.md']"))
+      run_git('-C', checkout, 'add', '.')
+      run_git('-C', checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--quiet', '-m', 'Add project release hooks')
+      run_git('-C', checkout, 'push', '--quiet', 'origin', 'master')
+    end
+
+    it 'places independent project edits in the release archive and the correct commits across fresh processes' do
+      prepare_release
+      run_task('release:publish')
+      run_task('release:bump')
+      run_task('release:success')
+      stable = run_git('--git-dir', remote, 'show', 'v0.2.0:README.md')
+      development = run_git('--git-dir', remote, 'show', 'master:README.md')
+      released_notes = run_git('--git-dir', remote, 'show', 'v0.2.0:CHANGELOG.md')
+      next_notes = run_git('--git-dir', remote, 'show', 'master:CHANGELOG.md')
+      expect(stable).to include('stable release of the project, 0.2.0')
+      expect(stable).not_to include('next release')
+      expect(development).to include('next release of the project, which should be 0.2.1', 'current stable release is 0.2.0')
+      expect(released_notes).to include('## [0.2.0] -', '* Change.')
+      expect(released_notes).not_to include('Your contribution here.', '### Fixed', '[Unreleased]')
+      expect(next_notes).to include('## [Unreleased]', '### Added', '### Fixed', 'Your contribution here.', released_notes.sub("# Changelog\n\n", ''))
+      Dir.mktmpdir do |unpacked|
+        Gem::Package.new(artifact('release.gem')).extract_files(unpacked)
+        expect(File.read(File.join(unpacked, 'README.md')).strip).to eq(stable)
+        expect(File.read(File.join(unpacked, 'CHANGELOG.md')).strip).to eq(released_notes)
+      end
+      hooks = events.select { |event| event['event'] == 'hook' }
+      expect(hooks.select { |event| event['timing'] == 'before' }.map { |event| event.fetch('stage') }).to eq(
+        %w[capture validate prepare_release resolve_version checkpoint commit_release build_package tag_release
+           authenticate commit_release build_package tag_release publish_registry push_release publish_hosted_release prepare_next commit_next push_next success]
+      )
+      expect(hooks.count { |event| event['stage'] == 'build_package' && event['timing'] == 'before' }).to eq(2)
+      expect(hooks.find { |event| event['stage'] == 'capture' && event['timing'] == 'before' }).to include('version' => nil)
+      expect(hooks.find { |event| event['stage'] == 'capture' && event['timing'] == 'after' }).to include('version' => '0.2.0', 'gemspec_version' => '0.1.0')
+      expect(hooks.find { |event| event['stage'] == 'prepare_next' && event['timing'] == 'after' }).to include('next_version' => '0.2.1')
+      expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
+    end
   end
 
   context 'with semantic releases' do

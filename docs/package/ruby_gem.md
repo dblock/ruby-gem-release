@@ -22,9 +22,13 @@ Builds use `SOURCE_DATE_EPOCH` for the gemspec date and archive timestamps. Work
 
 Reproduce a release from the same source commit: equivalent files in another commit can have a different timestamp. Toolchains, generated files, gemspecs, and signing inputs must also remain stable. No previous archive is needed; partial output is overwritten. `built?(release)` verifies an existing archive and manifest without building.
 
+The standard Actions workflow builds at checkpoint and again during publication. Each build writes the same reproducible archive and digest manifest; direct builds overwrite prior output.
+
 ## Artifact
 
 `artifact(release)` verifies the built name, version, and digest and returns a copy named `NAME-VERSION.gem`. Registry destinations and hosted releases use those exact bytes.
+
+Verification checks the retained archive against the manifest and validates its gem metadata before publication. `artifact(release)` copies the verified canonical archive to its name-and-version path.
 
 ## Errors
 

@@ -12,6 +12,8 @@ RubyGemRelease::Workflow::SemanticRubyGem.new(
 
 Install only one workflow. Execution, package, destination, Git, hosting, and result callbacks remain independently replaceable.
 
+Use the same [lifecycle hooks](hooks.md) without replacing semantic analysis or publication. After validation, hooks can inspect the selected decision and version. Development hooks run only when `bump: true`.
+
 ## History and Versions
 
 Validation selects the highest reachable stable `vMAJOR.MINOR.PATCH` tag, not the nearest or newest. Annotated and lightweight tags work; unrelated, prerelease, metadata, and alternate-format tags are ignored. Shallow checkouts fail. Capture fetches tags and checks remote advancement; supply full history.

@@ -13,7 +13,11 @@ end
 
 ## Release
 
-`ctx.release` is the immutable [`Release`](release.md) value used by changelog, package, Git, and hosting operations. It can be `nil` in a failure callback when release capture did not complete. Other callbacks require valid release data.
+`ctx.release` is the immutable [`Release`](release.md) value used by changelog, package, Git, and hosting operations. It can be `nil` in a failure callback when release capture did not complete, or in a before-capture hook. Other callbacks require valid release data.
+
+## Lifecycle Stage
+
+[Lifecycle hooks](workflow/hooks.md) also expose the stage, timing, and hook position as `ctx.stage`, `ctx.hook`, and `ctx.hook_index`. Failure hooks expose the original error as `ctx.failure`; ordinary callback contexts leave these fields `nil`.
 
 ## Step
 
@@ -44,3 +48,5 @@ Without a state file, callbacks installed by the same `Tasks` instance share in-
 ## Failure
 
 `failure.phase` identifies the failed step, while `failure.context.step.id` identifies the currently executing failure callback. `failure.error` retains the captured exception interface. Release data may be absent, but execution metadata remains available after an early failure. Failure callbacks cannot run before Ruby setup completes.
+
+Captured workflow errors also expose `stage`, `hook`, and `hook_index`, identifying the built-in stage or particular failing hook across processes. These are absent when failure occurred outside an observed lifecycle stage.

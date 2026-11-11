@@ -2,7 +2,11 @@
 
 Upgrade the gem and pinned workflow or action together. Apply the relevant changes below; see the linked PRs for details.
 
-## Upgrading to 0.5.0 (Unreleased)
+## Upgrading To 0.5.1
+
+Additive [lifecycle hooks](docs/workflow/hooks.md) are available on both workflows without replacing existing callbacks. Existing success/failure callbacks and explicit replacement interfaces remain supported. Preparation hooks run inside trusted Git staging; publication order and build behavior are unchanged.
+
+## Upgrading To 0.5.0
 
 From 0.4.x, update both the gem and pinned Actions reference. Install only one workflow or manual task configuration.
 

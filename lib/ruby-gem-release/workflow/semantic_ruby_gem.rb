@@ -20,14 +20,14 @@ module RubyGemRelease
       private
 
       def install_callbacks(tasks)
-        tasks.validate { |ctx| validate_release(ctx) }
-        tasks.prepare { |ctx| prepare_semantic_release(ctx) }
+        tasks.validate { |ctx| validate_with_hooks(ctx) }
+        tasks.prepare { |ctx| prepare_release(ctx) }
         install_result_callbacks(tasks)
         tasks.failure(&@failure) if @failure
       end
 
       def install_result_callbacks(tasks)
-        tasks.publish { |ctx| with_decision(ctx) { publish(ctx.release) } }
+        tasks.publish { |ctx| with_decision(ctx) { publish(ctx) } }
         tasks.bump { |ctx| with_decision(ctx) { prepare_next(ctx) if @bump } }
         tasks.success { |ctx| with_decision(ctx) { @success&.call(ctx) } }
       end
@@ -52,12 +52,14 @@ module RubyGemRelease
         ctx.analysis
       end
 
-      def prepare_semantic_release(ctx)
+      def prepare_release(ctx)
         checked_decision(ctx)
-        @git.stage_changes! do
-          select_version!(ctx.release.version)
-          @changelog&.release!(ctx.release)
-        end
+        super
+      end
+
+      def prepare_release_files(release)
+        select_version!(release.version)
+        @changelog&.release!(release)
       end
     end
   end
