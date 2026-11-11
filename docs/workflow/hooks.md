@@ -4,14 +4,15 @@ Both the [standard](ruby_gem.md) and [semantic](semantic_ruby_gem.md) workflows 
 
 ```ruby
 workflow.before(:validate) { |ctx| validate_project_notes(ctx) }
-workflow.before(:prepare_release) { |ctx| remove_contribution_placeholders(ctx) }
 workflow.after(:prepare_release) { |ctx| update_stable_readme(ctx) }
-workflow.after(:prepare_next) { |ctx| restore_template_and_development_readme(ctx) }
+workflow.after(:prepare_next) { |ctx| update_development_readme(ctx) }
 
 workflow.install_tasks
 ```
 
 For each stage, before hooks run in registration order, then the built-in operation, then after hooks in registration order if it succeeded. Hooks add behavior; they do not replace versioning, changelog, publication, Git, hosting, or validation.
+
+Use the built-in [changelog contribution template options](../changelog/keep_a_changelog.md#contribution-templates) for placeholder removal and category restoration rather than implementing those operations as hooks.
 
 ## Context
 

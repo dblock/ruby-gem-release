@@ -146,6 +146,7 @@ RSpec.describe 'Provider-neutral release lifecycle' do
 
     before do
       FileUtils.cp('examples/lifecycle_hooks/release_notes.rb', File.join(checkout, 'release_notes.rb'))
+      FileUtils.cp('examples/lifecycle_hooks/release_workflow.rb', File.join(checkout, 'release_workflow.rb'))
       File.write(File.join(checkout, 'README.md'), "# Example Project\n\n## Stable Release\n\nDevelopment documentation.\n")
       File.write(File.join(checkout, 'CHANGELOG.md'), "# Changelog\n\n## [Unreleased]\n\n### Added\n\n* Change.\n* Your contribution here.\n\n### Fixed\n\n* Your contribution here.\n")
       path = File.join(checkout, 'example.gemspec')

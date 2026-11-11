@@ -5,7 +5,23 @@ module RubyGemRelease
     class KeepAChangelog < Base
       UNRELEASED = /\A\#{1,6} \[Unreleased\]\z/
 
+      def initialize(path: 'CHANGELOG.md', placeholder: nil, sections: [])
+        validate_template(placeholder, sections)
+        super(path: path)
+        @placeholder = placeholder
+        @sections = sections.dup
+      end
+
       private
+
+      def validate_template(placeholder, sections)
+        raise ArgumentError, 'placeholder must be a single nonempty line' unless placeholder.nil? || single_line?(placeholder)
+        raise ArgumentError, 'sections must be an array of unique nonempty names' unless sections.is_a?(Array) && sections.all? { |name| single_line?(name) } && sections.uniq == sections
+      end
+
+      def single_line?(value)
+        value.is_a?(String) && !value.strip.empty? && !value.match?(/[\r\n]/)
+      end
 
       def release_pattern(version)
         /\A\#{1,6} \[#{Regexp.escape(version)}\] - \d{4}-\d{2}-\d{2}\z/
@@ -14,7 +30,7 @@ module RubyGemRelease
       def unreleased_notes(content, separator)
         reference = unreleased_reference(content)
         comparison(reference[2]) if reference
-        super
+        clean_notes(super, separator, heading_prefix(content, heading(content, UNRELEASED)).length)
       end
 
       def update_release(version:, date:)
@@ -23,6 +39,7 @@ module RubyGemRelease
         separator = newline(content)
         position = heading(content, UNRELEASED)
         check_absent(content, /\A\#{1,6} \[#{Regexp.escape(version)}\] - \d{4}-\d{2}-\d{2}\z/, 'release heading already exists')
+        clean_release_section(content, position, separator)
         content[position...line_end(content, position, separator)] = "#{heading_prefix(content, position)} [#{version}] - #{date.strftime('%Y-%m-%d')}"
         release_references(content, version, separator)
         check_release_notes(content, position, separator, version)
@@ -41,7 +58,51 @@ module RubyGemRelease
 
         check_absent(content, UNRELEASED, 'duplicate unreleased headings')
 
-        File.write(@path, content.insert(position, ["#{prefix} [Unreleased]", '', ''].join(separator)))
+        File.write(@path, content.insert(position, next_section(prefix, separator)))
+      end
+
+      def clean_release_section(content, position, separator)
+        level = heading_prefix(content, position).length
+        start = line_end(content, position, separator)
+        finish = section_end_position(content, position, level)
+        content[start...finish] = clean_notes(content[start...finish], separator, level)
+      end
+
+      def clean_notes(section, separator, level)
+        return section unless @placeholder || @sections.any?
+
+        positions = []
+        editable_lines(section) { |line, offset| positions << offset if @placeholder && line.chomp == @placeholder }
+        positions.reverse_each { |offset| remove_line(section, offset, separator) }
+        remove_empty_categories(section, separator, level)
+        section
+      end
+
+      def remove_empty_categories(section, separator, level)
+        heading_positions(section, /\A\#{#{level + 1}} /).reverse_each do |offset|
+          finish = section_end_position(section, offset, level + 1)
+          start = section.index(separator, offset) || section.length
+          remove_line(section, offset, separator) unless notes?(document(section[start...finish]))
+        end
+      end
+
+      def remove_line(section, offset, separator)
+        finish = section.index(separator, offset)
+        length = (finish ? finish + separator.length : section.length) - offset
+        length += separator.length if section[0...offset].end_with?(separator * 2) && section[offset + length, separator.length] == separator
+        section.slice!(offset, length)
+      end
+
+      def next_section(prefix, separator)
+        raise ArgumentError, 'category headings cannot be deeper than level six' if prefix.length == 6 && @sections.any?
+
+        lines = ["#{prefix} [Unreleased]", '']
+        if @sections.empty?
+          lines.push(@placeholder, '') if @placeholder
+        else
+          @sections.each { |name| lines.push("#{prefix}# #{name}", '').concat(@placeholder ? [@placeholder, ''] : []) }
+        end
+        lines.push('').join(separator)
       end
 
       def references(content, label)

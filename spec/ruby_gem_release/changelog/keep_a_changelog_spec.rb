@@ -14,6 +14,59 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
 
   after { FileUtils.remove_entry(directory) }
 
+  ["\n", "\r\n"].each do |separator|
+    it "strips placeholders and empty categories, then restores every configured category with #{separator.inspect} endings" do
+      categories = %w[Added Changed Deprecated Removed Fixed Security]
+      notes = "### Added\n\n- Feature.\n* Your contribution here.\n\n### Fixed\n\n* Your contribution here.\n\n"
+      reference = "[Unreleased]: https://example.com/compare/v0.9.0...HEAD\n"
+      content = "## [Unreleased]\n\n#{notes}#{reference}".gsub("\n", separator)
+      File.write(path, content)
+      updater = described_class.new(path: path, placeholder: '* Your contribution here.', sections: categories)
+      expect(updater.pending?).to be(true)
+      expect(File.binread(path)).to eq(content)
+      updater.release!(release)
+      released = File.binread(path)
+      expect(released).to include("### Added#{separator}#{separator}- Feature.")
+      expect(released).not_to include('Your contribution here.', '### Fixed')
+      expect(released).to include("[Unreleased]: https://example.com/compare/v1.0.0...HEAD#{separator}")
+      2.times { updater.prepare_next!(next_release) }
+      template = categories.map { |name| "### #{name}#{separator}#{separator}* Your contribution here.#{separator}#{separator}" }.join
+      expect(File.binread(path)).to eq("## [Unreleased]#{separator}#{separator}#{template}#{released}")
+      expect(updater.pending?).to be(false)
+      expect { updater.release!(release.with_version('1.0.1')) }.to raise_error(ArgumentError, /empty release notes/)
+      expect(File.binread(path)).to eq("## [Unreleased]#{separator}#{separator}#{template}#{released}")
+    end
+  end
+
+  it 'ignores placeholder text in code and preserves categories with actual code notes' do
+    content = "## [Unreleased]\n\n### Added\n\n```\n* Your contribution here.\n```\n\n### Fixed\n\n* Your contribution here.\n"
+    File.write(path, content)
+    updater = described_class.new(path: path, placeholder: '* Your contribution here.')
+    expect(updater.pending?).to be(true)
+    updater.release!(release)
+    expect(File.read(path)).to include("```\n* Your contribution here.\n```")
+    expect(File.read(path)).not_to include('### Fixed')
+  end
+
+  it 'supports a plain placeholder or a category template without requiring both options' do
+    File.write(path, "### [1.0.0] - 2026-11-07\n\n- Feature.\n")
+    described_class.new(path: path, sections: %w[Added Fixed]).prepare_next!(next_release)
+    expect(File.read(path)).to start_with("### [Unreleased]\n\n#### Added\n\n#### Fixed\n\n")
+    File.write(path, "## [1.0.0] - 2026-11-07\n\n- Feature.\n")
+    described_class.new(path: path, placeholder: '- Next change.').prepare_next!(next_release)
+    expect(File.read(path)).to start_with("## [Unreleased]\n\n- Next change.\n\n")
+  end
+
+  it 'rejects malformed configuration and category headings deeper than Markdown supports without writing' do
+    [{ placeholder: '' }, { placeholder: "one\ntwo" }, { sections: %w[Added Added] }, { sections: ["Added\nFixed"] }].each do |options|
+      expect { described_class.new(**options) }.to raise_error(ArgumentError)
+    end
+    content = "###### [1.0.0] - 2026-11-07\n\n- Feature.\n"
+    File.write(path, content)
+    expect { described_class.new(path: path, sections: ['Added']).prepare_next!(next_release) }.to raise_error(ArgumentError, /level six/)
+    expect(File.read(path)).to eq(content)
+  end
+
   it 'detects pending notes without rewriting source or counting historical notes' do
     content = "### [Unreleased]\r\n\r\n#### Fixed\r\n\r\n<!-- pending -->\r\n\r\n## [0.9.0] - 2026-11-06\r\n\r\n- Older notes.\r\n"
     File.write(path, content)

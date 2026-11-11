@@ -1,6 +1,6 @@
 # Lifecycle Hook Example
 
-The [Rakefile](Rakefile) installs the [project workflow](release_workflow.rb), which uses [release hooks](release_notes.rb) to update this README and the changelog.
+The [Rakefile](Rakefile) installs the [project workflow](release_workflow.rb), which uses [release hooks](release_notes.rb) to update this README and built-in changelog options to clean contribution placeholders and restore its six-category template.
 
 ## Stable Release
 
