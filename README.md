@@ -1,4 +1,4 @@
-<img src="assets/logo.png" alt="A ruby gemstone launching like a rocket" width="160">
+<img src="assets/logo.png" alt="A faceted ruby gemstone with an upward release arrow" width="160">
 
 # Ruby Gem Release
 

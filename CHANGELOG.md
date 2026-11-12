@@ -2,6 +2,7 @@
 
 ## 0.6.1 (Next)
 
+- [#58](https://github.com/dblock/ruby-gem-release/pull/58): Replace the ruby rocket logo with a faceted ruby and upward release arrow - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.6.0 (2026/11/11)
