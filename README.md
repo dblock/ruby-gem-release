@@ -6,7 +6,7 @@
 
 **Release your Ruby gem from GitHub Actions without maintaining custom release scripts or storing a RubyGems API key.**
 
-One dispatch updates the changelog, tests and publishes the gem, creates its GitHub Release, and prepares the next development iteration. Choose your version and changelog formats; the workflow handles the sequence.
+Implements [Releases as Code](https://code.dblock.org/2026/11/12/releases-as-code.html) for Ruby gems. Release from GitHub Actions, run your project's tests, publish to RubyGems, optionally update the changelog, create a Git tag and GitHub Release, and prepare the next development iteration. Choose your version and changelog formats. See [npm-package-release](https://github.com/dblock/npm-package-release) and [rust-crate-release](https://github.com/dblock/rust-crate-release) for similar projects in the JavaScript and Rust ecosystems.
 
 The default setup below requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted Publishing.
 

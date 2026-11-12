@@ -18,6 +18,7 @@ md
 micromatch
 multiline
 namespaces
+npm
 OIDC
 OpenID
 preconfigured
