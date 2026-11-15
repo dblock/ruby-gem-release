@@ -52,6 +52,10 @@ module RubyGemRelease
         path
       end
 
+      def artifacts(release)
+        [artifact(release)]
+      end
+
       private
 
       def source_date_epoch

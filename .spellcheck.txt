@@ -29,6 +29,8 @@ OpenID
 preconfigured
 postcondition
 postconditions
+prebuilt
+preflight
 prerelease
 prereleases
 PRs

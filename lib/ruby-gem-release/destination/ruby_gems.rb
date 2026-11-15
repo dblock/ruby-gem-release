@@ -23,6 +23,8 @@ module RubyGemRelease
       end
 
       def publish!(release, package:)
+        return publish_collection!(release, package) if package.respond_to?(:packages)
+
         path = package.artifact(release)
         return if published?(release, package: package)
 
@@ -30,6 +32,8 @@ module RubyGemRelease
       end
 
       def published?(release, package:)
+        return publication_states(release, package).all?(&:last) if package.respond_to?(:packages)
+
         path = package.artifact(release)
         spec = Gem::Package.new(path).spec
         raise 'Package version does not match release' unless spec.version.to_s == release.version
@@ -38,6 +42,17 @@ module RubyGemRelease
       end
 
       private
+
+      def publish_collection!(release, collection)
+        publication_states(release, collection).each do |package, published|
+          publish!(release, package: package) unless published
+        end
+      end
+
+      def publication_states(release, collection)
+        collection.artifacts(release)
+        collection.packages.map { |package| [package, published?(release, package: package)] }
+      end
 
       def matching_publication?(spec, path)
         response = version_response(spec)

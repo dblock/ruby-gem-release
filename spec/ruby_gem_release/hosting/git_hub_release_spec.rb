@@ -88,9 +88,18 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
   end
 
   it 'attaches the package-owned exact artifact' do
-    package = instance_double(RubyGemRelease::Package::RubyGem, artifact: artifact)
+    package = instance_double(RubyGemRelease::Package::RubyGem, artifacts: [artifact])
     publisher.publish!(release, package: package)
-    expect(package).to have_received(:artifact).with(release)
+    expect(package).to have_received(:artifacts).with(release)
+  end
+
+  it 'attaches every collection artifact to the same hosted release' do
+    require 'ruby-gem-release/package/collection'
+    second = File.join(directory, 'example-1.2.3-java.gem')
+    File.write(second, 'java gem')
+    package = instance_double(RubyGemRelease::Package::Collection, artifacts: [artifact, second])
+    publisher.publish!(release, package: package)
+    expect(Open3).to have_received(:capture3).with('gh', 'release', 'create', 'v1.2.3', '--repo', 'example/gem', '--verify-tag', '--title', 'v1.2.3', '--generate-notes', artifact, second)
   end
 
   it 'rejects invalid versions before invoking gh', :aggregate_failures do

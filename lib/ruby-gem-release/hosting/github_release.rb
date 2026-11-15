@@ -37,7 +37,11 @@ module RubyGemRelease
         raise ArgumentError, 'release version must be MAJOR.MINOR.PATCH' unless version.is_a?(String) && /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z/.match?(version)
         raise ArgumentError, 'release notes must not be empty' if release.notes && release.notes.strip.empty?
 
-        artifact_paths(package ? [package.artifact(release)] : artifacts)
+        artifact_paths(package ? package_paths(package, release) : artifacts)
+      end
+
+      def package_paths(package, release)
+        package.respond_to?(:artifacts) ? package.artifacts(release) : [package.artifact(release)]
       end
 
       def upload_missing(release, existing, paths)
