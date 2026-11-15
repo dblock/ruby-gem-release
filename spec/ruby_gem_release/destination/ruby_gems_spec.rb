@@ -31,7 +31,18 @@ RSpec.describe RubyGemRelease::Destination::RubyGems do
     File.write('version.rb', "VERSION = '1.2.3'\n")
     http = instance_double(Net::HTTP)
     allow(Net::HTTP).to receive(:start).with('rubygems.org', 443, use_ssl: true, open_timeout: 10, read_timeout: 30, max_retries: 0).and_yield(http)
-    allow(http).to receive(:get).with('/api/v2/rubygems/release-fixture/versions/1.2.3.json').and_return(response)
+    allow(http).to receive(:get).with('/api/v2/rubygems/release-fixture/versions/1.2.3.json?platform=ruby').and_return(response)
+  end
+
+  it 'queries the Java platform independently from the ruby publication' do
+    File.write('fixture.gemspec', File.read('fixture.gemspec').sub("spec.version = '1.2.3'", "spec.version = '1.2.3'\n  spec.platform = 'java'"))
+    path = package.build!(release)
+    http = instance_double(Net::HTTP)
+    allow(Net::HTTP).to receive(:start).and_yield(http)
+    allow(http).to receive(:get).with('/api/v2/rubygems/release-fixture/versions/1.2.3.json?platform=java').and_return(response)
+    allow(response).to receive_messages(code: '200', body: JSON.generate('sha' => Digest::SHA256.file(path).hexdigest))
+    expect(described_class.new.published?(release, package: package)).to be(true)
+    expect(http).to have_received(:get).once
   end
 
   it 'publishes exactly the built archive without rebuilding or consulting an edited gemspec' do

@@ -49,6 +49,18 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
     expect(Gem::Package.new(path).spec.name).to eq('renamed-fixture')
   end
 
+  it 'retains Java platform identity in the filename and digest manifest' do
+    File.write('fixture.gemspec', File.read('fixture.gemspec').sub('spec.version = VERSION', "spec.version = VERSION\n  spec.platform = 'java'"))
+    path = package.build!(release)
+    expect(File.basename(path)).to eq('release-fixture-1.2.3-java.gem')
+    expect(JSON.parse(File.read(File.join(artifacts, 'release.json'))).fetch('platform')).to eq('java')
+    reopened = described_class.new(gemspec: 'fixture.gemspec', directory: artifacts)
+    expect(reopened.artifact(release)).to eq(path)
+    manifest = JSON.parse(File.read(File.join(artifacts, 'release.json'))).merge('platform' => 'ruby')
+    File.write(File.join(artifacts, 'release.json'), JSON.generate(manifest))
+    expect { reopened.artifact(release) }.to raise_error(/metadata differs/)
+  end
+
   it 'rebuilds reproducibly with a fixed timestamp instead of depending on a previous archive' do
     allow(Open3).to receive(:capture3).and_call_original
     path = package.build!(release)

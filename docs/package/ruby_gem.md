@@ -26,7 +26,7 @@ The standard Actions workflow builds at checkpoint and again during publication.
 
 ## Artifact
 
-`artifact(release)` verifies the built name, version, and digest and returns a copy named `NAME-VERSION.gem`. Registry destinations and hosted releases use those exact bytes.
+`artifact(release)` verifies the built name, version, platform, and digest and returns a copy named `NAME-VERSION.gem` for the ruby platform or `NAME-VERSION-PLATFORM.gem` otherwise. Registry destinations and hosted releases use those exact bytes. Digest manifests record the platform; older manifests without one are accepted only for ruby-platform archives.
 
 Verification checks the retained archive against the manifest and validates its gem metadata before publication. `artifact(release)` copies the verified canonical archive to its name-and-version path.
 

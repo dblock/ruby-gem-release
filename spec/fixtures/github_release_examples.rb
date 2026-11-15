@@ -168,7 +168,7 @@ RSpec.shared_context 'with a GitHub release consumer' do
           http.define_singleton_method(:get) do |path|
             version = ENV.fetch('INPUT_VERSION', '')
             version = '0.1.0' if version.empty?
-            raise 'Unexpected version lookup: ' + path unless path == '/api/v2/rubygems/example/versions/' + version + '.json'
+            raise 'Unexpected version lookup: ' + path unless path == '/api/v2/rubygems/example/versions/' + version + '.json?platform=ruby'
             File.open(File.join(ENV.fetch('RUNNER_TEMP'), 'version-lookups.jsonl'), 'a') { |file| file.puts JSON.generate(path) }
             saved = File.join(ENV.fetch('RELEASE_TEST_SERVICE_DIRECTORY'), 'registry.json')
             published = File.file?(saved)
