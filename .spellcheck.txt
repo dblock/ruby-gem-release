@@ -13,6 +13,7 @@ Gemfile
 GitLab
 HTTPS
 idempotence
+Intridea
 JSON
 JRuby
 LCOV
@@ -51,4 +52,5 @@ walkthrough
 walkthroughs
 worktree
 worktrees
+whitespace
 YAML

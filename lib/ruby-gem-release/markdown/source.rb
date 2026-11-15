@@ -5,6 +5,13 @@ module RubyGemRelease
     module Source
       private
 
+      def notes?(node)
+        return false if %i[heading html_block html_inline].include?(node.type)
+        return !node.string_content.strip.empty? if %i[text code code_block].include?(node.type)
+
+        node.each.any? { |child| notes?(child) }
+      end
+
       def heading(content, pattern)
         matches = heading_positions(content, pattern)
         raise ArgumentError, "expected exactly one matching heading in #{@path}" unless matches.one?

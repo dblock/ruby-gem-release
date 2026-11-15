@@ -6,6 +6,7 @@
 - [#60](https://github.com/dblock/ruby-gem-release/pull/60): Preserve gem platform identity in archive filenames and manifests and verify RubyGems publications per platform - [@dblock](https://github.com/dblock).
 - [#61](https://github.com/dblock/ruby-gem-release/pull/61): Control GitHub's latest-release selection during creation and idempotent metadata updates - [@dblock](https://github.com/dblock).
 - [#62](https://github.com/dblock/ruby-gem-release/pull/62): **Breaking:** Make the native Markdown parser optional for portable core installation; Markdown users must explicitly add Commonmarker - [@dblock](https://github.com/dblock).
+- [#63](https://github.com/dblock/ruby-gem-release/pull/63): Extract reviewed release notes with configurable headings and reference-link expansion - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.6.0 (2026/11/11)

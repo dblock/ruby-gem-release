@@ -57,13 +57,6 @@ module RubyGemRelease
         raise ArgumentError, "cannot release #{version}: empty release notes in #{@path}; add release notes before retrying"
       end
 
-      def notes?(node)
-        return false if %i[heading html_block html_inline].include?(node.type)
-        return !node.string_content.strip.empty? if %i[text code code_block].include?(node.type)
-
-        node.each.any? { |child| notes?(child) }
-      end
-
       def editable_lines(content)
         excluded = excluded_lines(content)
         offset = 0
