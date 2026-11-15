@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require 'ruby-gem-release/package/ruby_gem'
+require 'ruby-gem-release/package/content_audit'
 require 'tmpdir'
 
 RSpec.describe RubyGemRelease::Package::RubyGem do
@@ -101,5 +102,59 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
   it 'rejects ambiguous specifications' do
     File.write('other.gemspec', '')
     expect { described_class.new(directory: artifacts) }.to raise_error(ArgumentError, /exactly one root gemspec/)
+  end
+
+  context 'with source-aware content auditing' do
+    let(:audit) { RubyGemRelease::Package::ContentAudit.new(expected_files: -> { ['version.rb'] }, root: directory) }
+    let(:package) { described_class.new(gemspec: 'fixture.gemspec', directory: artifacts, audit: audit) }
+
+    before do
+      commands = [%w[init --quiet], %w[add version.rb], ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '--quiet', '-m', 'Initial']]
+      commands.each do |arguments|
+        output, error, status = Open3.capture3('git', *arguments)
+        raise "#{output}\n#{error}" unless status.success?
+      end
+    end
+
+    it 'checks built and reopened archives against the exact Git bytes' do
+      path = package.build!(release)
+      expect(audit.verify!(path)).to eq(path)
+      reopened = described_class.new(gemspec: 'fixture.gemspec', directory: artifacts, audit: audit)
+      expect(reopened.artifact(release)).to eq(path)
+      File.write('version.rb', "VERSION = '1.2.3' # changed\n")
+      expect { package.build!(release) }.to raise_error(/bytes differ from Git source: version.rb/)
+    end
+
+    it 'rejects accidentally shipped developer files and missing required files' do
+      path = package.build!(release)
+      missing = RubyGemRelease::Package::ContentAudit.new(expected_files: ['version.rb', 'README.md'])
+      expect { missing.verify!(path) }.to raise_error(/missing.*README.md/)
+      File.write('developer.txt', 'private notes')
+      File.write('fixture.gemspec', File.read('fixture.gemspec').sub("['version.rb']", "['version.rb', 'developer.txt']"))
+      expect { package.build!(release) }.to raise_error(/unexpected.*developer.txt/)
+    end
+
+    it 'requires generated files to be explicitly expected and exempts only their source bytes' do
+      path = package.build!(release)
+      File.write('generated.bin', "\x00\xFF".b)
+      File.write('fixture.gemspec', File.read('fixture.gemspec').sub("['version.rb']", "['version.rb', 'generated.bin']"))
+      generated = RubyGemRelease::Package::ContentAudit.new(expected_files: ['version.rb', 'generated.bin'], generated: ['generated.bin'])
+      allowed = described_class.new(gemspec: 'fixture.gemspec', directory: artifacts, audit: generated)
+      expect { allowed.build!(release) }.not_to raise_error
+      expect { generated.verify!(path) }.not_to raise_error
+      invalid = RubyGemRelease::Package::ContentAudit.new(expected_files: ['version.rb'], generated: ['generated.bin'])
+      expect { invalid.verify!(path) }.to raise_error(/Generated paths must be included/)
+    end
+
+    it 'rejects unsafe or duplicate expectations and unavailable source commits' do
+      ['../version.rb', '/version.rb', '', "bad\nname"].each do |unsafe|
+        invalid = RubyGemRelease::Package::ContentAudit.new(expected_files: [unsafe])
+        expect { invalid.verify!(package.build!(release)) }.to raise_error(ArgumentError, /Unsafe file path/)
+      end
+      duplicate = RubyGemRelease::Package::ContentAudit.new(expected_files: ['version.rb'] * 2)
+      expect { duplicate.verify!(package.build!(release)) }.to raise_error(ArgumentError, /Duplicate/)
+      unavailable = RubyGemRelease::Package::ContentAudit.new(expected_files: ['version.rb'], source: 'not-a-commit')
+      expect { unavailable.verify!(package.build!(release)) }.to raise_error(/Cannot verify Git source/)
+    end
   end
 end

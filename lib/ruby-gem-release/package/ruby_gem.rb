@@ -12,10 +12,11 @@ module RubyGemRelease
     class RubyGem
       attr_reader :directory, :gemspec
 
-      def initialize(gemspec: nil, directory: nil)
+      def initialize(gemspec: nil, directory: nil, audit: nil)
         @gemspec = resolve_gemspec(gemspec || ENV.fetch('GEMSPEC_PATH', nil))
         directory ||= ENV.fetch('RELEASE_DATA_DIR', nil)
         @directory = directory.to_s.empty? ? Dir.mktmpdir('ruby-gem-release-') : directory
+        @audit = audit
       end
 
       def version
@@ -71,6 +72,7 @@ module RubyGemRelease
         raise 'Built artifact changed; refusing publication' unless Digest::SHA256.file(archive).hexdigest == manifest.fetch('sha256')
 
         verify_metadata!(manifest, release)
+        @audit&.verify!(archive)
         manifest
       end
 
