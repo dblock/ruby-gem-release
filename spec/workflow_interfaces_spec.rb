@@ -28,6 +28,17 @@ RSpec.describe 'Release interface contracts' do
       end
     end
 
+    it 'prepares explicitly selected input artifacts before capture and preserves additional paths before publication' do
+      preparation = steps.find { |step| step['id'] == 'prepare_input_artifacts' }
+      expect(steps.index(preparation)).to be < steps.index { |step| step['id'] == 'capture_release_context' }
+      first_task = steps.index { |step| %w[configure_release_inputs capture_release_context].include?(step['id']) }
+      expect(steps.index(preparation)).to be < first_task
+      expect(preparation.fetch('if')).to eq("${{ inputs.prepare-artifacts != '' }}")
+      expect(preparation.dig('env', 'RELEASE_COMMAND')).to eq('${{ inputs.prepare-artifacts }}')
+      preservation = steps.find { |step| step['id'] == 'preserve_release_artifacts' }
+      expect(preservation.dig('with', 'path')).to include('${{ inputs.artifacts }}', '${{ runner.temp }}/release.bundle')
+    end
+
     it 'requires artifacts before publication and handles failures after Ruby setup' do
       artifacts = steps.find { |step| step['id'] == 'preserve_release_artifacts' }
       expect(artifacts.fetch('if', '')).not_to include('always()')

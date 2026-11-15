@@ -1,8 +1,10 @@
 Bundler
+backport
 changelog
 changelogs
 checksums
 Commonmarker
+codename
 customizations
 dblock
 ExecutionContext
@@ -11,6 +13,7 @@ gemspec
 gemspecs
 Gemfile
 GitLab
+GPG
 HTTPS
 idempotence
 Intridea

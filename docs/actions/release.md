@@ -8,22 +8,24 @@ For a step-based interface with caller-owned job settings, see the [Composite Ac
 
 Set these under the calling job's `with:` mapping. Only `ruby-version` is required.
 
-| Input            | Type   | Default                                        | Behavior                                                                                                                               |
-| ---              | ---    | ---                                            | ---                                                                                                                                    |
-| `ruby-version`   | String | Required                                       | Ruby version used for validation and building.                                                                                         |
-| `version`        | String | Empty                                          | Selected numeric `MAJOR.MINOR.PATCH` release version, without leading zeros. Overrides the checked-in version in standard preparation. |
-| `gemspec`        | String | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                                     |
-| `rubygems-owner` | String | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                           |
-| `timezone`       | String | `UTC`                                          | Installed timezone identifier for the release calendar date and Git timestamp offsets.                                                 |
-| `validate`       | String | `bundle exec rake release:validate`            | Check release preconditions before edits; exit nonzero on failure.                                                                     |
-| `prepare`        | String | `bundle exec rake release:prepare`             | Prepare release files before version resolution and testing.                                                                           |
-| `test`           | String | `bundle exec rake`                             | Test prepared release files before publication.                                                                                        |
-| `publish`        | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.                 |
-| `bump`           | String | `bundle exec rake release:bump`                | Prepare, commit, and push the next development iteration through the configured callback.                                              |
-| `success`        | String | `bundle exec rake release:success`             | Run after publication and the next development iteration succeed.                                                                      |
-| `failure`        | String | `bundle exec rake release:failure`             | Run after a release job failure, after Ruby setup.                                                                                     |
-| `git-user-name`  | String | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                         |
-| `git-user-email` | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                        |
+| Input               | Type   | Default                                        | Behavior                                                                                                                               |
+| ---                 | ---    | ---                                            | ---                                                                                                                                    |
+| `ruby-version`      | String | Required                                       | Ruby version used for validation and building.                                                                                         |
+| `version`           | String | Empty                                          | Selected numeric `MAJOR.MINOR.PATCH` release version, without leading zeros. Overrides the checked-in version in standard preparation. |
+| `gemspec`           | String | Empty                                          | Specification path, defaulting to the only root gemspec. Missing or ambiguous specifications fail.                                     |
+| `rubygems-owner`    | String | Empty                                          | Numeric RubyGems account ID required for a new gem's pending trusted publisher to create it.                                           |
+| `timezone`          | String | `UTC`                                          | Installed timezone identifier for the release calendar date and Git timestamp offsets.                                                 |
+| `prepare-artifacts` | String | Empty                                          | Trusted command preparing explicitly selected input archives after setup, before capture.                                              |
+| `artifacts`         | String | Empty                                          | Additional newline-separated artifact paths preserved before publication, alongside default paths.                                     |
+| `validate`          | String | `bundle exec rake release:validate`            | Check release preconditions before edits; exit nonzero on failure.                                                                     |
+| `prepare`           | String | `bundle exec rake release:prepare`             | Prepare release files before version resolution and testing.                                                                           |
+| `test`              | String | `bundle exec rake`                             | Test prepared release files before publication.                                                                                        |
+| `publish`           | String | `bundle exec rake release:publish`             | Commit, build, tag, publish to RubyGems, push atomically, and create a GitHub Release through the configured callback.                 |
+| `bump`              | String | `bundle exec rake release:bump`                | Prepare, commit, and push the next development iteration through the configured callback.                                              |
+| `success`           | String | `bundle exec rake release:success`             | Run after publication and the next development iteration succeed.                                                                      |
+| `failure`           | String | `bundle exec rake release:failure`             | Run after a release job failure, after Ruby setup.                                                                                     |
+| `git-user-name`     | String | `github-actions[bot]`                          | Checkout-local author name for release and next development iteration commits.                                                         |
+| `git-user-email`    | String | `github-actions[bot]@users.noreply.github.com` | Checkout-local author email for release and next development iteration commits.                                                        |
 
 Identity values must be nonempty and contain no line breaks. They change commit attribution, not authentication or push permissions.
 
@@ -114,3 +116,5 @@ GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_
 ## Recovery Artifacts
 
 The workflow requires `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` to be uploaded before publication, retained for 30 days under `release-gem-VERSION-RUN_ID-RUN_ATTEMPT`. These support manual inspection, not automatic restoration. See [RELEASING.md](../../RELEASING.md#verify-and-recover).
+
+For already-reviewed commits, stable branches, existing signed tags, and explicitly supplied package collections, use the [reviewed workflow](../workflow/reviewed_ruby_gem.md). It retains publication guards but makes no release preparation commits, new tags, Git pushes, or development bumps. `prepare-artifacts` and `artifacts` support explicit retained inputs without artifact discovery; both interfaces expose the same inputs.

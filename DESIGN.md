@@ -7,6 +7,7 @@
 | Component                   | Responsibility                                                                      |
 | ---                         | ---                                                                                 |
 | `Workflow::RubyGem`         | Install the manual release callbacks.                                               |
+| `Workflow::ReviewedRubyGem` | Publish an existing signed source without preparing or pushing Git changes.         |
 | `Workflow::SemanticRubyGem` | Select and persist a commit-driven release, then use the same publication sequence. |
 | `Tasks`                     | Register callbacks, construct contexts, and capture failures.                       |
 | `ExecutionProvider`         | Transport inputs, exports, execution metadata, and authentication services.         |
@@ -31,7 +32,7 @@ Keep both YAML interfaces thin and consistent. The reusable workflow does not de
 
 ## Preparation and Artifact Guards
 
-Capture rejects non-default branches and dirty checkouts after dependency installation. Capture and resolution use the configured package; built-in selection requires one root gemspec or an explicit path. Dates and the initial version are captured once, with UTC as the timezone default.
+Standard capture rejects non-default branches and dirty checkouts after dependency installation. The opt-in reviewed workflow permits an explicit branch list, requires the current remote tip and exact existing signed remote tag, and never prepares commits, tags, pushes, or a development version. Capture and resolution use the configured package; built-in selection requires one root gemspec or an explicit path. Dates and the initial version are captured once, with UTC as the timezone default.
 
 `Git#stage_changes!` requires a clean checkout or the exact previously prepared index before trusted edits, stages literal changed paths, and records the index tree. Resolution also stages custom preparation-command outputs before testing. Publication rejects later working-tree or index changes and never stages them. Development iteration edits use the same boundary, including custom version-object side effects.
 

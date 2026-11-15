@@ -2,6 +2,8 @@
 
 require 'spec_helper'
 require 'ruby-gem-release/source_control/git'
+require 'ruby-gem-release/source_control/reviewed_git'
+require_relative '../../fixtures/signed_tags'
 require 'tmpdir'
 
 RSpec.describe RubyGemRelease::SourceControl::Git do
@@ -268,6 +270,56 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     git.stage_changes! { File.write('version', 'release edit') }
     command('restore', '--source=HEAD', '--staged', '--worktree', 'version')
     expect { git.commit!(release) }.to raise_error(/commit refused/)
+  end
+
+  context 'with reviewed source' do
+    let(:git) { RubyGemRelease::SourceControl::ReviewedGit.new(branch: 'master', branches: ['master'], directory: directory) }
+
+    include_context 'with trusted SSH signatures'
+
+    def reviewed_tag(signed: true, publish: true)
+      command('tag', signed ? '-s' : '-a', '-m', 'Reviewed release', 'v1.2.3')
+      command('push', '--quiet', 'origin', 'refs/tags/v1.2.3') if publish
+    end
+
+    it 'verifies and preserves an existing signed source without changing refs' do
+      reviewed_tag
+      refs = command('show-ref')
+      2.times { git.preserve!(release, expected: initial) }
+      expect(command('show-ref')).to eq(refs)
+      expect(git.head).to eq(initial)
+      expect(File).to exist(File.join(directory, 'release.bundle'))
+    end
+
+    it 'requires an already-published tag and a valid signature' do
+      reviewed_tag(publish: false)
+      expect { git.verify!(release) }.to raise_error(/exact existing remote tag/)
+      command('tag', '-d', 'v1.2.3')
+      reviewed_tag(signed: false)
+      expect { git.verify!(release) }.to raise_error(/Git command failed/)
+    end
+
+    it 'rejects tag objects with different annotations even when they point to the same commit' do
+      reviewed_tag
+      command('tag', '-d', 'v1.2.3')
+      command('tag', '-s', '-m', 'Different annotation', 'v1.2.3')
+      expect { git.verify!(release) }.to raise_error(/would clobber existing tag/)
+    end
+
+    it 'rejects missing tags, changed captured commits, and source changes' do
+      expect { git.verify!(release) }.to raise_error(/existing tag at the checkout/)
+      reviewed_tag
+      expect { git.verify!(release, expected: '0' * 40) }.to raise_error(/captured source commit/)
+      File.write('version', 'changed')
+      expect { git.verify!(release) }.to raise_error(/clean checkout/)
+    end
+
+    it 'rejects branch advancement and unapproved source refs' do
+      reviewed_tag
+      expect { git.check_branch!(ref: 'refs/heads/other') }.to raise_error(/explicitly allowed branch/)
+      advance_remote
+      expect { git.verify!(release) }.to raise_error(/branch advanced/)
+    end
   end
 
   def advance_remote

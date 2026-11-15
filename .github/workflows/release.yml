@@ -28,6 +28,14 @@ on:
         description: Timezone for release dates and Git timestamps.
         type: string
         default: UTC
+      prepare-artifacts:
+        description: Optional command preparing explicitly selected input archives before context capture.
+        type: string
+        default: ''
+      artifacts:
+        description: Additional newline-separated artifact paths to preserve before publication.
+        type: string
+        default: ''
       validate:
         description: Command validating release preconditions; must exit nonzero on failure.
         type: string
@@ -83,6 +91,15 @@ jobs:
         with:
           ruby-version: ${{ inputs.ruby-version }}
           bundler-cache: true
+      - name: Prepare Input Artifacts
+        id: prepare_input_artifacts
+        if: ${{ inputs.prepare-artifacts != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMAND: ${{ inputs.prepare-artifacts }}
+          RELEASE_STEP_ID: prepare_input_artifacts
+          RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+        run: bash -euo pipefail -c "$RELEASE_COMMAND"
       - name: Capture Release Context
         id: capture_release_context
         env:
@@ -125,6 +142,7 @@ jobs:
         with:
           name: release-gem-${{ env.RELEASE_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
+            ${{ inputs.artifacts }}
             ${{ runner.temp }}/release.gem
             ${{ runner.temp }}/release.json
             ${{ runner.temp }}/release.bundle

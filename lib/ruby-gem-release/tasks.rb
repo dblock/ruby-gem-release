@@ -118,7 +118,7 @@ module RubyGemRelease
         with_failure_capture('release:workflow:capture') do
           capture_context = @provider.context(release: nil, task: 'release:workflow:capture', state: Workflow::State.new, workflow: @workflow)
           lifecycle(:capture, capture_context, after_context: -> { context('release:workflow:capture', preparing: true) }) do
-            Workflow::Environment.new(provider: @provider).capture!(package: @package)
+            workflow_environment.capture!(package: @package)
           end
         end
       end
@@ -128,7 +128,7 @@ module RubyGemRelease
       task(:resolve) do
         with_failure_capture('release:workflow:resolve') do
           lifecycle(:resolve_version, context('release:workflow:resolve', preparing: true), after_context: -> { context('release:workflow:resolve') }) do
-            Workflow::Environment.new(provider: @provider).resolve!(package: @package, destination: @destination, analysis: state.analysis)
+            workflow_environment.resolve!(package: @package, destination: @destination, analysis: state.analysis)
           end
         end
       end
@@ -142,6 +142,10 @@ module RubyGemRelease
           @workflow.checkpoint!(context('release:workflow:checkpoint'))
         end
       end
+    end
+
+    def workflow_environment
+      @workflow.respond_to?(:environment) ? @workflow.environment : Workflow::Environment.new(provider: @provider)
     end
 
     def install_publish_task

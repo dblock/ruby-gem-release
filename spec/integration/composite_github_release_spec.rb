@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require_relative '../fixtures/github_release_examples'
+require_relative '../fixtures/reviewed_release_examples'
 
 RSpec.describe 'Composite action release lifecycle' do
   include_context 'with a GitHub release consumer'
@@ -21,4 +22,5 @@ RSpec.describe 'Composite action release lifecycle' do
   it_behaves_like 'rejects empty release notes'
   it_behaves_like 'a failed publication'
   it_behaves_like 'repeating accepted publication'
+  it_behaves_like 'a reviewed release lifecycle'
 end

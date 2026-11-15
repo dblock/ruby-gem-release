@@ -2,6 +2,8 @@
 
 Use the [standard workflow](workflow/ruby_gem.md), or configure callbacks for a different sequence. Both use the same release objects and [Actions interface](actions/release.md); install tasks only once.
 
+If preparation is already reviewed and merged, use the [reviewed workflow](workflow/reviewed_ruby_gem.md) to publish an existing signed tag without new commits, tags, pushes, or development bumps, including explicit stable branches and package collections.
+
 ## Project Files
 
 For a version file such as `lib/example/version.rb`:

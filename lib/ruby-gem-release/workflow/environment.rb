@@ -11,8 +11,9 @@ require_relative '../execution_provider'
 module RubyGemRelease
   module Workflow
     class Environment
-      def initialize(provider: ExecutionProvider.current)
+      def initialize(provider: ExecutionProvider.current, source: nil)
         @provider = provider
+        @source = source
       end
 
       def configure!
@@ -37,8 +38,8 @@ module RubyGemRelease
         package ||= Package::RubyGem.new(gemspec: @provider.fetch('GEMSPEC_PATH', @provider.fetch('INPUT_GEMSPEC_PATH', '')) || '', directory: @provider.directory)
         authentication = authentication_for(destination)
         version = prepared_version(package, analysis)
-        git = SourceControl::Git.new(directory: @provider.directory)
-        git.stage_changes!
+        git = @source || SourceControl::Git.new(directory: @provider.directory)
+        @source ? git.check_clean! : git.stage_changes!
         @provider.export('RELEASE_VERSION' => version, 'RELEASE_AUTH_MODE' => authentication)
       end
 
@@ -93,10 +94,12 @@ module RubyGemRelease
       end
 
       def configured_git
-        SourceControl::Git.new(directory: @provider.directory).tap { |git| git.configure!(**@provider.git_identity) }
+        (@source || SourceControl::Git.new(directory: @provider.directory)).tap { |git| git.configure!(**@provider.git_identity) }
       end
 
       def check_branch
+        return @source.check_branch!(ref: @provider.ref) if @source
+
         return if @provider.ref == "refs/heads/#{@provider.fetch('DEFAULT_BRANCH')}"
 
         raise 'Releases must run from the default branch'

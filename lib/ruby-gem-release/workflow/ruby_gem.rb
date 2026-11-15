@@ -65,6 +65,10 @@ module RubyGemRelease
         @package.respond_to?(:built?) && @package.built?(release) && @destination.published?(release, package: @package)
       end
 
+      def environment
+        Environment.new(provider: @provider)
+      end
+
       private
 
       def hooks

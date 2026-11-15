@@ -50,6 +50,8 @@ The action checks out the calling repository with full history and sets up Ruby 
 
 Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. Dispatching the sample workflow requests publication; configured environment protection rules must pass before the job runs.
 
+For [already-reviewed source and package collections](../workflow/reviewed_ruby_gem.md), configure `Workflow::ReviewedRubyGem` in the Rakefile. Optional `prepare-artifacts` prepares explicit input archives after Ruby setup, before loading release tasks for input configuration and capture; `artifacts` adds newline-separated paths to artifact preservation. Both default to empty. Caller-provided commands retain release privileges and must use reviewed inputs.
+
 Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `release:workflow:configure` rejects line breaks before exporting any values. Override commands execute with release privileges and must be trusted.
 
 `validate` checks preconditions before preparation and must exit nonzero on failure, including when there is nothing to release. Failure handling runs; downstream release operations do not. See [Release Validation](release.md#release-validation).

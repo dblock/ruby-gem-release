@@ -9,6 +9,7 @@
 - [#63](https://github.com/dblock/ruby-gem-release/pull/63): Extract reviewed release notes with configurable headings and reference-link expansion - [@dblock](https://github.com/dblock).
 - [#65](https://github.com/dblock/ruby-gem-release/pull/65): Audit exact archive file lists and Git source bytes with explicit generated-file exceptions - [@dblock](https://github.com/dblock).
 - [#66](https://github.com/dblock/ruby-gem-release/pull/66): Publish explicit package collections and checksum-verified prebuilt archives with all-member preflight - [@dblock](https://github.com/dblock).
+- [#67](https://github.com/dblock/ruby-gem-release/pull/67): Publish signed, already-reviewed source on explicit branches without editing files, creating tags, pushing Git refs, or bumping versions - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.6.0 (2026/11/11)
