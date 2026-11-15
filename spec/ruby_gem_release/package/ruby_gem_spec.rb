@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'ruby-gem-release/package/ruby_gem'
 require 'ruby-gem-release/package/content_audit'
+require 'ruby-gem-release/package/prebuilt'
 require 'tmpdir'
 
 RSpec.describe RubyGemRelease::Package::RubyGem do
@@ -102,6 +103,84 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
   it 'rejects ambiguous specifications' do
     File.write('other.gemspec', '')
     expect { described_class.new(directory: artifacts) }.to raise_error(ArgumentError, /exactly one root gemspec/)
+  end
+
+  context 'with prebuilt manifest loading' do
+    let(:manifest) { File.join(artifacts, 'release.json') }
+
+    def load_prebuilt(**options)
+      RubyGemRelease::Package::Prebuilt.from_manifest(manifest: manifest, name: 'release-fixture', version: '1.2.3', **options)
+    end
+
+    it 'loads the retained archive relative to the manifest without consulting the source' do
+      path = package.build!(release)
+      File.write('fixture.gemspec', "raise 'No rebuild allowed'\n")
+      FileUtils.mkdir_p('elsewhere')
+      loaded = Dir.chdir('elsewhere') do
+        load_prebuilt(manifest: '../artifacts/release.json')
+      end
+      expect(File.realpath(loaded.artifact(release))).to eq(File.realpath(path))
+    end
+
+    %w[java x86_64-linux].each do |platform|
+      it "loads the canonical #{platform} archive" do
+        File.write('fixture.gemspec', File.read('fixture.gemspec').sub('spec.version = VERSION', "spec.version = VERSION\n  spec.platform = '#{platform}'"))
+        path = package.build!(release)
+        loaded = load_prebuilt(platform: platform)
+        expect(loaded.artifact(release)).to eq(path)
+      end
+    end
+
+    it 'rejects missing or unexpected manifest identities before opening an archive' do
+      package.build!(release)
+      metadata = JSON.parse(File.read(manifest))
+      invalid = [{ 'name' => 'other' }, { 'version' => '2.0.0' }, { 'platform' => 'java' }, { 'platform' => nil }]
+      [*invalid.map { |changes| metadata.merge(changes) }, []].each do |value|
+        File.write(manifest, JSON.generate(value))
+        expect { load_prebuilt }.to raise_error(/Manifest metadata/)
+      end
+    end
+
+    it 'uses the original digest once without replacing it from the archive or later manifest edits' do
+      package.build!(release)
+      metadata = JSON.parse(File.read(manifest))
+      File.write(manifest, JSON.generate(metadata.merge('sha256' => '0' * 64)))
+      loaded = load_prebuilt
+      File.write(manifest, JSON.generate(metadata))
+      expect { loaded.artifact(release) }.to raise_error(/artifact changed/)
+    end
+
+    it 'requires a valid manifest digest' do
+      package.build!(release)
+      metadata = JSON.parse(File.read(manifest))
+      File.write(manifest, JSON.generate(metadata.reject { |key, _value| key == 'sha256' }))
+      expect { load_prebuilt }.to raise_error(KeyError, /sha256/)
+      File.write(manifest, JSON.generate(metadata.merge('sha256' => 'invalid')))
+      expect { load_prebuilt }.to raise_error(ArgumentError, /SHA256/)
+    end
+
+    it 'does not discover another archive when the expected filename is missing' do
+      File.delete(package.build!(release))
+      expect { load_prebuilt }.to raise_error(ArgumentError, /existing archive/)
+    end
+
+    it 'rejects unsafe caller identities even when the manifest agrees' do
+      package.build!(release)
+      metadata = JSON.parse(File.read(manifest))
+      ['../escape', '..\\escape'].each do |name|
+        File.write(manifest, JSON.generate(metadata.merge('name' => name)))
+        expect do
+          load_prebuilt(name: name)
+        end.to raise_error(ArgumentError, /Unsafe artifact filename/)
+      end
+    end
+
+    it 'retains the caller content audit' do
+      package.build!(release)
+      audit = RubyGemRelease::Package::ContentAudit.new(expected_files: ['version.rb', 'README.md'])
+      loaded = load_prebuilt(audit: audit)
+      expect { loaded.artifact(release) }.to raise_error(/missing.*README.md/)
+    end
   end
 
   context 'with source-aware content auditing' do

@@ -1,12 +1,25 @@
 # frozen_string_literal: true
 
 require 'rubygems/package'
+require 'rubygems/name_tuple'
 require 'digest'
+require 'json'
 
 module RubyGemRelease
   module Package
     class Prebuilt
       attr_reader :version
+
+      def self.from_manifest(manifest:, name:, version:, platform: 'ruby', audit: nil)
+        metadata = JSON.parse(File.read(manifest))
+        raise 'Manifest metadata differs from expectations' unless metadata.is_a?(Hash) && metadata.values_at('name', 'version', 'platform') == [name, version, platform]
+
+        filename = "#{Gem::NameTuple.new(name, Gem::Version.new(version), platform).full_name}.gem"
+        raise ArgumentError, 'Unsafe artifact filename' unless /\A[A-Za-z0-9][A-Za-z0-9_.-]*\.gem\z/.match?(filename)
+
+        new(path: File.expand_path(filename, File.dirname(manifest)), sha256: metadata.fetch('sha256'),
+            name: name, version: version, platform: platform, audit: audit)
+      end
 
       def initialize(path:, sha256:, name:, version:, platform: 'ruby', audit: nil)
         raise ArgumentError, 'sha256 must be a lowercase SHA256 digest' unless sha256.is_a?(String) && /\A[0-9a-f]{64}\z/.match?(sha256)
