@@ -18,7 +18,7 @@ Choose the matching changelog strategy: [`KeepAChangelog`](changelog/keep_a_chan
 
 ## Standard Workflow
 
-Add `ruby-gem-release` to the development dependencies and configure the Rakefile:
+Add `ruby-gem-release` and `commonmarker ~> 2.10` to the development dependencies and configure the Rakefile. Commonmarker is only needed for Markdown changelogs; packaging, publication, and custom callbacks do not require it. On JRuby, use `changelog: nil` or a project-provided changelog implementation:
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'

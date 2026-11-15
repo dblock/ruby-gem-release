@@ -87,6 +87,30 @@ RSpec.describe 'Provider-neutral release lifecycle' do
     File.readlines(artifact('events.jsonl')).map { |line| JSON.parse(line) }
   end
 
+  it 'loads the core without native dependencies and explains unavailable Markdown support' do
+    library = File.expand_path(environment.fetch('RELEASE_TEST_LIB'))
+    gemfile = File.join(directory, 'CoreGemfile')
+    dependency = ENV['RELEASE_CONSUMER_LIB'] ? "'ruby-gem-release', '#{RubyGemRelease::VERSION}'" : "'ruby-gem-release', path: #{File.dirname(library).dump}"
+    File.write(gemfile, "source 'https://rubygems.org'\ngem #{dependency}\n")
+    script = <<~RUBY
+      require 'ruby-gem-release'
+      require 'ruby-gem-release/workflow/ruby_gem'
+      require 'ruby-gem-release/markdown/source'
+      abort 'Native dependency activated' if Gem.loaded_specs.key?('commonmarker')
+      begin
+        Object.new.extend(RubyGemRelease::Markdown::Source).send(:document, '# Notes')
+        abort 'Unexpected Markdown parser'
+      rescue LoadError => e
+        abort e.message unless e.message.include?('optional commonmarker gem')
+      end
+    RUBY
+    output, error, status = Bundler.with_unbundled_env do
+      variables = environment.slice('GEM_HOME', 'GEM_PATH').merge('BUNDLE_GEMFILE' => gemfile)
+      Open3.capture3(variables, Gem.ruby, '-rbundler/setup', '-e', script, chdir: directory)
+    end
+    expect(status.success?).to be(true), "#{output}\n#{error}"
+  end
+
   it 'publishes and bumps across independent processes without an Actions environment' do
     prepare_release
     expect(environment.fetch('RELEASE_AUTH_MODE')).to eq('')

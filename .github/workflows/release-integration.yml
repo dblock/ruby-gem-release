@@ -27,7 +27,7 @@ jobs:
           bundle exec rake build
           version=$(ruby -Ilib -rruby-gem-release/version -e 'print RubyGemRelease::VERSION')
           gem install "pkg/ruby-gem-release-$version.gem" --install-dir "$RUNNER_TEMP/gems" --ignore-dependencies --no-document
-          printf "source 'https://rubygems.org'\ngem 'ruby-gem-release', '= %s'\n" "$version" > "$RUNNER_TEMP/Gemfile"
+          printf "source 'https://rubygems.org'\ngem 'ruby-gem-release', '= %s'\ngem 'commonmarker', '~> 2.10'\n" "$version" > "$RUNNER_TEMP/Gemfile"
           gem_path="$RUNNER_TEMP/gems:$(bundle exec ruby -e 'print Bundler.bundle_path'):$(ruby -e 'print Gem.path.join(File::PATH_SEPARATOR)')"
           BUNDLE_GEMFILE="$RUNNER_TEMP/Gemfile" GEM_HOME="$RUNNER_TEMP/gems" GEM_PATH="$gem_path" bundle lock --local
           {

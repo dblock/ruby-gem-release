@@ -14,7 +14,7 @@ The default setup below requires Ruby 3.3+, GitHub Actions, and RubyGems Trusted
 
 ### 1. Configure Your Gem
 
-Add `ruby-gem-release` to the development dependencies and install the standard workflow in your Rakefile. Choose your version file and changelog format explicitly:
+Add `ruby-gem-release` and `commonmarker ~> 2.10` to the development dependencies and install the standard workflow in your Rakefile. Commonmarker is optional for projects not using Markdown changelogs; the core has no native dependencies. Choose your version file and changelog format explicitly:
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'

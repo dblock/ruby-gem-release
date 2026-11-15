@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'commonmarker'
-
 module RubyGemRelease
   module Markdown
     module Source
@@ -40,7 +38,14 @@ module RubyGemRelease
       end
 
       def document(content)
+        load_markdown_parser
         Commonmarker.parse(content, options: { extension: { shortcodes: false } })
+      end
+
+      def load_markdown_parser
+        require 'commonmarker'
+      rescue LoadError => e
+        raise LoadError, "Markdown changelogs require the optional commonmarker gem (~> 2.10); add it to your Gemfile. #{e.message}"
       end
 
       def line_offsets(lines)

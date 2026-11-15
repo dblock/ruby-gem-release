@@ -39,7 +39,7 @@ Resolution validates the prepared version; publishing tasks enforce their own po
 
 Lifecycle hooks add checks and project edits without replacing the release sequence. Preparation hooks run inside trusted staging; other hooks validate or observe. See the [hook guide](docs/workflow/hooks.md).
 
-Version objects update exactly one constant assignment without evaluating the file. Changelog objects use `Commonmarker` to find sections, then edit original source to preserve formatting. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
+Version objects update exactly one constant assignment without evaluating the file. Changelog objects load optional `Commonmarker` when parsing sections, then edit original source to preserve formatting. Core installation and loading require no native dependencies. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
 
 ## Contexts and State
 

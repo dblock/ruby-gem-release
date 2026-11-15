@@ -2,6 +2,10 @@
 
 Upgrade the gem and pinned workflow or action together. Apply the relevant changes below; see the linked PRs for details.
 
+## Upgrading To 0.7.0
+
+Commonmarker is now optional rather than a runtime dependency. Projects using built-in Markdown changelogs must explicitly add `gem 'commonmarker', '~> 2.10'` to their development Gemfile. Core packaging, registry publication, hosting, and custom callbacks install without native dependencies, including on JRuby. Markdown operations fail with an installation hint when Commonmarker is unavailable; they never fall back to less accurate section parsing.
+
 ## Upgrading To 0.5.1
 
 Additive [lifecycle hooks](docs/workflow/hooks.md) are available on both workflows without replacing existing callbacks. Existing success/failure callbacks and explicit replacement interfaces remain supported. Preparation hooks run inside trusted Git staging; publication order and build behavior are unchanged.

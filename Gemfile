@@ -4,6 +4,7 @@ source 'https://rubygems.org'
 
 gemspec
 
+gem 'commonmarker', '~> 2.10', require: false
 gem 'danger'
 gem 'danger-changelog', require: false
 gem 'danger-pr-comment', require: false
