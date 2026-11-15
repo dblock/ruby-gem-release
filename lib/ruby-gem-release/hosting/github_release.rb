@@ -7,16 +7,19 @@ require_relative 'github_release/existing'
 module RubyGemRelease
   module Hosting
     class GitHubRelease
-      def initialize(repository: nil)
+      def initialize(repository: nil, latest: nil)
         repository ||= ENV.fetch('GITHUB_REPOSITORY', nil)
         raise ArgumentError, 'repository must be OWNER/REPO' unless repository.nil? || (repository.is_a?(String) && %r{\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z}.match?(repository))
 
         @repository = repository
+        raise ArgumentError, 'latest must be true, false, or nil' unless [true, false, nil].include?(latest)
+
+        @latest = latest
       end
 
       def publish!(release, package: nil, artifacts: [])
         paths = release_paths(release, package, artifacts)
-        existing = Existing.new(repository: @repository)
+        existing = Existing.new(repository: @repository, latest: @latest)
         missing = existing.missing(release, paths)
         return upload_missing(release, existing, missing) if existing.exists?
 
@@ -67,6 +70,7 @@ module RubyGemRelease
       def edit_release(release)
         tag = "v#{release.version}"
         arguments = ['gh', 'release', 'edit', tag, '--title', tag, '--draft=false', '--prerelease=false']
+        arguments.push("--latest=#{@latest}") unless @latest.nil?
         arguments.push('--repo', @repository) if @repository
         _output, error, status = run_with_notes(arguments, release.notes)
         raise "GitHub Release update failed: #{error.strip}" unless status.success?
@@ -76,6 +80,8 @@ module RubyGemRelease
         arguments = ['gh', 'release', 'create', tag]
         arguments.push('--repo', @repository) if @repository
         arguments.push('--verify-tag', '--title', tag)
+        arguments.push("--latest=#{@latest}") unless @latest.nil?
+        arguments
       end
 
       def artifact_paths(artifacts)

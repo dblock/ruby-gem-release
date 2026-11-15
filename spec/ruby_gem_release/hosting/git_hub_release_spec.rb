@@ -35,6 +35,14 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
     expect { publisher.publish!(release) }.to raise_error(RuntimeError, /release already exists/)
   end
 
+  it 'sets an explicit latest policy on creation rather than correcting it afterward' do
+    [true, false].each do |latest|
+      described_class.new(repository: 'example/gem', latest: latest).publish!(release)
+      expect(Open3).to have_received(:capture3).with('gh', 'release', 'create', 'v1.2.3', '--repo', 'example/gem', '--verify-tag', '--title', 'v1.2.3', "--latest=#{latest}", '--generate-notes')
+    end
+    expect { described_class.new(latest: 'false') }.to raise_error(ArgumentError, /latest/)
+  end
+
   it 'uses the persisted notes verbatim instead of requesting platform-generated notes and cleans up the private file' do
     semantic = RubyGemRelease::Release.new(version: '1.2.3', gemspec_version: '1.2.4', date: release.date, notes: "### Features\n\n- Add endpoint.")
     path = nil
@@ -109,6 +117,23 @@ RSpec.describe RubyGemRelease::Hosting::GitHubRelease do
     it 'verifies matching assets without creating or uploading again' do
       publisher.publish!(release, artifacts: [artifact])
       expect(Open3).not_to have_received(:capture3).with('gh', 'release', any_args)
+    end
+
+    it 'reconciles latest status once and accepts a lost successful edit response on repetition' do
+      latest = { tag_name: 'v1.2.3' }
+      allow(Open3).to receive(:capture3).with('gh', 'api', '--include', 'repos/example/gem/releases/latest') do
+        ["HTTP/2.0 200 OK\n\n#{JSON.generate(latest)}", '', status]
+      end
+      allow(Open3).to receive(:capture3).with('gh', 'release', 'edit', any_args) do |*arguments|
+        expect(arguments).to include('--latest=false')
+        latest[:tag_name] = 'v2.0.0'
+        ['', 'Response lost', instance_double(Process::Status, success?: false)]
+      end
+      configured = described_class.new(repository: 'example/gem', latest: false)
+      expect { configured.publish!(release, artifacts: [artifact]) }.to raise_error(/Response lost/)
+      expect { configured.publish!(release, artifacts: [artifact]) }.not_to raise_error
+      expect(Open3).to have_received(:capture3).with('gh', 'release', 'edit', any_args).once
+      expect(Open3).not_to have_received(:capture3).with('gh', 'release', 'create', any_args)
     end
 
     it 'uploads missing assets with replacement enabled for retry-safe publication' do

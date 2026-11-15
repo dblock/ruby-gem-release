@@ -4,6 +4,7 @@
 
 - [#58](https://github.com/dblock/ruby-gem-release/pull/58): Replace the ruby rocket logo with a faceted ruby and upward release arrow - [@dblock](https://github.com/dblock).
 - [#60](https://github.com/dblock/ruby-gem-release/pull/60): Preserve gem platform identity in archive filenames and manifests and verify RubyGems publications per platform - [@dblock](https://github.com/dblock).
+- [#61](https://github.com/dblock/ruby-gem-release/pull/61): Control GitHub's latest-release selection during creation and idempotent metadata updates - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.6.0 (2026/11/11)

@@ -15,6 +15,8 @@ The optional `repository:` argument identifies the target as `'OWNER/REPO'`. It 
 
 ## Publish
 
+Pass `latest: true` or `latest: false` to the constructor to set the latest-release policy during creation and metadata updates. Existing releases are compared with GitHub's latest release before changing that status. The default `nil` retains GitHub's automatic selection and does not change matching existing releases. Use `latest: false` for maintenance branches to avoid temporarily promoting an older release.
+
 `publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](../release.md) context. It verifies that the tag exists remotely and never creates a tag automatically. With `release.notes`, it supplies that nonempty body through a private temporary `--notes-file` and removes the file afterward; otherwise it retains GitHub's `--generate-notes`. It returns the release URL printed by `gh`.
 
 ## Package

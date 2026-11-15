@@ -7,8 +7,9 @@ module RubyGemRelease
   module Hosting
     class GitHubRelease
       class Existing
-        def initialize(repository:)
+        def initialize(repository:, latest: nil)
           @api = GitHubAPI.new(repository: repository)
+          @latest = latest
         end
 
         def missing(release, paths)
@@ -30,10 +31,20 @@ module RubyGemRelease
         def changed?(release)
           expected = { 'name' => "v#{release.version}", 'draft' => false, 'prerelease' => false }
           expected['body'] = release.notes if release.notes
-          expected.any? { |key, value| @attributes[key] != value }
+          expected.any? { |key, value| @attributes[key] != value } || latest_changed?(release)
         end
 
         private
+
+        def latest_changed?(release)
+          return false if @latest.nil?
+
+          latest = @api.get('releases/latest')
+          raise 'Latest GitHub Release cannot be verified' if latest && (!latest.is_a?(Hash) || !latest['tag_name'].is_a?(String))
+
+          current = latest && latest['tag_name'] == "v#{release.version}"
+          @latest != !!current
+        end
 
         def validate_release(release)
           tag = "v#{release.version}"
