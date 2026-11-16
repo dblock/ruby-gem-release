@@ -27,6 +27,7 @@ micromatch
 multiline
 namespaces
 npm
+numbata
 OIDC
 OpenID
 preconfigured
@@ -47,6 +48,7 @@ rulesets
 RSpec
 RuboCop
 RubyGems
+strftime
 subclasses
 subprocess
 toolchains

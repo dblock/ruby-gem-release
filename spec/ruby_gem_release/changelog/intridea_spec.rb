@@ -130,4 +130,67 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
       .to raise_error(ArgumentError, /placeholder/)
     expect(File.read(path)).to eq(content)
   end
+
+  it 'writes release dates with a configured strftime format' do
+    File.write(path, "### 1.0.0 (Next)\n\n- Change.\n- Your contribution here.\n")
+    described_class.new(path: path, date_format: '%Y-%m-%d').release!(release)
+    expect(File.read(path)).to start_with('### 1.0.0 (2026-11-07)')
+  end
+
+  it 'writes release dates with a configured callable' do
+    File.write(path, "### 1.0.0 (Next)\n\n- Change.\n- Your contribution here.\n")
+    described_class.new(path: path, date_format: ->(value) { "#{value.day} #{value.strftime('%b %Y')}" }).release!(release)
+    expect(File.read(path)).to start_with('### 1.0.0 (7 Nov 2026)')
+  end
+
+  it 'treats a release heading in any date format as released' do
+    File.write(path, "### 1.0.0 (2026-11-07)\n\n- Change.\n\n### 0.9.0 (2026/11/06)\n\n- Older.\n")
+    changelog = described_class.new(path: path, date_format: '%Y-%m-%d')
+    expect(changelog.released?('1.0.0')).to be(true)
+    expect(changelog.released?('0.9.0')).to be(true)
+    expect(changelog.released?('0.8.0')).to be(false)
+  end
+
+  it 'prepares the next section after a release written in a configured format' do
+    File.write(path, "### 1.0.0 (Next)\n\n- Change.\n- Your contribution here.\n")
+    changelog = described_class.new(path: path, date_format: '%Y-%m-%d')
+    changelog.release!(release)
+    changelog.prepare_next!(next_release)
+    expect(File.read(path)).to eq("### 1.0.1 (Next)\n\n- Your contribution here.\n\n### 1.0.0 (2026-11-07)\n\n- Change.\n")
+  end
+
+  it 'rejects an empty, multiline, or non-String date_format' do
+    expect { described_class.new(path: path, date_format: '') }.to raise_error(ArgumentError, /date_format/)
+    expect { described_class.new(path: path, date_format: "%Y\n") }.to raise_error(ArgumentError, /date_format/)
+    expect { described_class.new(path: path, date_format: 20_261_107) }.to raise_error(ArgumentError, /date_format/)
+  end
+
+  [
+    ['a format without date fields', 'Next'],
+    ['a format that writes a newline', '%Y%n%m'],
+    ['a callable returning an empty string', ->(_) { '' }],
+    ['a callable returning nil', ->(_) {}],
+    ['a callable returning a non-release word', ->(_) { 'Next' }],
+    ['a callable returning a non-String', ->(_) { 20_261_107 }]
+  ].each do |label, date_format|
+    it "rejects #{label} without modifying the file" do
+      content = "### 1.0.0 (Next)\n\n- Change.\n- Your contribution here.\n"
+      File.write(path, content)
+      expect { described_class.new(path: path, date_format: date_format).release!(release) }
+        .to raise_error(ArgumentError, /date_format/)
+      expect(File.read(path)).to eq(content)
+    end
+  end
+
+  ['(next)', '(TBD)', '(Next)'].each do |text|
+    it "does not treat the #{text} heading as released" do
+      File.write(path, "### 1.0.0 #{text}\n\n- Change.\n")
+      expect(described_class.new(path: path).released?('1.0.0')).to be(false)
+    end
+  end
+
+  it 'rejects duplicate release headings written in different date formats' do
+    File.write(path, "### 1.0.0 (2026/11/07)\n\n- Change.\n\n### 1.0.0 (2026-11-07)\n\n- Change.\n")
+    expect { described_class.new(path: path).released?('1.0.0') }.to raise_error(ArgumentError, /duplicate release headings/)
+  end
 end

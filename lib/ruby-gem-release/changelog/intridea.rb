@@ -5,12 +5,15 @@ module RubyGemRelease
     class Intridea < Base
       UNRELEASED = /\A\#{1,6} \d+\.\d+\.\d+ \(Next\)\z/
       PLACEHOLDER = '- Your contribution here.'
+      DATE_FORMAT = '%Y/%m/%d'
 
-      def initialize(path: 'CHANGELOG.md', placeholder: PLACEHOLDER)
+      def initialize(path: 'CHANGELOG.md', placeholder: PLACEHOLDER, date_format: DATE_FORMAT)
         raise ArgumentError, 'placeholder must be a single nonempty line' unless placeholder.is_a?(String) && !placeholder.empty? && !placeholder.match?(/[\r\n]/)
+        raise ArgumentError, 'date_format must be a nonempty single-line strftime string or a callable' unless valid_date_format?(date_format)
 
         super(path: path)
         @placeholder = placeholder
+        @date_format = date_format
       end
 
       private
@@ -27,9 +30,17 @@ module RubyGemRelease
         prefix = heading_prefix(content, position)
         check_release_absent(content, version)
         section_end = section_end_position(content, position, prefix.length)
-        content[position...section_end] = "#{prefix} #{version} (#{date.strftime('%Y/%m/%d')})" +
+        content[position...section_end] = release_heading(prefix, version, date) +
                                           release_notes(content[line_end(content, position, separator)...section_end], separator, version)
         File.write(@path, content)
+      end
+
+      # Checked before writing, so a date_format that produces an unrecognizable heading leaves the file unchanged.
+      def release_heading(prefix, version, date)
+        heading = "#{prefix} #{version} (#{format_date(date)})"
+        raise ArgumentError, "date_format produced an invalid release heading: #{heading.inspect}" unless release_pattern(version).match?(heading)
+
+        heading
       end
 
       def update_next(version:, released_version:)
@@ -37,8 +48,7 @@ module RubyGemRelease
         validate_version(released_version)
         content = File.read(@path)
         separator = newline(content)
-        pattern = %r{\A\#{1,6} #{Regexp.escape(released_version)} \(\d{4}/\d{2}/\d{2}\)\z}
-        position = heading(content, pattern)
+        position = heading(content, release_pattern(released_version))
         prefix = heading_prefix(content, position)
         return if heading_positions(content, /\A\#{1,6} #{Regexp.escape(version)} \(Next\)\z/).one?
 
@@ -55,8 +65,22 @@ module RubyGemRelease
         check_absent(content, release_pattern(version), 'release heading already exists')
       end
 
+      # Matches a parenthesized heading with a digit, so a date in any format counts as released while (Next) and other words do not.
       def release_pattern(version)
-        %r{\A\#{1,6} #{Regexp.escape(version)} \(\d{4}/\d{2}/\d{2}\)\z}
+        /\A\#{1,6} #{Regexp.escape(version)} \((?!Next\))[^\r\n]*\d[^\r\n]*\)\z/
+      end
+
+      def format_date(date)
+        formatted = @date_format.respond_to?(:call) ? @date_format.call(date) : date.strftime(@date_format)
+        raise ArgumentError, "date_format must return a String, got #{formatted.class}" unless formatted.is_a?(String)
+
+        formatted
+      end
+
+      def valid_date_format?(date_format)
+        return true if date_format.respond_to?(:call)
+
+        date_format.is_a?(String) && !date_format.empty? && !date_format.match?(/[\r\n]/)
       end
 
       def release_notes(section, separator, version)

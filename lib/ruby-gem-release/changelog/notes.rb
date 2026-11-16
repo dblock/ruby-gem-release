@@ -9,7 +9,7 @@ module RubyGemRelease
 
       def initialize(path: 'CHANGELOG.md', heading: nil, expand_references: false)
         @path = path
-        @heading = heading || ->(version) { %r{\A\#{1,6} #{Regexp.escape(version)} \(\d{4}/\d{2}/\d{2}\)\z} }
+        @heading = heading || ->(version) { /\A\#{1,6} #{Regexp.escape(version)} \((?!Next\))[^\r\n]*\d[^\r\n]*\)\z/ }
         @expand_references = expand_references
       end
 

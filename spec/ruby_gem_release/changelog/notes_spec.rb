@@ -18,6 +18,11 @@ RSpec.describe RubyGemRelease::Changelog::Notes do
     expect(File.binread(path)).to eq(content)
   end
 
+  it 'reads a release section with a date in any format by default' do
+    File.write(path, "## 1.2.3 (2026-11-07)\n\n- Fix.\n\n## 1.2.2 (2026/11/06)\n\n- Older.\n")
+    expect(described_class.new(path: path).read('1.2.3')).to eq('- Fix.')
+  end
+
   it 'expands resolved reference links while leaving code and inline links unchanged' do
     content = "# History\n\n## 1.2.3 (2026/11/07)\n\n- Café [#42][pr], [inline](https://example.com), `[#42][pr]`, and [pr].\n\n```\n[#42][pr]\n```\n\n## Older\n\n[pr]: https://example.com/42 \"Title\"\n"
     File.write(path, content)

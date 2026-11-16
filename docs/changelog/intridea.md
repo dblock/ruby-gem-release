@@ -18,6 +18,10 @@ changelog = RubyGemRelease::Changelog::Intridea.new(path: 'CHANGELOG.md')
 
 `placeholder:` defaults to `'- Your contribution here.'`. Set `placeholder: '* Your contribution here.'` for the alternative bullet. It must be a single nonempty line, configured identically for both phases.
 
+## Date
+
+`date_format:` formats the date in the release heading. It defaults to `'%Y/%m/%d'`. Pass a `strftime` string, such as `date_format: '%Y-%m-%d'` for `## 1.0.0 (2026-11-07)`, or a callable that receives the release `Date` and returns a String for the text inside the parentheses. The formatted text must fit on one line and contain at least one digit, so headings such as `(Next)` cannot be written as releases. Otherwise `release!` raises before writing the file. Release headings written in any format are recognized as released, so changing the format does not duplicate existing releases; a parenthesized heading without a digit, such as `(TBD)`, is not.
+
 ## Sections
 
 When the released section has headings one level below its release heading, `prepare_next!` carries those headings into the new Next section and adds the configured placeholder under each one. With no subsections, it creates the usual single placeholder. Old subsection notes are not copied.
