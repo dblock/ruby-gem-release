@@ -11,6 +11,7 @@
 - [#66](https://github.com/dblock/ruby-gem-release/pull/66): Publish explicit package collections and checksum-verified prebuilt archives with all-member preflight - [@dblock](https://github.com/dblock).
 - [#67](https://github.com/dblock/ruby-gem-release/pull/67): Publish signed, already-reviewed source on explicit branches without editing files, creating tags, pushing Git refs, or bumping versions - [@dblock](https://github.com/dblock).
 - [#68](https://github.com/dblock/ruby-gem-release/pull/68): Load prebuilt archives from original build manifests with explicit expected identities and content audits - [@dblock](https://github.com/dblock).
+- [#70](https://github.com/dblock/ruby-gem-release/pull/70): Update configured version references in selected files and globs to the released version during the next development bump - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.6.0 (2026/11/11)

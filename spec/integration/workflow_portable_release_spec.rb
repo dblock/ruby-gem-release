@@ -42,6 +42,8 @@ RSpec.describe 'Provider-neutral release lifecycle' do
       end
     RUBY
     File.write(File.join(checkout, 'CHANGELOG.md'), "# Changelog\n\n## [Unreleased]\n\n- Change.\n")
+    File.write(File.join(checkout, 'references.txt'), "owner/example@v0.1.0\ngem 'example', '0.1.0'\n")
+    File.write(File.join(checkout, 'guide.txt'), "owner/example@v0.1.0\ngem 'example', '0.1.0'\n")
     FileUtils.cp('spec/fixtures/portable_consumer_support.rb', File.join(checkout, 'portable_consumer_support.rb'))
     FileUtils.cp(consumer_rakefile, File.join(checkout, 'Rakefile'))
     run_git('-C', checkout, 'add', '.')
@@ -119,12 +121,15 @@ RSpec.describe 'Provider-neutral release lifecycle' do
     release_commit = run_git('--git-dir', remote, 'rev-parse', 'v0.2.0')
     expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(release_commit)
     expect(run_git('--git-dir', remote, 'show', 'v0.2.0:lib/example/version.rb')).to include("VERSION = '0.2.0'")
+    expect(run_git('--git-dir', remote, 'show', 'v0.2.0:references.txt')).to eq("owner/example@v0.1.0\ngem 'example', '0.1.0'")
     expect(run_git('--git-dir', remote, 'log', '-1', '--format=%an <%ae>')).to eq('ruby-gem-release <ruby-gem-release@localhost>')
     run_task('release:bump')
     run_task('release:success')
     expect(run_git('--git-dir', remote, 'rev-parse', 'master')).to eq(run_git('-C', checkout, 'rev-parse', 'HEAD'))
     expect(run_git('--git-dir', remote, 'rev-parse', 'v0.2.0')).to eq(release_commit)
     expect(run_git('--git-dir', remote, 'show', 'master:lib/example/version.rb')).to include("VERSION = '0.2.1'")
+    expect(run_git('--git-dir', remote, 'show', 'master:references.txt')).to eq("owner/example@v0.2.0\ngem 'example', '0.1.0'")
+    expect(run_git('--git-dir', remote, 'show', 'master:guide.txt')).to eq("owner/example@v0.1.0\ngem 'example', '0.2.0'")
     expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
     expect(File.read(File.join(checkout, 'CHANGELOG.md'))).to include('## [Unreleased]', '## [0.2.0] -')
     publications = events.select { |event| %w[publish hosting].include?(event.fetch('event')) }
