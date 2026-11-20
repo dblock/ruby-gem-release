@@ -25,6 +25,7 @@ RSpec.describe 'Release interface contracts' do
       preflight = steps.find { |step| step['id'] == 'check_release_prerequisites' }
       expect(preflight.fetch('run')).to eq('bundle exec rake release:workflow:preflight')
       expect(preflight.dig('env', 'RELEASE_STEP_ID')).to eq('check_release_prerequisites')
+      expect(preflight.dig('env', 'GH_TOKEN')).to eq('${{ github.token }}')
       expect(preflight.fetch('if', '${{ success() }}')).to eq('${{ success() }}')
       expect(steps.index(preflight)).to be > steps.index { |step| step['id'] == 'capture_release_context' }
       expect(steps.index(preflight)).to be < steps.index { |step| step['id'] == 'validate_release' }
@@ -135,8 +136,9 @@ RSpec.describe 'Release interface contracts' do
       preflight = workflow.dig('jobs', 'preflight')
       expect(preflight).to include('if' => '${{ inputs.dry-run }}', 'environment' => 'release')
       expect(preflight.dig('env', 'RUBYGEMS_OWNER_ID')).to eq('${{ inputs.rubygems-owner }}')
-      expect(preflight.fetch('steps').map { |step| step['run'] }.compact).to eq(['bundle exec rake release:workflow:preflight'])
-      expect(preflight.fetch('steps').first.dig('with', 'persist-credentials')).to be(false)
+      expect(preflight.fetch('steps').map { |step| step['run'] }.compact).to eq(['bundle exec rake release:workflow:capture', 'bundle exec rake release:workflow:preflight'])
+      expect(preflight.fetch('env')).to eq(workflow.dig('jobs', 'release', 'env'))
+      expect(preflight.fetch('steps').last).to eq(steps.find { |step| step['id'] == 'check_release_prerequisites' })
     end
 
     it 'lets this repository dispatch a dry run of its own release' do

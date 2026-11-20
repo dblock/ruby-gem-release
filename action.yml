@@ -100,6 +100,7 @@ runs:
       id: check_release_prerequisites
       shell: bash
       env:
+        GH_TOKEN: ${{ github.token }}
         RELEASE_STEP_ID: check_release_prerequisites
       run: bundle exec rake release:workflow:preflight
     - name: Validate Release

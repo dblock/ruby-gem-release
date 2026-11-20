@@ -76,7 +76,7 @@ Collaborators with write access can dispatch releases after this setup, without 
 
 ### 4. Make a Release
 
-Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Dispatching starts a publishing run; when required reviewers are configured, the release job waits for approval from a designated maintainer. Run your project's tests and build checks, review the changes, and dispatch from your default branch:
+Your branch rules must permit release commits and tags to be pushed; see [branch permissions](RELEASING.md#one-time-setup). Each release checks this before publishing. Dispatching starts a publishing run; when required reviewers are configured, the release job waits for approval from a designated maintainer. Run your project's tests and build checks, review the changes, and dispatch from your default branch:
 
 **First release:** Pass the numeric RubyGems account ID shown on the Pending Trusted Publishers page as `rubygems-owner`. This declares the account that will own the gem on its first publication. Replace `YOUR_ACCOUNT_ID` below with that ID:
 

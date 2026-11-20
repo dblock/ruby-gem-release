@@ -79,21 +79,32 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     env:
+      INPUT_VERSION: ${{ inputs.version }}
+      INPUT_GEMSPEC_PATH: ${{ inputs.gemspec }}
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      GIT_USER_NAME: ${{ inputs.git-user-name }}
+      GIT_USER_EMAIL: ${{ inputs.git-user-email }}
       RUBYGEMS_OWNER_ID: ${{ inputs.rubygems-owner }}
+      TZ: ${{ inputs.timezone }}
     steps:
       - uses: actions/checkout@v7
         id: checkout
         with:
-          persist-credentials: false
+          fetch-depth: 0
       - uses: ruby/setup-ruby@v1
         id: setup_ruby
         with:
           ruby-version: ${{ inputs.ruby-version }}
           bundler-cache: true
+      - name: Capture Release Context
+        id: capture_release_context
+        env:
+          RELEASE_STEP_ID: capture_release_context
+        run: bundle exec rake release:workflow:capture
       - name: Check Release Prerequisites
         id: check_release_prerequisites
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_STEP_ID: check_release_prerequisites
         run: bundle exec rake release:workflow:preflight
   release:
@@ -135,6 +146,7 @@ jobs:
       - name: Check Release Prerequisites
         id: check_release_prerequisites
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_STEP_ID: check_release_prerequisites
         run: bundle exec rake release:workflow:preflight
       - name: Validate Release

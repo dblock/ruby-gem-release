@@ -128,7 +128,7 @@ RSpec.shared_context 'with a GitHub release consumer' do
             endpoint = command.last
             raise 'Unexpected artifact discovery' if endpoint.include?('/actions/')
             path = File.join(service, 'hosting.json')
-            data = File.file?(path) ? JSON.parse(File.read(path)) : nil
+            data = File.file?(path) && endpoint.include?('/releases/') ? JSON.parse(File.read(path)) : nil
             code = data ? '200 OK' : '404 Not Found'
             return ["HTTP/2.0 " + code + "\\n\\n" + JSON.generate(data), '', Struct.new(:success?).new(true)]
           end
