@@ -93,6 +93,33 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(File.read(path)).to eq("### 1.0.1 (Next)\n\n#### Features\n\n* Your contribution here.\n\n#### Fixes\n\n* Your contribution here.\n\n### 1.0.0 (2026/11/07)\n\n#### Features\n\n* Feature.\n\n#### Fixes\n\n* Fix.\n\n### 0.9.0 (2026/11/06)\n\n* Older change.\n")
   end
 
+  it 'drops configured sections without notes and restores them in the next section', :aggregate_failures do
+    content = "### 1.0.0 (Next)\n\n#### Features\n\n* Your contribution here.\n\n#### Fixes\n\n* Fix.\n* Your contribution here.\n\n### 0.9.0 (2026/11/06)\n\n* Older change.\n"
+    File.write(path, content)
+    updater = described_class.new(path: path, placeholder: '* Your contribution here.', sections: %w[Features Fixes])
+
+    2.times { updater.release!(release) }
+    expect(File.read(path)).to eq("### 1.0.0 (2026/11/07)\n\n#### Fixes\n\n* Fix.\n\n### 0.9.0 (2026/11/06)\n\n* Older change.\n")
+
+    2.times { updater.prepare_next!(next_release) }
+    expect(File.read(path)).to eq("### 1.0.1 (Next)\n\n#### Features\n\n* Your contribution here.\n\n#### Fixes\n\n* Your contribution here.\n\n" \
+                                  "### 1.0.0 (2026/11/07)\n\n#### Fixes\n\n* Fix.\n\n### 0.9.0 (2026/11/06)\n\n* Older change.\n")
+  end
+
+  it 'keeps empty subsections without configured sections' do
+    File.write(path, "### 1.0.0 (Next)\n\n#### Features\n\n* Your contribution here.\n\n#### Fixes\n\n* Fix.\n* Your contribution here.\n")
+    described_class.new(path: path, placeholder: '* Your contribution here.').release!(release)
+    expect(File.read(path)).to eq("### 1.0.0 (2026/11/07)\n\n#### Features\n\n#### Fixes\n\n* Fix.\n")
+  end
+
+  it 'rejects invalid configured sections and level-seven section headings', :aggregate_failures do
+    [%w[Fixes Fixes], [''], ["Two\nLines"], 'Fixes'].each do |sections|
+      expect { described_class.new(path: path, sections: sections) }.to raise_error(ArgumentError, /sections must be an array of unique nonempty names/)
+    end
+    File.write(path, "###### 1.0.0 (2026/11/07)\n\n- Change.\n")
+    expect { described_class.new(path: path, sections: %w[Fixes]).prepare_next!(next_release) }.to raise_error(ArgumentError, /deeper than level six/)
+  end
+
   it 'ignores fenced headings and placeholders while releasing an Intridea section' do
     content = "## 1.0.0 (Next)\n\n```\n## Example\n- Your contribution here.\n```\n\n- Your contribution here.\n"
     File.write(path, content)

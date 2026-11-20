@@ -16,11 +16,8 @@ module RubyGemRelease
 
       def validate_template(placeholder, sections)
         raise ArgumentError, 'placeholder must be a single nonempty line' unless placeholder.nil? || single_line?(placeholder)
-        raise ArgumentError, 'sections must be an array of unique nonempty names' unless sections.is_a?(Array) && sections.all? { |name| single_line?(name) } && sections.uniq == sections
-      end
 
-      def single_line?(value)
-        value.is_a?(String) && !value.strip.empty? && !value.match?(/[\r\n]/)
+        validate_sections(sections)
       end
 
       def release_pattern(version)
@@ -76,21 +73,6 @@ module RubyGemRelease
         positions.reverse_each { |offset| remove_line(section, offset, separator) }
         remove_empty_categories(section, separator, level)
         section
-      end
-
-      def remove_empty_categories(section, separator, level)
-        heading_positions(section, /\A\#{#{level + 1}} /).reverse_each do |offset|
-          finish = section_end_position(section, offset, level + 1)
-          start = section.index(separator, offset) || section.length
-          remove_line(section, offset, separator) unless notes?(document(section[start...finish]))
-        end
-      end
-
-      def remove_line(section, offset, separator)
-        finish = section.index(separator, offset)
-        length = (finish ? finish + separator.length : section.length) - offset
-        length += separator.length if section[0...offset].end_with?(separator * 2) && section[offset + length, separator.length] == separator
-        section.slice!(offset, length)
       end
 
       def next_section(prefix, separator)

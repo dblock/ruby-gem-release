@@ -7,13 +7,15 @@ module RubyGemRelease
       PLACEHOLDER = '- Your contribution here.'
       DATE_FORMAT = '%Y/%m/%d'
 
-      def initialize(path: 'CHANGELOG.md', placeholder: PLACEHOLDER, date_format: DATE_FORMAT)
+      def initialize(path: 'CHANGELOG.md', placeholder: PLACEHOLDER, date_format: DATE_FORMAT, sections: [])
         raise ArgumentError, 'placeholder must be a single nonempty line' unless placeholder.is_a?(String) && !placeholder.empty? && !placeholder.match?(/[\r\n]/)
         raise ArgumentError, 'date_format must be a nonempty single-line strftime string or a callable' unless valid_date_format?(date_format)
 
+        validate_sections(sections)
         super(path: path)
         @placeholder = placeholder
         @date_format = date_format
+        @sections = sections.dup
       end
 
       private
@@ -30,9 +32,12 @@ module RubyGemRelease
         prefix = heading_prefix(content, position)
         check_release_absent(content, version)
         section_end = section_end_position(content, position, prefix.length)
-        content[position...section_end] = release_heading(prefix, version, date) +
-                                          release_notes(content[line_end(content, position, separator)...section_end], separator, version)
+        content[position...section_end] = released_section(content[line_end(content, position, separator)...section_end], prefix, version, date, separator)
         File.write(@path, content)
+      end
+
+      def released_section(notes, prefix, version, date, separator)
+        release_heading(prefix, version, date) + release_notes(notes, separator, version, prefix.length)
       end
 
       # Checked before writing, so a date_format that produces an unrecognizable heading leaves the file unchanged.
@@ -56,9 +61,17 @@ module RubyGemRelease
         write_next_section(content, position, prefix, version, separator)
       end
 
+      # Configured sections start every development section, including ones the
+      # previous release dropped because they had no notes.
       def write_next_section(content, position, prefix, version, separator)
-        subsections = subsection_headings(content, position, prefix.length)
-        File.write(@path, content.insert(position, build_next_section(prefix, version, subsections, separator)))
+        File.write(@path, content.insert(position, build_next_section(prefix, version, next_subsections(content, position, prefix), separator)))
+      end
+
+      def next_subsections(content, position, prefix)
+        return subsection_headings(content, position, prefix.length) if @sections.empty?
+        raise ArgumentError, 'section headings cannot be deeper than level six' if prefix.length == 6
+
+        @sections.map { |name| "#{prefix}# #{name}" }
       end
 
       def check_release_absent(content, version)
@@ -83,8 +96,10 @@ module RubyGemRelease
         date_format.is_a?(String) && !date_format.empty? && !date_format.match?(/[\r\n]/)
       end
 
-      def release_notes(section, separator, version)
-        check_notes(remove_placeholder(section, separator), version)
+      def release_notes(section, separator, version, level)
+        remove_placeholder(section, separator)
+        remove_empty_categories(section, separator, level) if @sections.any?
+        check_notes(section, version)
       end
 
       def remove_placeholder(section, separator)

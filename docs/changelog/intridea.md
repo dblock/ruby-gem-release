@@ -26,6 +26,8 @@ changelog = RubyGemRelease::Changelog::Intridea.new(path: 'CHANGELOG.md')
 
 When the released section has headings one level below its release heading, `prepare_next!` carries those headings into the new Next section and adds the configured placeholder under each one. With no subsections, it creates the usual single placeholder. Old subsection notes are not copied.
 
+Pass `sections:`, such as `sections: %w[Features Fixes]`, to name the subsections every Next section starts with. `release!` then removes subsection headings left without notes, so a fixes-only release has no empty `#### Features`, and `prepare_next!` always adds every configured section, including ones the previous release dropped. Names must be unique, nonempty, and on one line, and the release heading must be shallower than level six. Without `sections:`, empty subsections stay in the release and are carried forward as before.
+
 ## Release
 
 During `release:validate`, placeholder-only or structural-only notes fail unless the selected release already has a heading. Invalid headings and missing placeholders also fail; multiple matching placeholders are allowed.

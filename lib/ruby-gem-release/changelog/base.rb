@@ -89,6 +89,30 @@ module RubyGemRelease
       def check_absent(content, pattern, message)
         raise ArgumentError, "#{message} in #{@path}" unless heading_positions(content, pattern).empty?
       end
+
+      def single_line?(value)
+        value.is_a?(String) && !value.strip.empty? && !value.match?(/[\r\n]/)
+      end
+
+      def validate_sections(sections)
+        raise ArgumentError, 'sections must be an array of unique nonempty names' unless sections.is_a?(Array) && sections.all? { |name| single_line?(name) } && sections.uniq == sections
+      end
+
+      # Removes subsection headings left without notes in a released section.
+      def remove_empty_categories(section, separator, level)
+        heading_positions(section, /\A\#{#{level + 1}} /).reverse_each do |offset|
+          finish = section_end_position(section, offset, level + 1)
+          start = section.index(separator, offset) || section.length
+          remove_line(section, offset, separator) unless notes?(document(section[start...finish]))
+        end
+      end
+
+      def remove_line(section, offset, separator)
+        finish = section.index(separator, offset)
+        length = (finish ? finish + separator.length : section.length) - offset
+        length += separator.length if section[0...offset].end_with?(separator * 2) && section[offset + length, separator.length] == separator
+        section.slice!(offset, length)
+      end
     end
   end
 end
