@@ -131,4 +131,25 @@ RSpec.describe 'Release interface contracts' do
       expect(steps.find { |step| step['id'] == 'configure_release_inputs' }.dig('env', 'TZ')).to eq('${{ inputs.timezone }}')
     end
   end
+
+  context 'with Danger reporting workflows' do
+    let(:producer) { YAML.load_file('.github/workflows/danger.yml') }
+    let(:commenter) { YAML.load_file('.github/workflows/danger-comment.yml') }
+
+    it 'uses the released producer defaults with read-only permissions' do
+      expect(producer.fetch(true).keys).to eq(['pull_request'])
+      expect(producer.fetch('permissions')).to eq('contents' => 'read')
+      job = producer.fetch('jobs').fetch('danger')
+      expect(job.fetch('uses')).to eq('danger/danger-pr-comment/.github/workflows/danger-run.yml@v0.3.0')
+      expect(job.fetch('with')).not_to have_key('danger-args')
+      expect(job).not_to have_key('secrets')
+    end
+
+    it 'delegates completed-run commenting without executing contribution code' do
+      expect(commenter.fetch(true)).to eq('workflow_run' => { 'workflows' => ['Danger'], 'types' => ['completed'] })
+      expect(commenter.fetch('permissions')).to eq('actions' => 'read', 'issues' => 'write', 'pull-requests' => 'write')
+      job = commenter.fetch('jobs').fetch('comment')
+      expect(job).to eq('uses' => 'danger/danger-pr-comment/.github/workflows/danger-comment.yml@v0.3.0')
+    end
+  end
 end
