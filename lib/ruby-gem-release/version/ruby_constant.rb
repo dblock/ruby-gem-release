@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require_relative 'components'
+
 module RubyGemRelease
   module Version
     class RubyConstant
-      PATTERN = /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\z/
+      include Components
+
+      PATTERN = Components::PATTERN
 
       def initialize(path:, constant:)
         raise ArgumentError, 'constant must be a Ruby constant name' unless constant.is_a?(String) && /\A[A-Z]\w*\z/.match?(constant)
@@ -31,24 +35,7 @@ module RubyGemRelease
         set!(next_version(part: part, from: from))
       end
 
-      def next_version(part: :patch, from: read)
-        parts = parse(from)
-        index = { 'major' => 0, 'minor' => 1, 'patch' => 2 }.fetch(part.to_s) do
-          raise ArgumentError, 'bump part must be major, minor, or patch'
-        end
-        parts[index] += 1
-        ((index + 1)...parts.size).each { |i| parts[i] = 0 }
-        parts.join('.')
-      end
-
       private
-
-      def parse(value)
-        match = PATTERN.match(value) if value.is_a?(String)
-        raise ArgumentError, "invalid version: #{value.inspect}; expected MAJOR.MINOR.PATCH" unless match
-
-        match.captures.map(&:to_i)
-      end
 
       def assignment(content)
         matches = content.to_enum(:scan, @assignment).map { Regexp.last_match }
