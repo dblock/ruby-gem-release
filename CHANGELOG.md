@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.8.1 (Next)
+## 0.9.0 (Next)
 
+- [#89](https://github.com/dblock/ruby-gem-release/pull/89): Add a `gemfile` input to the reusable workflow and composite action that selects the Gemfile every release step installs and runs in, so release-only gems can stay out of a project's main bundle - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.8.0 (2026/11/20)

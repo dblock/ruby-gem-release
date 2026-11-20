@@ -12,6 +12,9 @@ inputs:
   gemspec:
     description: Optional gemspec path; defaults to the only root gemspec.
     default: ''
+  gemfile:
+    description: Optional Gemfile for Bundler, relative to the repository root; its lockfile must be committed or ignored. Empty keeps the job's BUNDLE_GEMFILE or Gemfile.
+    default: ''
   rubygems-owner:
     description: Optional RubyGems account ID for first publication with a pending trusted publisher.
     default: ''
@@ -62,6 +65,15 @@ runs:
       id: checkout
       with:
         fetch-depth: 0
+    - name: Select Gemfile
+      id: select_gemfile
+      if: ${{ inputs.gemfile != '' }}
+      shell: bash
+      env:
+        RELEASE_GEMFILE: ${{ inputs.gemfile }}
+      run: |
+        [[ "$RELEASE_GEMFILE" != *$'\n'* && "$RELEASE_GEMFILE" != *$'\r'* ]] || { echo 'gemfile must be a single line' >&2; exit 1; }
+        echo "BUNDLE_GEMFILE=$RELEASE_GEMFILE" >> "$GITHUB_ENV"
     - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
       id: setup_ruby
       with:

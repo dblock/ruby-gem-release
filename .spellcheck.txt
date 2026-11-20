@@ -18,6 +18,7 @@ GPG
 HTTPS
 idempotence
 Intridea
+lockfile
 JSON
 JRuby
 LCOV

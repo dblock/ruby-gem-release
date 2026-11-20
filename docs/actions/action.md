@@ -48,7 +48,7 @@ The action checks out the calling repository with full history and sets up Ruby 
 
 ## Inputs and Environment
 
-Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. Dispatching the sample workflow requests publication; configured environment protection rules must pass before the job runs.
+Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. `gemfile` defaults to empty, which keeps a `BUNDLE_GEMFILE` the calling job already sets; a nonempty value is exported for all later steps before Ruby setup. Dispatching the sample workflow requests publication; configured environment protection rules must pass before the job runs.
 
 For [already-reviewed source and package collections](../workflow/reviewed_ruby_gem.md), configure `Workflow::ReviewedRubyGem` in the Rakefile. Optional `prepare-artifacts` prepares explicit input archives after Ruby setup, before loading release tasks for input configuration and capture; `artifacts` adds newline-separated paths to artifact preservation. Both default to empty. Caller-provided commands retain release privileges and must use reviewed inputs.
 

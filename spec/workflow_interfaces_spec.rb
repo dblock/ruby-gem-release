@@ -130,6 +130,13 @@ RSpec.describe 'Release interface contracts' do
       expect(workflow.dig('jobs', 'release', 'env', 'TZ')).to eq('${{ inputs.timezone }}')
     end
 
+    it 'installs and runs every job in the selected Gemfile', :aggregate_failures do
+      expect(workflow.fetch(true).dig('workflow_call', 'inputs', 'gemfile')).to include('type' => 'string', 'default' => 'Gemfile')
+      %w[preflight release].each do |job|
+        expect(workflow.dig('jobs', job, 'env', 'BUNDLE_GEMFILE')).to eq('${{ inputs.gemfile }}')
+      end
+    end
+
     it 'runs only the prerequisite checks in the release environment for a dry run', :aggregate_failures do
       expect(workflow.dig(true, 'workflow_call', 'inputs', 'dry-run')).to include('type' => 'boolean', 'default' => false)
       expect(workflow.dig('jobs', 'release', 'if')).to eq('${{ !inputs.dry-run }}')
@@ -156,6 +163,24 @@ RSpec.describe 'Release interface contracts' do
 
     it 'passes the configured timezone to input configuration' do
       expect(steps.find { |step| step['id'] == 'configure_release_inputs' }.dig('env', 'TZ')).to eq('${{ inputs.timezone }}')
+    end
+
+    it 'exports a selected Gemfile before Ruby setup and rejects multiline values', :aggregate_failures do
+      selection = steps.find { |step| step['id'] == 'select_gemfile' }
+      expect(selection.fetch('if')).to eq("${{ inputs.gemfile != '' }}")
+      expect(steps.index(selection)).to be < steps.index { |step| step['id'] == 'setup_ruby' }
+      Dir.mktmpdir do |directory|
+        environment = File.join(directory, 'environment')
+        File.write(environment, '')
+        values = ENV.to_h.slice('PATH').merge('GITHUB_ENV' => environment, 'RELEASE_GEMFILE' => 'gemfiles/release.gemfile')
+        _output, error, status = Open3.capture3(values, 'bash', '-euo', 'pipefail', '-c', selection.fetch('run'), unsetenv_others: true)
+        expect(status.success?).to be(true), error
+        expect(File.read(environment)).to eq("BUNDLE_GEMFILE=gemfiles/release.gemfile\n")
+        _output, error, status = Open3.capture3(values.merge('RELEASE_GEMFILE' => "Gemfile\nINJECTED=1"), 'bash', '-euo', 'pipefail', '-c', selection.fetch('run'), unsetenv_others: true)
+        expect(status.success?).to be(false)
+        expect(error).to include('single line')
+        expect(File.read(environment)).to eq("BUNDLE_GEMFILE=gemfiles/release.gemfile\n")
+      end
     end
   end
 
