@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../fixtures/github_release_examples'
-require_relative '../fixtures/reviewed_release_examples'
+require_relative '../../fixtures/github_release_examples'
+require_relative '../../fixtures/reviewed_release_examples'
 
 RSpec.describe 'Workflow release lifecycle' do
   include_context 'with a GitHub release consumer'

@@ -97,4 +97,4 @@ Test the behavior your project added, not only that release tasks are registered
 
 Also cover failures and reruns where they matter to the customization: assert that rejected publication leaves the remote release ref unchanged, expected recovery artifacts remain available, and repeating a successful operation does not move immutable release tags or change already-prepared files.
 
-The [self-release example](../examples/self_release/README.md) also has a [focused version spec](../spec/release_version_spec.rb) covering README and documentation pins. The [portable integration specs](../spec/integration/workflow_portable_release_spec.rb) reuse the helper for more extensive cross-process and failure coverage.
+The [self-release example](../examples/self_release/README.md) also has a [focused version spec](../spec/release_version_spec.rb) covering README and documentation pins. The [portable integration specs](../spec/integration/consumer/portable_release_spec.rb) reuse the helper for more extensive cross-process and failure coverage.

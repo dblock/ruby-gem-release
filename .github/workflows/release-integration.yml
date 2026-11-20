@@ -9,11 +9,16 @@ permissions:
 jobs:
   consumer:
     runs-on: ubuntu-latest
+    name: Integration - ${{ matrix.entry.suite }} (Ruby ${{ matrix.entry.ruby }})
     strategy:
       matrix:
         entry:
-          - { ruby: '3.3' }
-          - { ruby: '4.0' }
+          - { ruby: '3.3', suite: composite }
+          - { ruby: '3.3', suite: workflow }
+          - { ruby: '3.3', suite: consumer }
+          - { ruby: '4.0', suite: composite }
+          - { ruby: '4.0', suite: workflow }
+          - { ruby: '4.0', suite: consumer }
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,3 +43,5 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Exercise Installed Release Lifecycle
         run: bundle exec rake spec:integration
+        env:
+          SPEC: spec/integration/${{ matrix.entry.suite }}/**/*_spec.rb
