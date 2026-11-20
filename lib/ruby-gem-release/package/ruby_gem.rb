@@ -10,13 +10,18 @@ require 'tmpdir'
 module RubyGemRelease
   module Package
     class RubyGem
-      attr_reader :directory, :gemspec
+      attr_reader :gemspec
 
       def initialize(gemspec: nil, directory: nil, audit: nil)
         @gemspec = resolve_gemspec(gemspec || ENV.fetch('GEMSPEC_PATH', nil))
         directory ||= ENV.fetch('RELEASE_DATA_DIR', nil)
-        @directory = directory.to_s.empty? ? Dir.mktmpdir('ruby-gem-release-') : directory
+        @directory = directory unless directory.to_s.empty?
         @audit = audit
+      end
+
+      # Creates the default temporary directory only when artifacts are first used.
+      def directory
+        @directory ||= Dir.mktmpdir('ruby-gem-release-')
       end
 
       def version
@@ -25,7 +30,7 @@ module RubyGemRelease
       end
 
       def build!(release)
-        FileUtils.mkdir_p(@directory)
+        FileUtils.mkdir_p(directory)
         run({ 'SOURCE_DATE_EPOCH' => source_date_epoch }, Gem.ruby, '-S', 'gem', 'build', @gemspec, '--output', archive)
         @manifest = build_manifest(release)
         File.write(manifest_path, JSON.generate(@manifest))
@@ -47,7 +52,7 @@ module RubyGemRelease
         platform = manifest.fetch('platform', 'ruby')
         raise 'Invalid package platform' unless /\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/.match?(platform)
 
-        path = File.join(@directory, Gem::Package.new(archive).spec.file_name)
+        path = File.join(directory, Gem::Package.new(archive).spec.file_name)
         FileUtils.cp(archive, path)
         path
       end
@@ -91,11 +96,11 @@ module RubyGemRelease
       end
 
       def archive
-        File.join(@directory, 'release.gem')
+        File.join(directory, 'release.gem')
       end
 
       def manifest_path
-        File.join(@directory, 'release.json')
+        File.join(directory, 'release.json')
       end
 
       def resolve_gemspec(path)

@@ -19,7 +19,7 @@ module RubyGemRelease
         @remote = remote
         @branch = branch || ENV.fetch('DEFAULT_BRANCH', nil)
         directory ||= ENV.fetch('RELEASE_DATA_DIR', nil)
-        @directory = directory.to_s.empty? ? Dir.mktmpdir('ruby-gem-release-git-') : directory
+        @directory = directory unless directory.to_s.empty?
       end
 
       def configure!(name: 'ruby-gem-release', email: 'ruby-gem-release@localhost')
@@ -118,8 +118,8 @@ module RubyGemRelease
       end
 
       def write_bundle(release)
-        FileUtils.mkdir_p(@directory)
-        run('bundle', 'create', File.join(@directory, 'release.bundle'), 'HEAD', "refs/tags/v#{release.version}")
+        FileUtils.mkdir_p(directory)
+        run('bundle', 'create', File.join(directory, 'release.bundle'), 'HEAD', "refs/tags/v#{release.version}")
       end
 
       private
@@ -214,7 +214,12 @@ module RubyGemRelease
       end
 
       def preparation
-        @preparation ||= Preparation.new(directory: @directory, &method(:run))
+        @preparation ||= Preparation.new(directory: directory, &method(:run))
+      end
+
+      # Creates the default temporary directory only when release data is first written or read.
+      def directory
+        @directory ||= Dir.mktmpdir('ruby-gem-release-git-')
       end
 
       def run(*)

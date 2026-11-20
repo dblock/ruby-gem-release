@@ -4,7 +4,7 @@ Owns local release commits and tags, branch checks, Git bundles, and remote push
 
 ## Branch and Remote
 
-`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the Git bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
+`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the Git bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory, created when first used. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
 
 ## Configure
 

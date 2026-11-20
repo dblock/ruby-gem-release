@@ -38,6 +38,17 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     initial
   end
 
+  it 'creates its default temporary directory only when release data is first used', :aggregate_failures do
+    ENV.delete('RELEASE_DATA_DIR')
+    temporary = File.join(directory, 'default')
+    allow(Dir).to receive(:mktmpdir).with('ruby-gem-release-git-').and_return(temporary)
+    lazy = described_class.new(branch: 'master')
+    lazy.head
+    expect(Dir).not_to have_received(:mktmpdir)
+    lazy.check_clean!
+    expect(Dir).to have_received(:mktmpdir).once
+  end
+
   def command(*arguments)
     output, error, status = Open3.capture3('git', *arguments)
     raise error unless status.success?

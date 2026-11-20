@@ -36,6 +36,17 @@ RSpec.describe RubyGemRelease::Package::RubyGem do
     File.write('version.rb', "VERSION = '1.2.3'\n")
   end
 
+  it 'creates its default temporary directory only when artifacts are first used', :aggregate_failures do
+    ENV.delete('RELEASE_DATA_DIR')
+    temporary = File.join(directory, 'default')
+    allow(Dir).to receive(:mktmpdir).with('ruby-gem-release-').and_return(temporary)
+    package = described_class.new(gemspec: 'fixture.gemspec')
+    expect(Dir).not_to have_received(:mktmpdir)
+    expect(package.built?(release)).to be(false)
+    expect(package.directory).to eq(temporary)
+    expect(Dir).to have_received(:mktmpdir).once
+  end
+
   it 'builds a real archive and reopens the same verified artifact', :aggregate_failures do
     path = package.build!(release)
     reopened = described_class.new(gemspec: 'fixture.gemspec', directory: artifacts)

@@ -8,7 +8,7 @@ Owns gem metadata, building, and artifact verification independently of the publ
 
 ## Directory
 
-The optional `directory:` defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory. The standard workflow supplies the execution provider's directory explicitly; Actions capture also exports it for manual callbacks and subsequent processes. `directory` returns this location. Keep it outside the working tree so build artifacts do not enter release commits.
+The optional `directory:` defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory, created when first used. The standard workflow supplies the execution provider's directory explicitly; Actions capture also exports it for manual callbacks and subsequent processes. `directory` returns this location. Keep it outside the working tree so build artifacts do not enter release commits.
 
 ## Version
 
