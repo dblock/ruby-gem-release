@@ -26,7 +26,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-These defaults select the gemspec and repository, reject empty pending notes, prepare the changelog, publish to RubyGems and GitHub Releases, and increment the patch version for the next development iteration. Dates use UTC.
+These defaults select the gemspec and repository, reject empty pending notes, prepare the changelog, publish to RubyGems and GitHub Releases, and increment the patch version for the next development iteration; pass `next_version: :minor` or `:major` to [increment another part](docs/workflow/ruby_gem.md#next-version). Dates use UTC.
 
 ### 2. Add the Release Workflow
 

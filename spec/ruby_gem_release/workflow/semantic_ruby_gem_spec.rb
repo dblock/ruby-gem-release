@@ -60,6 +60,12 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
     expect(received).to have_attributes(analysis: have_attributes(version: '1.3.0'), release: have_attributes(version: '1.3.0', gemspec_version: '9.9.9', next_version: nil))
   end
 
+  it 'bumps the configured next version part when bumping is enabled' do
+    install(bump: true, next_version: :minor)
+    invoke('validate', 'prepare', 'publish', 'bump')
+    expect(components.fetch(:version)).to have_received(:increment!).with(from: '1.3.0', part: :minor)
+  end
+
   it 'optionally bumps and records the next development version without replacing analysis' do
     received = nil
     prepared = nil

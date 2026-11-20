@@ -54,7 +54,7 @@ Failure callbacks receive the failed phase, captured Ruby exception when availab
 
 ## Manual and Semantic Workflows
 
-The manual workflow requires explicit version and changelog choices. Preparation honors an optional version selection; publication retains the initial version separately. After publication, the default bump increments patch, prepares the next changelog section, commits, pushes, and records the next version. `changelog: nil` and `hosting: nil` disable only those components.
+The manual workflow requires explicit version and changelog choices. Preparation honors an optional version selection; publication retains the initial version separately. After publication, the default bump increments patch, or the part selected by `next_version:`, prepares the next changelog section, commits, pushes, and records the next version. `changelog: nil` and `hosting: nil` disable only those components.
 
 Semantic releases are opt-in. Validation analyzes commits after the highest reachable stable release tag, records one immutable decision, and binds it to the captured head and explicit input. Later phases consume it without reanalysis. Versions do not derive from development versions; first release defaults to `1.0.0`, and explicit versions must exceed the last release. Generated notes reach the changelog and hosting unchanged.
 

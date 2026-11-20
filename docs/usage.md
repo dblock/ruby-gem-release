@@ -32,7 +32,7 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-This validates and prepares the release, publishes the verified gem, pushes the release commit and tag, creates the hosted release, and prepares the next patch version.
+This validates and prepares the release, publishes the verified gem, pushes the release commit and tag, creates the hosted release, and prepares the next patch version, or the part selected by [`next_version:`](workflow/ruby_gem.md#next-version).
 
 The default releases the checked-in version; optional `version` selects another through the version object's `set!`. The initial version remains in the context. Custom preparation callbacks own their file updates.
 

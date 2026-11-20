@@ -4,7 +4,11 @@ Installs the standard Ruby gem release sequence through [`Tasks`](../tasks.md), 
 
 ## Version
 
-The required `version:` object implements `read`, `set!(value)`, and `increment!(from:)`; construction fails when any is missing. Bumps always calculate from `release.version`, so repetition writes the same next version. The default [`RubyConstant`](../version/ruby_constant.md) uses patch increments. The initial gemspec version remains `release.gemspec_version`.
+The required `version:` object implements `read`, `set!(value)`, and `increment!(from:)`; construction fails when any is missing. Bumps always calculate from `release.version`, so repetition writes the same next version. The initial gemspec version remains `release.gemspec_version`.
+
+## Next Version
+
+The optional `next_version:` selects the part incremented for the next development iteration: `:patch` (default), `:minor`, or `:major`, as a Symbol or String. For example, `next_version: :minor` starts `1.3.0` after releasing `1.2.0` or `1.2.1`. The default calls `increment!(from:)` unchanged; other parts call `increment!(from:, part:)`, which [`RubyConstant`](../version/ruby_constant.md), [`PlainText`](../version/plain_text.md), and [`References`](../version/references.md) support. Construction rejects other values, and rejects `:minor` or `:major` when the version object's `increment!` does not accept `part:`, so an unsupported selection fails before publication.
 
 ## Changelog
 

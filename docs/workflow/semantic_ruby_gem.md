@@ -68,7 +68,7 @@ GitHub hosting passes frozen `release.notes` verbatim through a private file; ma
 
 ## Development Iterations
 
-With default `bump: false`, the installed bump task does nothing and `release.next_version` stays `nil`. `bump: true` enables the standard patch increment, commit, and push. Future selection still uses released tags. Manual workflows continue to bump automatically.
+With default `bump: false`, the installed bump task does nothing and `release.next_version` stays `nil`. `bump: true` enables the standard increment, commit, and push, using patch unless [`next_version:`](ruby_gem.md#next-version) selects another part. Future selection still uses released tags. Manual workflows continue to bump automatically.
 
 ## State and Callbacks
 

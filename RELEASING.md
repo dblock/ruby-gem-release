@@ -27,7 +27,7 @@ Availability depends on visibility and plan; verify these controls before relyin
 
 Both interfaces require the default branch and a clean checkout after dependency installation. Ignore intentional dependency output such as `.bundle/config` or `vendor/bundle`; unexpected tracked, staged, or untracked non-ignored changes fail. Preparation stages trusted edits before testing; publication rejects subsequent changes rather than staging them.
 
-The default manual workflow releases the checked-in version, or honors an explicit `version` input, then increments patch afterward. Semantic workflows select from release history and default to no development bump. Custom commands own their operations and must retain the [documented ordering and guards](docs/usage.md#custom-callbacks).
+The default manual workflow releases the checked-in version, or honors an explicit `version` input, then increments patch afterward unless `next_version:` selects another part. Semantic workflows select from release history and default to no development bump. Custom commands own their operations and must retain the [documented ordering and guards](docs/usage.md#custom-callbacks).
 
 Validate and build before authorizing a release:
 

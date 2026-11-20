@@ -12,14 +12,16 @@ module RubyGemRelease
     class RubyGem
       include Lifecycle
 
+      NEXT_VERSIONS = %i[major minor patch].freeze
+
       attr_reader :version, :changelog, :package, :destination, :git, :hosting, :provider
 
       def initialize(version:, changelog:, provider: ExecutionProvider.current,
                      package: Package::RubyGem.new(gemspec: provider.fetch('GEMSPEC_PATH', provider.fetch('INPUT_GEMSPEC_PATH', '')) || '', directory: provider.directory),
                      destination: Destination::RubyGems.new,
                      git: SourceControl::Git.new(directory: provider.directory), hosting: Hosting::GitHubRelease.new,
-                     validate: nil, success: nil, failure: nil)
-        @version = Version::Interface.check!(version)
+                     validate: nil, success: nil, failure: nil, next_version: :patch)
+        configure_version!(version, next_version)
         @changelog = changelog
         @package = package
         @destination = destination
@@ -36,6 +38,23 @@ module RubyGemRelease
       end
 
       private
+
+      def configure_version!(version, next_version)
+        @version = Version::Interface.check!(version)
+        part = next_version.to_sym if next_version.is_a?(String) || next_version.is_a?(Symbol)
+        raise ArgumentError, 'next_version must be :major, :minor, or :patch' unless NEXT_VERSIONS.include?(part)
+        raise ArgumentError, "version object's increment! must accept part: to use next_version: #{part.inspect}" unless part == :patch || increment_accepts_part?
+
+        @next_version = part
+      end
+
+      def increment_accepts_part?
+        @version.method(:increment!).parameters.any? { |type, name| %i[keyrest rest].include?(type) || (%i[key keyreq].include?(type) && name == :part) }
+      end
+
+      def increment_options
+        @next_version == :patch ? {} : { part: @next_version }
+      end
 
       def install_callbacks(tasks)
         tasks.validate { |ctx| validate_with_hooks(ctx) }
@@ -89,7 +108,7 @@ module RubyGemRelease
         next_ctx = ctx
         @git.stage_changes! do
           run_stage(:prepare_next, ctx, after_context: -> { next_ctx }) do
-            next_ctx = ctx.with(release: ctx.release.with_next_version(@version.increment!(from: ctx.release.version)))
+            next_ctx = ctx.with(release: ctx.release.with_next_version(@version.increment!(from: ctx.release.version, **increment_options)))
             @changelog&.prepare_next!(next_ctx.release)
           end
         end

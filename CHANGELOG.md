@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.7.1 (Next)
+## 0.8.0 (Next)
 
+- [#79](https://github.com/dblock/ruby-gem-release/pull/79): Select the next development version part with `next_version: :minor` or `:major` on `Workflow::RubyGem` and `Workflow::SemanticRubyGem` - [@dblock](https://github.com/dblock).
 - [#80](https://github.com/dblock/ruby-gem-release/pull/80): Skip posting empty Danger report comments - [@dblock](https://github.com/dblock).
 - Your contribution here.
 

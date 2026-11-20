@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'ruby-gem-release/workflow/ruby_gem'
 require 'ruby-gem-release/changelog'
+require 'ruby-gem-release/version/references'
 
 RSpec.describe RubyGemRelease::Workflow::RubyGem do
   let(:events) { [] }
@@ -89,6 +90,48 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     end
     expect(version).to have_received(:increment!).with(from: '2.0.0').twice
     expect(objects.fetch(:git)).to have_received(:commit_next!).twice
+  end
+
+  it 'increments the configured next version part from the release version', :aggregate_failures do
+    install(next_version: :minor)
+    Rake::Task['release:bump'].invoke
+    expect(version).to have_received(:increment!).with(from: '2.0.0', part: :minor)
+    expect(objects.fetch(:git)).to have_received(:commit_next!).with(having_attributes(next_version: '2.0.1'))
+  end
+
+  it 'accepts next version parts as strings' do
+    install(next_version: 'major')
+    Rake::Task['release:bump'].invoke
+    expect(version).to have_received(:increment!).with(from: '2.0.0', part: :major)
+  end
+
+  it 'rejects unknown next version parts at construction', :aggregate_failures do
+    [:build, nil, 1, ''].each do |next_version|
+      expect { described_class.new(version: version, changelog: nil, next_version: next_version) }
+        .to raise_error(ArgumentError, 'next_version must be :major, :minor, or :patch')
+    end
+  end
+
+  it 'requires custom version objects to accept part: only for non-patch next versions', :aggregate_failures do
+    custom = Class.new do
+      def read = '1.2.3'
+      def set!(value) = value
+      def increment!(from:) = from
+    end.new
+    expect { described_class.new(version: custom, changelog: nil, next_version: :minor) }
+      .to raise_error(ArgumentError, "version object's increment! must accept part: to use next_version: :minor")
+    expect { described_class.new(version: custom, changelog: nil) }.not_to raise_error
+  end
+
+  it 'writes the next minor version through a reference-updating Ruby constant' do
+    Dir.mktmpdir do |directory|
+      path = File.join(directory, 'version.rb')
+      File.write(path, "VERSION = '2.0.0'\n")
+      constant = RubyGemRelease::Version::RubyConstant.new(path: path, constant: 'VERSION')
+      described_class.new(version: RubyGemRelease::Version::References.new(version: constant, references: {}), changelog: nil, **objects.except(:changelog), next_version: :minor).install_tasks
+      Rake::Task['release:bump'].invoke
+      expect(File.read(path)).to eq("VERSION = '2.1.0'\n")
+    end
   end
 
   it 'rejects an Actions checkpoint without a configured workflow' do
