@@ -8,6 +8,7 @@
 - [#83](https://github.com/dblock/ruby-gem-release/pull/83): Name Intridea subsections with `sections:`, dropping sections without notes from a release and starting every Next section with all of them - [@dblock](https://github.com/dblock).
 - [#85](https://github.com/dblock/ruby-gem-release/pull/85): Verify RubyGems Trusted Publishing before every release with a `release:workflow:preflight` task, add a `dry-run` workflow input that runs only that check, and name the token claims in rejected exchanges - [@dblock](https://github.com/dblock).
 - [#86](https://github.com/dblock/ruby-gem-release/pull/86): Check that the release token can push to the default branch and that no repository rules would reject the release commit or tag before every release - [@dblock](https://github.com/dblock).
+- [#88](https://github.com/dblock/ruby-gem-release/pull/88): Pin every action used by the reusable workflow, the composite action, and this repository's workflows to a commit SHA, with Dependabot proposing updates - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.7.0 (2026/11/20)

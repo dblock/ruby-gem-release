@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   danger:
-    uses: danger/danger-pr-comment/.github/workflows/danger-run.yml@v0.3.0
+    uses: danger/danger-pr-comment/.github/workflows/danger-run.yml@645e89bcc7be89ee7e8362166110b05cbced8e59 # v0.3.0
     with:
       ruby-version: '4.0'
       bundler-cache: true

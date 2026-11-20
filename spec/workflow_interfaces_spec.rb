@@ -8,7 +8,7 @@ require 'tmpdir'
 RSpec.describe 'Release interface contracts' do
   shared_examples 'a release interface' do
     it 'captures after setup, validates before edits, and uses normal failure gating downstream' do
-      setup = steps.index { |step| step['uses'] == 'ruby/setup-ruby@v1' }
+      setup = steps.index { |step| step['uses'].to_s.start_with?('ruby/setup-ruby@') }
       capture = steps.index { |step| step['id'] == 'capture_release_context' }
       validation = steps.index { |step| step['id'] == 'validate_release' }
       expect(capture).to be > setup
@@ -159,6 +159,16 @@ RSpec.describe 'Release interface contracts' do
     end
   end
 
+  it 'pins every external action and reusable workflow to a commit with its version as a comment', :aggregate_failures do
+    references = Dir['.github/workflows/*.yml', 'action.yml'].flat_map do |path|
+      File.readlines(path).filter_map { |line| [path, line.strip] if line.match?(/\A\s*-?\s*uses:\s/) }
+    end
+    expect(references).not_to be_empty
+    references.reject { |_path, line| line.match?(%r{uses: \./}) }.each do |path, line|
+      expect(line).to match(%r{\A-?\s*uses: [\w.-]+/[\w./-]+@[0-9a-f]{40} # v\d+(\.\d+)*\z}), "#{path}: #{line}"
+    end
+  end
+
   context 'with Danger reporting workflows' do
     let(:producer) { YAML.load_file('.github/workflows/danger.yml') }
     let(:commenter) { YAML.load_file('.github/workflows/danger-comment.yml') }
@@ -167,7 +177,7 @@ RSpec.describe 'Release interface contracts' do
       expect(producer.fetch(true).keys).to eq(['pull_request'])
       expect(producer.fetch('permissions')).to eq('contents' => 'read')
       job = producer.fetch('jobs').fetch('danger')
-      expect(job.fetch('uses')).to eq('danger/danger-pr-comment/.github/workflows/danger-run.yml@v0.3.0')
+      expect(job.fetch('uses')).to eq('danger/danger-pr-comment/.github/workflows/danger-run.yml@645e89bcc7be89ee7e8362166110b05cbced8e59')
       expect(job.fetch('with')).not_to have_key('danger-args')
       expect(job).not_to have_key('secrets')
     end
@@ -176,7 +186,7 @@ RSpec.describe 'Release interface contracts' do
       expect(commenter.fetch(true)).to eq('workflow_run' => { 'workflows' => ['Danger'], 'types' => ['completed'] })
       expect(commenter.fetch('permissions')).to eq('actions' => 'read', 'issues' => 'write', 'pull-requests' => 'write')
       job = commenter.fetch('jobs').fetch('comment')
-      expect(job).to eq('uses' => 'danger/danger-pr-comment/.github/workflows/danger-comment.yml@v0.3.0', 'with' => { 'comment-empty' => false })
+      expect(job).to eq('uses' => 'danger/danger-pr-comment/.github/workflows/danger-comment.yml@645e89bcc7be89ee7e8362166110b05cbced8e59', 'with' => { 'comment-empty' => false })
     end
   end
 end

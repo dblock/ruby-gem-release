@@ -4,6 +4,8 @@ Reference for [`.github/workflows/release.yml`](../../.github/workflows/release.
 
 For a step-based interface with caller-owned job settings, see the [Composite Action](action.md). Both interfaces invoke the same Ruby release tasks; the reusable workflow keeps its own runner, environment, permissions contract, and concurrency group.
 
+Every action the workflow uses is pinned to a commit SHA. RubyGems Trusted Publishing accepts any ref of this repository, so pin the `uses:` line in your caller to the commit of a release tag, with the tag in a trailing comment, such as `dblock/ruby-gem-release/.github/workflows/release.yml@<commit> # v0.8.0`. That fixes both this workflow and the actions it runs with release credentials.
+
 ## Inputs
 
 Set these under the calling job's `with:` mapping. Only `ruby-version` is required.

@@ -28,7 +28,7 @@ The checkpoint task commits prepared edits, builds reproducibly, tags locally, a
 
 Every release action must be idempotent for the same checkout and inputs, without recovery flags, artifact discovery, restored context, or a completion journal. Tasks reconcile their own outputs; a fresh workflow uses its current checkout and inputs rather than discovering an older unfinished release. Registry publication and Git pushes cannot be atomic together, so both interfaces preserve artifacts before publication for manual inspection. See [rerunning releases](RELEASING.md#verify-and-recover).
 
-Keep both YAML interfaces thin and consistent. The reusable workflow does not depend on a moving composite-action reference: a pinned release must remain independent of later action versions. Composite callers own permissions, runner, environment protection, and concurrency. Commands run with release privileges and must be trusted.
+Keep both YAML interfaces thin and consistent. The reusable workflow does not depend on a moving composite-action reference: a pinned release must remain independent of later action versions. Both interfaces, and this repository's own workflows, pin every external action and reusable workflow to a commit SHA with its version as a comment, so a caller that pins a release by SHA also fixes every action that runs with release credentials. Dependabot proposes updates to those pins. Composite callers own permissions, runner, environment protection, and concurrency. Commands run with release privileges and must be trusted.
 
 ## Preparation and Artifact Guards
 

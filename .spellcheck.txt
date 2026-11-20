@@ -7,6 +7,7 @@ Commonmarker
 codename
 customizations
 dblock
+Dependabot
 ExecutionContext
 ExecutionProvider
 gemspec
@@ -48,6 +49,7 @@ rulesets
 RSpec
 RuboCop
 RubyGems
+SHA
 strftime
 subclasses
 subprocess
