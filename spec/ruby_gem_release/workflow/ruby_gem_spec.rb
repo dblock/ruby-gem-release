@@ -134,6 +134,12 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     end
   end
 
+  it 'rejects isolated sealing without a workflow that implements it' do
+    RubyGemRelease::Tasks.install
+    expect { Rake::Task['release:workflow:seal'].invoke }.to raise_error(/must implement seal!/)
+    expect(events).to be_empty
+  end
+
   it 'rejects an Actions checkpoint without a configured workflow' do
     RubyGemRelease::Tasks.install
     expect { Rake::Task['release:workflow:checkpoint'].invoke }.to raise_error(/must implement checkpoint!/)

@@ -4,6 +4,7 @@
 
 - [#79](https://github.com/dblock/ruby-gem-release/pull/79): Select the next development version part with `next_version: :minor` or `:major` on `Workflow::RubyGem` and `Workflow::SemanticRubyGem` - [@dblock](https://github.com/dblock).
 - [#80](https://github.com/dblock/ruby-gem-release/pull/80): Skip posting empty Danger report comments - [@dblock](https://github.com/dblock).
+- [#81](https://github.com/dblock/ruby-gem-release/pull/81): Add an opt-in isolated reusable workflow that builds and tests without credentials and publishes from a separate environment-gated job that runs no project code, pushing the release commit before the gem - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.7.0 (2026/11/20)

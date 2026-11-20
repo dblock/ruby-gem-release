@@ -1,0 +1,7 @@
+# GitHub documents job.workflow_repository and job.workflow_sha, which the isolated
+# publish job uses to check out its own library source; actionlint 1.7.12 does not
+# know them yet (https://github.com/rhysd/actionlint/pull/707).
+paths:
+  .github/workflows/isolated-release.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'

@@ -17,7 +17,15 @@ module RubyGemRelease
         super(changelog: changelog, **)
       end
 
+      def seal!(ctx)
+        with_decision(ctx) { super }
+      end
+
       private
+
+      def next_iteration?
+        @bump
+      end
 
       def install_callbacks(tasks)
         tasks.validate { |ctx| validate_with_hooks(ctx) }

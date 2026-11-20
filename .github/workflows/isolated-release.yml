@@ -1,0 +1,167 @@
+name: Isolated Release Gem
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Optional release version overriding the checked-in version in the standard workflow.
+        type: string
+      gemspec:
+        description: Optional gemspec path; defaults to the only root gemspec.
+        type: string
+      rubygems-owner:
+        description: Optional RubyGems account ID for first publication with a pending trusted publisher.
+        type: string
+      git-user-name:
+        description: Author name for release and next development iteration commits.
+        type: string
+        default: github-actions[bot]
+      git-user-email:
+        description: Author email for release and next development iteration commits.
+        type: string
+        default: github-actions[bot]@users.noreply.github.com
+      ruby-version:
+        description: Ruby version used to validate, build, and publish.
+        type: string
+        required: true
+      timezone:
+        description: Timezone for release dates and Git timestamps.
+        type: string
+        default: UTC
+      validate:
+        description: Unprivileged command validating release preconditions; must exit nonzero on failure.
+        type: string
+        default: bundle exec rake release:validate
+      prepare:
+        description: Unprivileged command to prepare release files; INPUT_VERSION is the selected release version.
+        type: string
+        default: bundle exec rake release:prepare
+      test:
+        description: Unprivileged command to test the prepared release.
+        type: string
+        default: bundle exec rake
+
+concurrency:
+  group: ruby-gem-release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      artifact: ${{ steps.name_release_artifact.outputs.artifact }}
+    env:
+      INPUT_VERSION: ${{ inputs.version }}
+      INPUT_GEMSPEC_PATH: ${{ inputs.gemspec }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      GIT_USER_NAME: ${{ inputs.git-user-name }}
+      GIT_USER_EMAIL: ${{ inputs.git-user-email }}
+      TZ: ${{ inputs.timezone }}
+    steps:
+      - uses: actions/checkout@v7
+        id: checkout
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        id: setup_ruby
+        with:
+          ruby-version: ${{ inputs.ruby-version }}
+          bundler-cache: true
+      - name: Capture Release Context
+        id: capture_release_context
+        env:
+          RELEASE_STEP_ID: capture_release_context
+        run: bundle exec rake release:workflow:capture
+      - name: Validate Release
+        id: validate_release
+        env:
+          RELEASE_COMMAND: ${{ inputs.validate }}
+          RELEASE_STEP_ID: validate_release
+          RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+        run: bash -euo pipefail -c "$RELEASE_COMMAND"
+      - name: Prepare Release
+        id: prepare_release
+        env:
+          RELEASE_COMMAND: ${{ inputs.prepare }}
+          RELEASE_STEP_ID: prepare_release
+          RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+        run: bash -euo pipefail -c "$RELEASE_COMMAND"
+      - name: Resolve Prepared Version
+        id: resolve_prepared_version
+        env:
+          RELEASE_STEP_ID: resolve_prepared_version
+        run: bundle exec rake release:workflow:resolve
+      - name: Test Release
+        id: test_release
+        env:
+          RELEASE_COMMAND: ${{ inputs.test }}
+          RELEASE_STEP_ID: test_release
+          RELEASE_STEPS_JSON: ${{ toJSON(steps) }}
+        run: bash -euo pipefail -c "$RELEASE_COMMAND"
+      - name: Checkpoint Release
+        id: checkpoint_release
+        env:
+          RELEASE_STEP_ID: checkpoint_release
+        run: bundle exec rake release:workflow:checkpoint
+      - name: Seal Release
+        id: seal_release
+        env:
+          RELEASE_STEP_ID: seal_release
+        run: bundle exec rake release:workflow:seal
+      - name: Name Release Artifact
+        id: name_release_artifact
+        run: echo "artifact=release-gem-$RELEASE_VERSION-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+      - name: Preserve Release Artifacts
+        id: preserve_release_artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.name_release_artifact.outputs.artifact }}
+          path: |
+            ${{ runner.temp }}/release.gem
+            ${{ runner.temp }}/release.json
+            ${{ runner.temp }}/release.bundle
+            ${{ runner.temp }}/publication.json
+          if-no-files-found: error
+          retention-days: 30
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      RELEASE_AUTH_MODE: rubygems
+      RUBYGEMS_OWNER_ID: ${{ inputs.rubygems-owner }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        id: checkout
+        with:
+          path: source
+          fetch-depth: 0
+      - uses: actions/checkout@v7
+        id: checkout_library
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: library
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        id: setup_ruby
+        with:
+          ruby-version: ${{ inputs.ruby-version }}
+          bundler: none
+      - uses: actions/download-artifact@v8
+        id: download_release_artifacts
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: ${{ runner.temp }}
+      - name: Publish Release
+        id: publish_release
+        working-directory: source
+        run: ruby --disable-gems -rrubygems -I ../library/lib -rruby-gem-release/workflow/isolated_publication -e 'RubyGemRelease::Workflow::IsolatedPublication.new.publish!'

@@ -32,6 +32,8 @@ See the [complete spec](../examples/lifecycle_hooks/spec/release_spec.rb) for al
 
 `release!` runs capture, validation, preparation, resolution, checkpoint, publication, development bump, and success in separate Rake processes. Pass `test_task: 'verify_release'` to run a fixture-specific check after resolution; the default skips the project's test suite to avoid recursively running this spec. Use `run_task('release:prepare')` for individual tasks and `git(...)` or `remote_file(ref, path)` to inspect results.
 
+For the [isolated workflow](actions/isolated_release.md), `isolated_release!` runs the build job's tasks through `release:workflow:seal`, then `publish_isolated!` publishes from a fresh clone at the source commit in a separate Ruby process without the project bundle, using the same local adapters. Call `publish_isolated!` again to verify that publication resumes after a failure or repeats without changes.
+
 The child processes retain Ruby/Bundler paths but do not inherit Actions variables, credentials, Git overrides, or outer release state. `project.environment` lets you add explicit fixture inputs. The helper uses the currently loaded release gem and parent bundle.
 
 ## Copy Fixture Files

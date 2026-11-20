@@ -108,6 +108,7 @@ module RubyGemRelease
 
     def install_workflow_context_tasks
       install_checkpoint_task
+      install_seal_task
       install_capture_task
       install_resolve_task
       task(:configure) { with_failure_capture('release:workflow:configure') { Workflow::Environment.new(provider: @provider).configure! } }
@@ -130,6 +131,16 @@ module RubyGemRelease
           lifecycle(:resolve_version, context('release:workflow:resolve', preparing: true), after_context: -> { context('release:workflow:resolve') }) do
             workflow_environment.resolve!(package: @package, destination: @destination, analysis: state.analysis)
           end
+        end
+      end
+    end
+
+    def install_seal_task
+      task(:seal) do
+        with_failure_capture('release:workflow:seal') do
+          raise 'Workflow must implement seal! for isolated publication' unless @workflow.respond_to?(:seal!)
+
+          @workflow.seal!(context('release:workflow:seal'))
         end
       end
     end

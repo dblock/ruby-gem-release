@@ -103,6 +103,7 @@ Replace only what you need. The [standard workflow](docs/workflow/ruby_gem.md) p
 - **Packages and registries:** Override [package construction](docs/package/ruby_gem.md) or supply a [registry destination](docs/destination.md) independently of hosted releases.
 - **Release hosting:** Replace or disable [GitHub Release creation](docs/workflow/ruby_gem.md#hosting) without changing package publication or Git operations.
 - **Execution platforms:** Supply an [execution provider](docs/execution_provider.md) for environment transport, metadata, temporary storage, and authentication services. GitHub Actions is the only built-in external platform; another platform needs its own adapter and pipeline.
+- **Isolated publication:** Use the [isolated workflow](docs/actions/isolated_release.md) to build and test without credentials and publish from a separate environment-gated job that runs no project code.
 - **Actions integration:** Override commands, inputs, and timezone through the [Actions Reference](docs/actions/release.md), or use the [Composite Action](docs/actions/action.md) inside a caller-owned job.
 - **Testing customizations:** Use optional [RSpec helpers and local publication adapters](docs/testing.md) to verify project-specific release behavior and catch regressions in release-managed files.
 

@@ -121,6 +121,38 @@ RSpec.describe 'Release interface contracts' do
     end
   end
 
+  context 'with the isolated reusable workflow' do
+    let(:workflow) { YAML.load_file('.github/workflows/isolated-release.yml') }
+    let(:build) { workflow.dig('jobs', 'build') }
+    let(:publish) { workflow.dig('jobs', 'publish') }
+    let(:steps) { build.fetch('steps') }
+
+    it 'runs project commands only in a read-only build job without the release environment' do
+      expect(build.fetch('permissions')).to eq('contents' => 'read')
+      expect(build).not_to have_key('environment')
+      expect(steps.first.dig('with', 'persist-credentials')).to be(false)
+      ids = steps.map { |step| step['id'] }
+      expect(ids.index('seal_release')).to be > ids.index('checkpoint_release')
+      expect(ids.index('preserve_release_artifacts')).to be > ids.index('seal_release')
+      expect(steps.find { |step| step['id'] == 'preserve_release_artifacts' }.dig('with', 'path')).to include('${{ runner.temp }}/publication.json')
+    end
+
+    it 'publishes in a separate environment-gated job that installs no project bundle and runs no project commands', :aggregate_failures do
+      expect(publish.fetch('needs')).to eq('build')
+      expect(publish.fetch('environment')).to eq('release')
+      expect(publish.fetch('permissions')).to eq('contents' => 'write', 'id-token' => 'write')
+      steps = publish.fetch('steps')
+      expect(steps.map { |step| step['uses'] || step['id'] }).to eq(%w[actions/checkout@v7 actions/checkout@v7 ruby/setup-ruby@v1 actions/download-artifact@v8 publish_release])
+      library = steps.find { |step| step['id'] == 'checkout_library' }
+      expect(library.fetch('with')).to include('repository' => '${{ job.workflow_repository }}', 'ref' => '${{ job.workflow_sha }}', 'persist-credentials' => false)
+      expect(steps.find { |step| step['id'] == 'setup_ruby' }.dig('with', 'bundler')).to eq('none')
+      run = steps.find { |step| step['id'] == 'publish_release' }.fetch('run')
+      expect(run).to start_with('ruby --disable-gems -rrubygems -I ../library/lib ')
+      expect(run).not_to match(/bundle|rake|RELEASE_COMMAND/)
+      expect(workflow.fetch(true).dig('workflow_call', 'inputs').keys).not_to include('publish', 'bump', 'success', 'failure', 'prepare-artifacts')
+    end
+  end
+
   context 'with the composite action' do
     let(:workflow) { YAML.load_file('action.yml') }
     let(:steps) { workflow.fetch('runs').fetch('steps') }

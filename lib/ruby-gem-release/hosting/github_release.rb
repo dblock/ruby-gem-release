@@ -7,6 +7,8 @@ require_relative 'github_release/existing'
 module RubyGemRelease
   module Hosting
     class GitHubRelease
+      attr_reader :repository, :latest
+
       def initialize(repository: nil, latest: nil)
         repository ||= ENV.fetch('GITHUB_REPOSITORY', nil)
         raise ArgumentError, 'repository must be OWNER/REPO' unless repository.nil? || (repository.is_a?(String) && %r{\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z}.match?(repository))

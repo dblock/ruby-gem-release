@@ -12,6 +12,7 @@ RSpec.describe ReleaseVersion do
   let(:readme) do
     <<~MARKDOWN
       workflow: dblock/ruby-gem-release/.github/workflows/release.yml@v0.2.0
+      isolated: dblock/ruby-gem-release/.github/workflows/isolated-release.yml@v0.2.0
       action: dblock/ruby-gem-release@v0.2.0
       other: another/action@v0.2.0
     MARKDOWN
@@ -29,7 +30,7 @@ RSpec.describe ReleaseVersion do
   end
 
   it 'increments the version while pinning only this action and workflow to the released version', :aggregate_failures do
-    expected = readme.sub('release.yml@v0.2.0', 'release.yml@v1.2.3').sub('ruby-gem-release@v0.2.0', 'ruby-gem-release@v1.2.3')
+    expected = readme.gsub('release.yml@v0.2.0', 'release.yml@v1.2.3').sub('ruby-gem-release@v0.2.0', 'ruby-gem-release@v1.2.3')
     expect(version.increment!).to eq('1.2.4')
     expect(version.read).to eq('1.2.4')
     expect(File.read(readme_file)).to eq(expected)
@@ -43,7 +44,7 @@ RSpec.describe ReleaseVersion do
   it 'updates every documentation Markdown file without changing other references or files', :aggregate_failures do
     FileUtils.mkdir_p(%w[docs/nested examples])
     %w[docs/action.md docs/nested/workflow.md docs/notes.txt examples/guide.md].each { |path| File.write(path, readme) }
-    expected = readme.sub('release.yml@v0.2.0', 'release.yml@v2.0.0').sub('ruby-gem-release@v0.2.0', 'ruby-gem-release@v2.0.0')
+    expected = readme.gsub('release.yml@v0.2.0', 'release.yml@v2.0.0').sub('ruby-gem-release@v0.2.0', 'ruby-gem-release@v2.0.0')
     expect(version.increment!(from: '2.0.0')).to eq('2.0.1')
     expect(File.read('docs/action.md')).to eq(expected)
     expect(File.read('docs/nested/workflow.md')).to eq(expected)

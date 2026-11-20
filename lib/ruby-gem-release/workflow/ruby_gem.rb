@@ -6,6 +6,7 @@ require_relative '../destination/ruby_gems'
 require_relative '../source_control/git'
 require_relative '../hosting/github_release'
 require_relative '../version/interface'
+require_relative 'isolated_publication'
 
 module RubyGemRelease
   module Workflow
@@ -35,6 +36,15 @@ module RubyGemRelease
 
       def environment
         Environment.new(provider: @provider)
+      end
+
+      # Isolated build job: commits the next development iteration locally and
+      # seals the checkpoint release for a publish job that runs no project code.
+      def seal!(ctx)
+        IsolatedPublication.check!(self, callbacks: !(@success || @failure).nil?)
+        release = next_iteration? ? commit_next_iteration!(ctx).release : ctx.release
+        ctx.record_next_version!(release.next_version) if release.next_version
+        IsolatedPublication.seal!(workflow: self, release: release, provider: @provider)
       end
 
       private
@@ -98,10 +108,19 @@ module RubyGemRelease
       end
 
       def prepare_next(ctx)
-        next_ctx = stage_next!(ctx)
-        run_stage(:commit_next, next_ctx) { @git.commit_next!(next_ctx.release) }
+        next_ctx = commit_next_iteration!(ctx)
         run_stage(:push_next, next_ctx) { @git.push! }
         ctx.record_next_version!(next_ctx.release.next_version)
+      end
+
+      def next_iteration?
+        true
+      end
+
+      def commit_next_iteration!(ctx)
+        next_ctx = stage_next!(ctx)
+        run_stage(:commit_next, next_ctx) { @git.commit_next!(next_ctx.release) }
+        next_ctx
       end
 
       def stage_next!(ctx)

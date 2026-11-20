@@ -14,6 +14,7 @@ gemspecs
 Gemfile
 GitLab
 GPG
+handoff
 HTTPS
 idempotence
 Intridea
@@ -48,6 +49,7 @@ rulesets
 RSpec
 RuboCop
 RubyGems
+SHA
 strftime
 subclasses
 subprocess

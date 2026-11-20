@@ -91,6 +91,39 @@ module RubyGemRelease
         %w[release:workflow:checkpoint release:publish release:bump release:success].each { |name| run_task(name) }
       end
 
+      # Runs the isolated build job's tasks, then publishes from a fresh clone at
+      # the source commit in a separate Ruby process without the project bundle.
+      def isolated_release!(version: '', test_task: nil)
+        @environment['INPUT_VERSION'] = version
+        %w[release:workflow:capture release:validate release:prepare release:workflow:resolve].each { |name| run_task(name) }
+        run_task(test_task) if test_task
+        %w[release:workflow:checkpoint release:workflow:seal].each { |name| run_task(name) }
+        publish_isolated!
+      end
+
+      def publish_isolated!
+        source = File.join(@directory, 'publication')
+        FileUtils.rm_rf(source)
+        git('clone', '--quiet', @remote, source)
+        git('-C', source, 'checkout', '--quiet', '--detach', @environment.fetch('SOURCE_COMMIT'))
+        environment = @environment.except('BUNDLE_GEMFILE').merge('GITHUB_SHA' => @environment.fetch('SOURCE_COMMIT'))
+        output, error, status = Open3.capture3(environment, Gem.ruby, '-I', File.expand_path('../..', __dir__), '-e', ISOLATED_PUBLICATION, chdir: source, unsetenv_others: true)
+        raise "#{output}\n#{error}" unless status.success?
+
+        output
+      end
+
+      ISOLATED_PUBLICATION = <<~RUBY
+        require 'ruby-gem-release/workflow/isolated_publication'
+        require 'ruby-gem-release/rspec/provider'
+        require 'ruby-gem-release/rspec/publication'
+        RubyGemRelease::Workflow::IsolatedPublication.new(
+          provider: RubyGemRelease::RSpec::Provider.new,
+          destination: RubyGemRelease::RSpec::Destination.new,
+          hosting: RubyGemRelease::RSpec::Hosting.new
+        ).publish!
+      RUBY
+
       private
 
       def workflow_source(path)
