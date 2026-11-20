@@ -58,7 +58,7 @@ module RubyGemRelease
       end
 
       def prepare_release_files(release)
-        select_version!(release.version)
+        @version.set!(release.version)
         @changelog&.release!(release)
       end
     end

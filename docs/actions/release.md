@@ -43,7 +43,7 @@ Set `version: '1.2.3'` under `with:` to select a release version instead of the 
 
 Expose a string `version` input in the caller's `workflow_dispatch` form and forward it with `version: ${{ inputs.version }}`. You can then choose it in GitHub's form or run `gh workflow run release.yml -f version=1.2.3`. No release is performed by adding this input.
 
-Custom preparation commands and callbacks must honor the selection; resolution rejects a mismatched prepared gemspec before publication. Custom version objects must implement `set!` when selecting a version. See [UPGRADING.md](../../UPGRADING.md) for migrations.
+Custom preparation commands and callbacks must honor the selection; resolution rejects a mismatched prepared gemspec before publication. Custom version objects must implement `read`, `set!`, and `increment!`. See [UPGRADING.md](../../UPGRADING.md) for migrations.
 
 ### Timezone
 

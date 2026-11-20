@@ -39,6 +39,7 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
       events << :increment
       '2.0.1'
     end
+    allow(version).to receive(:set!)
     record_operations(:changelog, %i[release! prepare_next!])
     allow(objects.fetch(:changelog)).to receive_messages(pending?: true, released?: false)
     record_operations(:package, [:build!])
@@ -209,11 +210,9 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     expect(events).to be_empty
   end
 
-  it 'requires custom version objects to implement set! only when selecting a version' do
-    ENV['INPUT_VERSION'] = '3.0.0'
-    custom = Struct.new(:read).new('1.2.3')
-    described_class.new(version: custom, changelog: objects.fetch(:changelog)).install_tasks
-    expect { Rake::Task['release:prepare'].invoke }.to raise_error(ArgumentError, /must implement set!/)
+  it 'requires custom version objects to implement read, set!, and increment! at construction' do
+    custom = Struct.new(:read, :increment!).new('1.2.3')
+    expect { described_class.new(version: custom, changelog: objects.fetch(:changelog)) }.to raise_error(ArgumentError, 'version object must implement set!')
   end
 
   it 'uses supplied publication objects instead of constructing defaults', :aggregate_failures do

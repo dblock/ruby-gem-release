@@ -33,7 +33,7 @@ RubyGemRelease::Workflow::SemanticRubyGem.new(
 
 Later versions increment the last release, resetting lower components. Development versions do not affect selection. `release.gemspec_version` remains the initial gemspec version; `ctx.analysis.last_release` is the release baseline.
 
-Explicit `version` can force a release without releasable commits. It must exceed the last release, not necessarily the development or suggested version. The version object needs `set!`; all later phases must match the persisted selection.
+Explicit `version` can force a release without releasable commits. It must exceed the last release, not necessarily the development or suggested version. Preparation writes it through the version object's `set!`; all later phases must match the persisted selection.
 
 ## Conventional Commits
 

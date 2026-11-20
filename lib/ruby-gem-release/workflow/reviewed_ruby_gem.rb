@@ -18,6 +18,10 @@ module RubyGemRelease
 
       private
 
+      def checked_version(_version)
+        nil
+      end
+
       def verify_source!(release)
         @git.verify!(release, expected: @provider.fetch('SOURCE_COMMIT', @git.head))
       end

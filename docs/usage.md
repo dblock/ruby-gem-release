@@ -148,10 +148,11 @@ Standard workflows wire the usual release sequence using your explicitly chosen 
 
 ### Version Objects
 
-Version objects read, set, and increment the version stored in project files. Construct them locally in your callbacks; use your own objects for other file formats.
+Version objects read, set, and increment the version stored in project files. Construct them locally in your callbacks; use your own objects implementing `read`, `set!(value)`, and `increment!(from:)` for other file formats.
 
 - [`Version::RubyConstant`](version/ruby_constant.md): Numeric Ruby constant versions, updated without evaluating the file.
 - [`Version::PlainText`](version/plain_text.md): Numeric versions in a plain text file, such as `VERSION`.
+- [`Version::References`](version/references.md): Decorates a version object to update selected release references during the next development bump.
 
 ### Release Callbacks
 

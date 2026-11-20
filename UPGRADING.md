@@ -4,6 +4,21 @@ Upgrade the gem and pinned workflow or action together. Apply the relevant chang
 
 ## Upgrading To 0.7.0
 
+### Version Objects Require `set!`
+
+Custom version objects passed to `Workflow::RubyGem`, `Workflow::SemanticRubyGem`, or `Version::References` must implement `read`, `set!(value)`, and `increment!(from:)`; construction raises `ArgumentError` naming any missing method ([#76](https://github.com/dblock/ruby-gem-release/pull/76)). Previously `set!` was required only when selecting an explicit release version. Add a `set!` that writes and returns the supplied version:
+
+```ruby
+def set!(value)
+  File.write(@path, value)
+  value
+end
+```
+
+Built-in `RubyConstant` and `PlainText` already implement it.
+
+### Optional Commonmarker
+
 Commonmarker is now optional rather than a runtime dependency. Projects using built-in Markdown changelogs must explicitly add `gem 'commonmarker', '~> 2.10'` to their development Gemfile. Core packaging, registry publication, hosting, and custom callbacks install without native dependencies, including on JRuby. Markdown operations fail with an installation hint when Commonmarker is unavailable; they never fall back to less accurate section parsing.
 
 ## Upgrading To 0.5.1

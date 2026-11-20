@@ -83,6 +83,10 @@ RSpec.describe RubyGemRelease::Version::References do
         @value || 'release-a'
       end
 
+      def set!(value)
+        @value = value
+      end
+
       def increment!(from:)
         @value = "#{from}-next"
       end
@@ -93,7 +97,27 @@ RSpec.describe RubyGemRelease::Version::References do
     expect(version.increment!).to eq('release-a-next')
     expect(version.read).to eq('release-a-next')
     expect(File.read('README.md')).to eq("version: release-a\n")
-    expect { version.set!('release-b') }.to raise_error(ArgumentError, /must implement set!/)
+    expect(version.set!('release-b')).to eq('release-b')
+    expect(File.read('README.md')).to eq("version: release-a\n")
+    expect(version).not_to respond_to(:next_version)
+  end
+
+  it 'rejects version objects missing read, set, or increment' do
+    expect { described_class.new(version: Object.new, references: {}) }.to raise_error(ArgumentError, 'version object must implement read, set!, increment!')
+    expect { described_class.new(version: Struct.new(:read, :increment!).new('1.2.3'), references: {}) }.to raise_error(ArgumentError, 'version object must implement set!')
+  end
+
+  it 'preserves the incremented version when a reference selector matches the version file', :aggregate_failures do
+    File.write('version.rb', "VERSION = '1.2.3' # released 1.2.2\n")
+    version = described_class.new(
+      version: RubyGemRelease::Version::RubyConstant.new(path: 'version.rb', constant: 'VERSION'),
+      references: { '*.rb' => [/released (?<version>\d+\.\d+\.\d+)/] }
+    )
+
+    2.times do
+      expect(version.increment!(from: '1.2.3')).to eq('1.2.4')
+      expect(File.read('version.rb')).to eq("VERSION = '1.2.4' # released 1.2.3\n")
+    end
   end
 
   it 'does not write references when the wrapped increment rejects the release version' do

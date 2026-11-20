@@ -6,6 +6,7 @@ require_relative '../destination/ruby_gems'
 require_relative '../source_control/git'
 require_relative '../hosting/github_release'
 require_relative 'hooks'
+require_relative '../version/interface'
 
 module RubyGemRelease
   module Workflow
@@ -17,7 +18,7 @@ module RubyGemRelease
                      destination: Destination::RubyGems.new,
                      git: SourceControl::Git.new(directory: provider.directory), hosting: Hosting::GitHubRelease.new,
                      validate: nil, success: nil, failure: nil)
-        @version = version
+        @version = checked_version(version)
         @changelog = changelog
         @package = package
         @destination = destination
@@ -71,6 +72,10 @@ module RubyGemRelease
 
       private
 
+      def checked_version(version)
+        Version::Interface.check!(version)
+      end
+
       def hooks
         @hooks ||= Hooks.new
       end
@@ -105,14 +110,8 @@ module RubyGemRelease
       end
 
       def prepare_release_files(release)
-        select_version!(release.version) unless @provider.fetch('INPUT_VERSION', '').empty?
+        @version.set!(release.version) unless @provider.fetch('INPUT_VERSION', '').empty?
         @changelog&.release!(release.with_version(@version.read))
-      end
-
-      def select_version!(version)
-        raise ArgumentError, 'version object must implement set! when selecting a release version' unless @version.respond_to?(:set!)
-
-        @version.set!(version)
       end
 
       def prepare_publication(ctx)

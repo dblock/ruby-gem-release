@@ -56,7 +56,7 @@ Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `relea
 
 `validate` checks preconditions before preparation and must exit nonzero on failure, including when there is nothing to release. Failure handling runs; downstream release operations do not. See [Release Validation](release.md#release-validation).
 
-The optional `version` input selects a release version in standard preparation. The configured version object must implement `set!`; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples.
+The optional `version` input selects a release version in standard preparation. The configured version object's `set!` writes the selection; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples.
 
 The optional `timezone` input defaults to `UTC`; set `timezone: America/New_York` for Eastern Time, including daylight saving changes. The action validates the identifier and exports `TZ`, affecting subsequent release steps and any later steps in the caller's job. See [Timezone](release.md#timezone) for date capture and service timestamp behavior.
 

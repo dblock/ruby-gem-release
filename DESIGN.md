@@ -40,7 +40,7 @@ Resolution validates the prepared version; publishing tasks enforce their own po
 
 Lifecycle hooks add checks and project edits without replacing the release sequence. Preparation hooks run inside trusted staging; other hooks validate or observe. See the [hook guide](docs/workflow/hooks.md).
 
-Version objects update exactly one constant assignment without evaluating the file, or a plain text numeric version file. An opt-in decorator wraps a version object and updates configured reference patterns to the released version during the next development bump. Changelog objects load optional `Commonmarker` when parsing sections, then edit original source to preserve formatting. Core installation and loading require no native dependencies. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
+Version objects update exactly one constant assignment without evaluating the file, or a plain text numeric version file. An opt-in decorator wraps a version object and updates configured reference patterns to the released version during the next development bump. Changelog objects load optional `Commonmarker` when parsing sections, then edit original source to preserve formatting. Core installation and loading require no native dependencies. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [references](docs/version/references.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
 
 ## Contexts and State
 

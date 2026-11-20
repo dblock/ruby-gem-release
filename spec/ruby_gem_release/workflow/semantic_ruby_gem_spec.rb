@@ -11,7 +11,7 @@ RSpec.describe RubyGemRelease::Workflow::SemanticRubyGem do
   let(:provider) { RubyGemRelease::ExecutionProvider.new(environment: values) }
   let(:components) do
     {
-      version: instance_double(RubyGemRelease::Version::RubyConstant, set!: nil, increment!: '1.3.1', next_version: '1.3.1'),
+      version: instance_double(RubyGemRelease::Version::RubyConstant, read: '1.3.0', set!: nil, increment!: '1.3.1', next_version: '1.3.1'),
       git: instance_double(RubyGemRelease::SourceControl::Git, commit!: nil, tag!: nil, push!: nil, commit_next!: nil),
       package: instance_double(RubyGemRelease::Package::RubyGem, build!: nil, built?: false),
       destination: instance_double(RubyGemRelease::Destination, authenticate!: nil, publish!: nil),

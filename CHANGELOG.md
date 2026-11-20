@@ -12,11 +12,11 @@
 - [#67](https://github.com/dblock/ruby-gem-release/pull/67): Publish signed, already-reviewed source on explicit branches without editing files, creating tags, pushing Git refs, or bumping versions - [@dblock](https://github.com/dblock).
 - [#68](https://github.com/dblock/ruby-gem-release/pull/68): Load prebuilt archives from original build manifests with explicit expected identities and content audits - [@dblock](https://github.com/dblock).
 - [#69](https://github.com/dblock/ruby-gem-release/pull/69): Allow configuring the Intridea release date format with `date_format:`, and recognize release headings in any date format - [@numbata](https://github.com/numbata).
-- [#70](https://github.com/dblock/ruby-gem-release/pull/70): Update configured version references in selected files and globs to the released version during the next development bump - [@dblock](https://github.com/dblock).
+- [#70](https://github.com/dblock/ruby-gem-release/pull/70), [#75](https://github.com/dblock/ruby-gem-release/pull/75), [#76](https://github.com/dblock/ruby-gem-release/pull/76): Update configured version references in selected files and globs to the released version during the next development bump, wrapping Ruby constant, plain text, or custom version objects - [@dblock](https://github.com/dblock).
 - [#71](https://github.com/dblock/ruby-gem-release/pull/71): Run Danger with full history, exporting reports for a separate commenting workflow so fork contributions need no write permissions - [@dblock](https://github.com/dblock).
 - [#72](https://github.com/dblock/ruby-gem-release/pull/72): Support plain text version files - [@dblock](https://github.com/dblock).
 - [#73](https://github.com/dblock/ruby-gem-release/pull/73): Run grouped installed-gem integration suites in parallel CI matrix jobs - [@dblock](https://github.com/dblock).
-- [#75](https://github.com/dblock/ruby-gem-release/pull/75): Wrap version strategies with a reference-updating decorator, including plain text and custom versions - [@dblock](https://github.com/dblock).
+- [#76](https://github.com/dblock/ruby-gem-release/pull/76): **Breaking:** Require custom version objects to implement `read`, `set!`, and `increment!`, validated at workflow construction - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.6.0 (2026/11/11)

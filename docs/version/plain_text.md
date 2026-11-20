@@ -13,4 +13,4 @@ version.increment!(from: '1.2.3')
 
 `path:` defaults to `VERSION`. `increment!` writes the next patch version, or a major or minor version when passed `part: :major` or `part: :minor`. Pass the release version as `from:` for repeatable retries. Invalid current or requested versions fail without writing.
 
-Wrap the version in [`References`](ruby_constant.md#release-references) to update selected release references during the next development bump.
+Wrap the version in [`References`](references.md) to update selected release references during the next development bump.
