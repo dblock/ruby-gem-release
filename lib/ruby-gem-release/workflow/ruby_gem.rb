@@ -1,16 +1,17 @@
 # frozen_string_literal: true
 
-require_relative '../tasks'
+require_relative 'lifecycle'
 require_relative '../package/ruby_gem'
 require_relative '../destination/ruby_gems'
 require_relative '../source_control/git'
 require_relative '../hosting/github_release'
-require_relative 'hooks'
 require_relative '../version/interface'
 
 module RubyGemRelease
   module Workflow
     class RubyGem
+      include Lifecycle
+
       attr_reader :version, :changelog, :package, :destination, :git, :hosting, :provider
 
       def initialize(version:, changelog:, provider: ExecutionProvider.current,
@@ -18,7 +19,7 @@ module RubyGemRelease
                      destination: Destination::RubyGems.new,
                      git: SourceControl::Git.new(directory: provider.directory), hosting: Hosting::GitHubRelease.new,
                      validate: nil, success: nil, failure: nil)
-        @version = checked_version(version)
+        @version = Version::Interface.check!(version)
         @changelog = changelog
         @package = package
         @destination = destination
@@ -30,55 +31,11 @@ module RubyGemRelease
         @failure = failure
       end
 
-      def before(stage, &)
-        hooks.register(:before, stage, &)
-        self
-      end
-
-      def after(stage, &)
-        hooks.register(:after, stage, &)
-        self
-      end
-
-      def run_stage(stage, context, **, &)
-        hooks.run(stage, context, **, &)
-      end
-
-      def failure_details(error)
-        hooks.failure_details(error)
-      end
-
-      def hooks?(stage)
-        hooks.registered?(stage)
-      end
-
-      def install_tasks
-        Tasks.install(workflow: self, package: @package, destination: @destination, provider: @provider) do |tasks|
-          install_callbacks(tasks)
-        end
-      end
-
-      def checkpoint!(context)
-        run_stage(:checkpoint, context) { prepare_publication(context) }
-      end
-
-      def published?(release)
-        @package.respond_to?(:built?) && @package.built?(release) && @destination.published?(release, package: @package)
-      end
-
       def environment
         Environment.new(provider: @provider)
       end
 
       private
-
-      def checked_version(version)
-        Version::Interface.check!(version)
-      end
-
-      def hooks
-        @hooks ||= Hooks.new
-      end
 
       def install_callbacks(tasks)
         tasks.validate { |ctx| validate_with_hooks(ctx) }
@@ -87,12 +44,6 @@ module RubyGemRelease
         tasks.bump { |ctx| prepare_next(ctx) }
         tasks.success(&@success) if @success
         tasks.failure(&@failure) if @failure
-      end
-
-      def validate_with_hooks(ctx)
-        run_stage(:validate, ctx, after_context: -> { ctx.refresh }) do
-          raise ArgumentError, 'Release validation failed: callback returned false' if validate_release(ctx) == false
-        end
       end
 
       def validate_release(ctx)

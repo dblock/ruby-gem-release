@@ -1,6 +1,6 @@
 # Lifecycle Hooks
 
-Both the [standard](ruby_gem.md) and [semantic](semantic_ruby_gem.md) workflows support ordered `before` and `after` hooks. Register them before `install_tasks`:
+The [standard](ruby_gem.md), [semantic](semantic_ruby_gem.md), and [reviewed](reviewed_ruby_gem.md) workflows support ordered `before` and `after` hooks for the stages they run. Register them before `install_tasks`:
 
 ```ruby
 workflow.before(:validate) { |ctx| validate_project_notes(ctx) }

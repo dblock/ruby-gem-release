@@ -1,15 +1,29 @@
 # frozen_string_literal: true
 
-require_relative 'ruby_gem'
+require_relative 'lifecycle'
+require_relative '../destination/ruby_gems'
+require_relative '../hosting/github_release'
 require_relative '../source_control/reviewed_git'
 
 module RubyGemRelease
   module Workflow
-    class ReviewedRubyGem < RubyGem
-      def initialize(package:, branches:, notes: nil, provider: ExecutionProvider.current, git: nil, **)
-        git ||= SourceControl::ReviewedGit.new(branch: provider.ref.delete_prefix('refs/heads/'), branches: branches, directory: provider.directory)
+    class ReviewedRubyGem
+      include Lifecycle
+
+      attr_reader :package, :destination, :git, :hosting, :provider
+
+      def initialize(package:, branches:, notes: nil, provider: ExecutionProvider.current, git: nil,
+                     destination: Destination::RubyGems.new, hosting: Hosting::GitHubRelease.new,
+                     validate: nil, success: nil, failure: nil)
+        @package = package
+        @destination = destination
+        @git = git || SourceControl::ReviewedGit.new(branch: provider.ref.delete_prefix('refs/heads/'), branches: branches, directory: provider.directory)
+        @hosting = hosting
+        @provider = provider
         @notes = notes
-        super(version: nil, changelog: nil, package: package, git: git, provider: provider, **)
+        @validate = validate
+        @success = success
+        @failure = failure
       end
 
       def environment
@@ -18,8 +32,12 @@ module RubyGemRelease
 
       private
 
-      def checked_version(_version)
-        nil
+      def install_callbacks(tasks)
+        tasks.validate { |ctx| validate_with_hooks(ctx) }
+        tasks.prepare { |ctx| prepare_release(ctx) }
+        tasks.publish { |ctx| publish(ctx) }
+        tasks.success(&@success) if @success
+        tasks.failure(&@failure) if @failure
       end
 
       def verify_source!(release)
@@ -29,7 +47,7 @@ module RubyGemRelease
       def validate_release(ctx)
         verify_source!(ctx.release)
         publication_release(ctx.release)
-        super
+        @validate&.call(ctx)
       end
 
       def prepare_release(ctx)
@@ -59,8 +77,6 @@ module RubyGemRelease
 
         Release.new(version: release.version, gemspec_version: release.gemspec_version, date: release.date, notes: notes)
       end
-
-      def prepare_next(_ctx); end
     end
   end
 end
