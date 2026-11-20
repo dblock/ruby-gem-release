@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
 require_relative '../lib/ruby-gem-release/version/references'
+require_relative '../lib/ruby-gem-release/version/ruby_constant'
 
-class ReleaseVersion < RubyGemRelease::Version::References
-  def initialize(readme_path:, **)
+module ReleaseVersion
+  def self.build(path:, constant:, readme_path:)
     patterns = [%r{dblock/ruby-gem-release(?:/\.github/workflows/release\.yml)?@v(?<version>\d+\.\d+\.\d+)(?![\w.+-])}]
-    super(references: { readme_path => patterns, 'docs/**/*.md' => patterns }, **)
+    RubyGemRelease::Version::References.new(
+      version: RubyGemRelease::Version::RubyConstant.new(path: path, constant: constant),
+      references: { readme_path => patterns, 'docs/**/*.md' => patterns }
+    )
   end
 end

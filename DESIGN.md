@@ -40,7 +40,7 @@ Resolution validates the prepared version; publishing tasks enforce their own po
 
 Lifecycle hooks add checks and project edits without replacing the release sequence. Preparation hooks run inside trusted staging; other hooks validate or observe. See the [hook guide](docs/workflow/hooks.md).
 
-Version objects update exactly one constant assignment without evaluating the file, or a plain text numeric version file. An opt-in version adapter also updates configured reference patterns to the released version during the next development bump. Changelog objects load optional `Commonmarker` when parsing sections, then edit original source to preserve formatting. Core installation and loading require no native dependencies. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
+Version objects update exactly one constant assignment without evaluating the file, or a plain text numeric version file. An opt-in decorator wraps a version object and updates configured reference patterns to the released version during the next development bump. Changelog objects load optional `Commonmarker` when parsing sections, then edit original source to preserve formatting. Core installation and loading require no native dependencies. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
 
 ## Contexts and State
 
@@ -76,6 +76,6 @@ Optional `ruby-gem-release/rspec` support exposes disposable Git fixtures, isola
 
 ## Self-Release and Artwork
 
-The manual `publish.yml` caller uses the root Rakefile and Ruby 4.0; merges and schedules do not publish. Every dispatch requires release authorization. Its project-local `ReleaseVersion` updates README and documentation pins during the next development iteration, after the release tag exists. See the [self-release walkthrough](examples/self_release/README.md).
+The manual `publish.yml` caller uses the root Rakefile and Ruby 4.0; merges and schedules do not publish. Every dispatch requires release authorization. Its project-local `ReleaseVersion` configures the decorator to update README and documentation pins during the next development iteration, after the release tag exists. See the [self-release walkthrough](examples/self_release/README.md).
 
 `assets/logo.png` is an AI-generated faceted ruby with an upward release arrow, approved by the maintainer. It replaces the original AI-generated ruby rocket from [#5](https://github.com/dblock/ruby-gem-release/pull/5); neither image has an editable source. The arrow-above-gem composition follows the sibling [JavaScript package release](https://github.com/dblock/npm-package-release) and [Rust crate release](https://github.com/dblock/rust-crate-release) logos. Preserve this provenance and the 160-pixel README placement. Replacements should be centered, text-free red faceted rubies with an upward release motif and transparent background. Generation is not deterministic; inspect the full-size image and README rendering for clipping and legibility.

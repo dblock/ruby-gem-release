@@ -8,7 +8,7 @@ RSpec.describe ReleaseVersion do
   let(:directory) { Dir.mktmpdir }
   let(:version_file) { File.join(directory, 'version.rb') }
   let(:readme_file) { File.join(directory, 'README.md') }
-  let(:version) { described_class.new(path: version_file, constant: 'VERSION', readme_path: readme_file) }
+  let(:version) { described_class.build(path: version_file, constant: 'VERSION', readme_path: readme_file) }
   let(:readme) do
     <<~MARKDOWN
       workflow: dblock/ruby-gem-release/.github/workflows/release.yml@v0.2.0

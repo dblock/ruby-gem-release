@@ -9,7 +9,7 @@ require_relative 'tasks/release_version'
 
 Bundler::GemHelper.install_tasks
 RubyGemRelease::Workflow::RubyGem.new(
-  version: ReleaseVersion.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION', readme_path: 'README.md'),
+  version: ReleaseVersion.build(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION', readme_path: 'README.md'),
   changelog: RubyGemRelease::Changelog::Intridea.new
 ).install_tasks
 

@@ -17,12 +17,13 @@ RSpec.describe 'Plain text version release integration' do
     end
   end
 
-  it 'releases and bumps a gem whose gemspec reads a plain text VERSION file' do
+  it 'releases and bumps a gem whose gemspec reads a plain text VERSION file, updating references' do
     with_release_project do |project|
       project.environment['RELEASE_TEST_LIB'] = ENV.fetch('RELEASE_CONSUMER_LIB', File.expand_path('lib'))
       project.write('Rakefile', <<~RUBY)
         require 'ruby-gem-release/workflow/ruby_gem'
         require 'ruby-gem-release/version/plain_text'
+        require 'ruby-gem-release/version/references'
         require 'ruby-gem-release/rspec'
 
         loaded = $LOADED_FEATURES.find { |path| path.end_with?('/ruby-gem-release/version/plain_text.rb') }
@@ -30,7 +31,10 @@ RSpec.describe 'Plain text version release integration' do
         raise 'Consumer loaded the wrong release library' unless loaded && File.realpath(loaded) == File.realpath(expected)
 
         RubyGemRelease::Workflow::RubyGem.new(
-          version: RubyGemRelease::Version::PlainText.new,
+          version: RubyGemRelease::Version::References.new(
+            version: RubyGemRelease::Version::PlainText.new,
+            references: { 'README.md' => [/version: (?<version>\\d+\\.\\d+\\.\\d+)/] }
+          ),
           changelog: nil,
           provider: RubyGemRelease::RSpec::Provider.new,
           destination: RubyGemRelease::RSpec::Destination.new,
@@ -38,6 +42,7 @@ RSpec.describe 'Plain text version release integration' do
         ).install_tasks
       RUBY
       project.write('VERSION', "0.1.0\n")
+      project.write('README.md', "version: 0.1.0\n")
       project.write('lib/example.rb', "module Example; end\n")
       project.write('example.gemspec', <<~RUBY)
         Gem::Specification.new do |gem|
@@ -54,7 +59,9 @@ RSpec.describe 'Plain text version release integration' do
 
       expect(project.remote_file('v0.2.0', 'VERSION')).to eq('0.2.0')
       expect(gemspec_version(project, 'v0.2.0')).to eq('0.2.0')
+      expect(project.remote_file('v0.2.0', 'README.md')).to eq('version: 0.1.0')
       expect(project.remote_file('master', 'VERSION')).to eq('0.2.1')
+      expect(project.remote_file('master', 'README.md')).to eq('version: 0.2.0')
       artifacts = project.environment.fetch('RELEASE_DATA_DIR')
       archive = File.join(artifacts, 'release.gem')
       expect(Gem::Package.new(archive).spec.version.to_s).to eq('0.2.0')
@@ -63,6 +70,7 @@ RSpec.describe 'Plain text version release integration' do
       end
       project.run_task('release:bump')
       expect(project.remote_file('master', 'VERSION')).to eq('0.2.1')
+      expect(project.remote_file('master', 'README.md')).to eq('version: 0.2.0')
       expect(project.git('status', '--porcelain')).to eq('')
     end
   end

@@ -5,6 +5,7 @@ require 'ruby-gem-release/workflow/semantic_ruby_gem'
 require 'ruby-gem-release/changelog'
 require 'ruby-gem-release/rspec'
 require 'ruby-gem-release/version/references'
+require 'ruby-gem-release/version/ruby_constant'
 require 'digest'
 
 raise 'Unexpected Actions environment' if ENV.keys.any? { |name| name.start_with?('GITHUB_', 'RUNNER_', 'ACTIONS_', 'GH_') }
@@ -151,7 +152,7 @@ module PortableConsumer
 
   def self.reference_version
     RubyGemRelease::Version::References.new(
-      path: 'lib/example/version.rb', constant: 'VERSION',
+      version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
       references: {
         'references.txt' => [%r{owner/example@v(?<version>\d+\.\d+\.\d+)}],
         'g*.txt' => [/gem 'example', '(?<version>\d+\.\d+\.\d+)'/]

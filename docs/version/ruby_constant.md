@@ -32,13 +32,14 @@ Pass `from: release.version` to `increment!` to write the same development versi
 
 ## Release References
 
-`RubyGemRelease::Version::References` extends `RubyConstant` to update explicitly selected files and patterns to the released version during `increment!`. Each regular expression must capture the version to replace as `version`:
+`RubyGemRelease::Version::References` decorates a version object to update explicitly selected files and patterns to the released version during `increment!`. Each regular expression must capture the version to replace as `version`:
 
 ```ruby
+require 'ruby-gem-release/version/ruby_constant'
 require 'ruby-gem-release/version/references'
 
 version = RubyGemRelease::Version::References.new(
-  path: 'lib/example/version.rb', constant: 'VERSION',
+  version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
   references: {
     'README.md' => [%r{owner/example@v(?<version>\d+\.\d+\.\d+)(?![\w.+-])}],
     'docs/**/*.md' => [/gem 'example', '(?<version>\d+\.\d+\.\d+)'/]
@@ -48,4 +49,6 @@ version = RubyGemRelease::Version::References.new(
 
 Keys are literal file paths or Ruby `Dir.glob` patterns, expanded when `increment!` runs. Globs select files, exclude hidden names by default, and may match nothing; missing literal files raise an error. When selectors overlap, all their patterns apply in mapping order before the file is written. Each file receives only the patterns from selectors that match it.
 
-Configure only your project's references. The version constant advances to the next development version, while matching references use `from:` (the released version), including on retries. Invalid versions or unreadable files fail before the version constant changes.
+The decorator also accepts [`PlainText`](plain_text.md) or a custom object with `read` and `increment!(from:)`; explicit version selection additionally requires `set!`. It forwards any additional increment keywords, such as `part:`, to the wrapped object. `read` and `set!` delegate without updating references.
+
+Configure only your project's references. The wrapped version advances to the next development version, while matching references use `from:` (the released version), including on retries. Reference files are read and their edits computed before the wrapped increment; if it rejects the input, no references are written. A subsequent file write failure can leave partial changes, so retry using the same `from:` value.

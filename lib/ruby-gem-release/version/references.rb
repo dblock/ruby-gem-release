@@ -1,21 +1,28 @@
 # frozen_string_literal: true
 
-require_relative 'ruby_constant'
-
 module RubyGemRelease
   module Version
-    class References < RubyConstant
-      def initialize(references:, **)
-        super(**)
+    class References
+      def initialize(version:, references:)
         raise ArgumentError, 'references must map files to arrays of patterns with a named version capture' unless references.is_a?(Hash) && references.values.all? { |patterns| patterns.is_a?(Array) && patterns.all? { |pattern| pattern.is_a?(Regexp) && pattern.names.include?('version') } }
 
+        @version = version
         @references = references
       end
 
-      def increment!(part: :patch, from: read)
-        next_version(part: part, from: from)
+      def read
+        @version.read
+      end
+
+      def set!(value)
+        raise ArgumentError, 'version object must implement set! when selecting a release version' unless @version.respond_to?(:set!)
+
+        @version.set!(value)
+      end
+
+      def increment!(from: read, **)
         updates = reference_files.map { |path, patterns| updated_file(path, patterns, from) }
-        result = super
+        result = @version.increment!(from: from, **)
         updates.each { |path, original, updated| File.write(path, updated) unless original == updated }
         result
       end

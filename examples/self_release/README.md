@@ -14,22 +14,22 @@ require 'ruby-gem-release/changelog'
 require_relative 'tasks/release_version'
 
 RubyGemRelease::Workflow::RubyGem.new(
-  version: ReleaseVersion.new(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION', readme_path: 'README.md'),
+  version: ReleaseVersion.build(path: 'lib/ruby-gem-release/version.rb', constant: 'VERSION', readme_path: 'README.md'),
   changelog: RubyGemRelease::Changelog::Intridea.new
 ).install_tasks
 ```
 
 The root Rakefile also installs development tasks; those are unrelated to release customization. Standard validation fails when there are no pending notes or existing heading for the selected release.
 
-## 2. Extend Only the Version Update
+## 2. Decorate the Version Update
 
-The project-local `ReleaseVersion` subclasses `Version::RubyConstant`, inheriting `read` and `set!`. Its constructor accepts an additional `readme_path:`. Its `increment!(from:)` implementation pins this repository's action and reusable workflow in README and every `docs/**/*.md` file to the supplied release version, calls `super` to calculate the next version from that same input, writes changed files, and returns the next version. Repetition leaves the version and pins unchanged.
+The project-local `ReleaseVersion.build` wraps a `Version::RubyConstant` in `Version::References`, configured with `readme_path:` and every `docs/**/*.md` file. Its `increment!(from:)` pins this repository's action and reusable workflow to the supplied release version, increments the wrapped version from that same input, writes changed files, and returns the next version. Repetition leaves the version and pins unchanged.
 
 For example, publishing `0.5.0` results in README and documentation references to `v0.5.0` and a development version of `0.5.1`. These are deliberately different values.
 
 The standard workflow wraps `increment!` and changelog preparation in the same trusted Git staging boundary. All changed files therefore belong to the **next development iteration commit**, after the release commit and tag have already been published. The `v0.5.0` tag does not receive later README or documentation edits. No custom publication callback or hard-coded staging list is necessary.
 
-Use the [actual subclass](../../tasks/release_version.rb) as the complete implementation. When adapting it to another project, change the version-file path, documentation directory, and repository-specific reference pattern.
+Use the [actual configuration](../../tasks/release_version.rb) as the complete implementation. When adapting it to another project, change the version-file path, documentation directory, and repository-specific reference pattern.
 
 ## 3. Configure the Caller
 
