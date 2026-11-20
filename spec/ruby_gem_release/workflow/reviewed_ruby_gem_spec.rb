@@ -35,7 +35,6 @@ RSpec.describe RubyGemRelease::Workflow::ReviewedRubyGem do
   it 'publishes verified notes and makes the preparation and bump phases read-only' do
     workflow.install_tasks
     %w[validate prepare workflow:checkpoint publish bump].each { |phase| Rake::Task["release:#{phase}"].invoke }
-    %i[commit! tag! push! commit_next! stage_changes!].each { |operation| expect(objects.fetch(:git)).not_to have_received(operation) }
     expect(objects.fetch(:package)).to have_received(:build!).twice
     expect(objects.fetch(:git)).to have_received(:preserve!).twice
     expect(objects.fetch(:hosting)).to have_received(:publish!).with(have_attributes(notes: '- Reviewed change.'), package: objects.fetch(:package))

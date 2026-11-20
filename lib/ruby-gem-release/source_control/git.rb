@@ -8,6 +8,13 @@ require_relative 'git/preparation'
 module RubyGemRelease
   module SourceControl
     class Git
+      def self.command(*)
+        output, error, status = Open3.capture3('git', *)
+        raise "Git command failed: #{error.strip}\n#{output.strip}" unless status.success?
+
+        output
+      end
+
       def initialize(branch: nil, remote: 'origin', directory: nil)
         @remote = remote
         @branch = branch || ENV.fetch('DEFAULT_BRANCH', nil)
@@ -110,6 +117,11 @@ module RubyGemRelease
         { commit: candidate, version: version, tree: run('rev-parse', "#{candidate}^{tree}").strip } if version
       end
 
+      def write_bundle(release)
+        FileUtils.mkdir_p(@directory)
+        run('bundle', 'create', File.join(@directory, 'release.bundle'), 'HEAD', "refs/tags/v#{release.version}")
+      end
+
       private
 
       def reuse_release!(existing)
@@ -133,11 +145,6 @@ module RubyGemRelease
       def release_current?(existing)
         expected = @source_commit || ENV.fetch('SOURCE_COMMIT')
         remote_head == expected || (existing && ancestor?(head, remote_head))
-      end
-
-      def write_bundle(release)
-        FileUtils.mkdir_p(@directory)
-        run('bundle', 'create', File.join(@directory, 'release.bundle'), 'HEAD', "refs/tags/v#{release.version}")
       end
 
       def push_iteration!
@@ -211,10 +218,7 @@ module RubyGemRelease
       end
 
       def run(*)
-        output, error, status = Open3.capture3('git', *)
-        raise "Git command failed: #{error.strip}\n#{output.strip}" unless status.success?
-
-        output
+        self.class.command(*)
       end
     end
   end

@@ -314,11 +314,24 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
       expect { git.verify!(release) }.to raise_error(/clean checkout/)
     end
 
+    it 'wraps Git without exposing operations that stage, commit, tag, fetch, or push', :aggregate_failures do
+      expect(RubyGemRelease::SourceControl::ReviewedGit.superclass).to eq(Object)
+      %i[stage_changes! commit! commit_next! tag! push! fetch! write_bundle].each { |operation| expect(git).not_to respond_to(operation) }
+      expect(git.head).to eq(initial)
+      expect(git.timestamp(initial)).to eq(command('show', '-s', '--format=%ct', initial).strip)
+    end
+
+    it 'rejects missing or invalid allowed branches' do
+      expect { RubyGemRelease::SourceControl::ReviewedGit.new(branch: 'master', branches: [], directory: directory) }.to raise_error(ArgumentError, /nonempty array/)
+      expect { RubyGemRelease::SourceControl::ReviewedGit.new(branch: 'master', branches: ['bad..name'], directory: directory) }.to raise_error(/Git command failed/)
+    end
+
     it 'rejects branch advancement and unapproved source refs' do
       reviewed_tag
       expect { git.check_branch!(ref: 'refs/heads/other') }.to raise_error(/explicitly allowed branch/)
       advance_remote
       expect { git.verify!(release) }.to raise_error(/branch advanced/)
+      expect { git.check_current!(expected: initial, allow_ancestor: true) }.to raise_error(/branch advanced/)
     end
   end
 

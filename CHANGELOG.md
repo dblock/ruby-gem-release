@@ -18,6 +18,7 @@
 - [#73](https://github.com/dblock/ruby-gem-release/pull/73): Run grouped installed-gem integration suites in parallel CI matrix jobs - [@dblock](https://github.com/dblock).
 - [#76](https://github.com/dblock/ruby-gem-release/pull/76): **Breaking:** Require custom version objects to implement `read`, `set!`, and `increment!`, validated at workflow construction - [@dblock](https://github.com/dblock).
 - [#77](https://github.com/dblock/ruby-gem-release/pull/77): Compose a shared lifecycle in the reviewed workflow instead of inheriting from the editing workflow; it no longer accepts `version:` or `changelog:` - [@dblock](https://github.com/dblock).
+- [#78](https://github.com/dblock/ruby-gem-release/pull/78): Wrap Git in reviewed source control rather than inheriting from it, so reviewed releases cannot stage, commit, tag, or push - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.6.0 (2026/11/11)
