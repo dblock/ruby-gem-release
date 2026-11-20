@@ -2,6 +2,7 @@
 
 ## 0.7.1 (Next)
 
+- [#80](https://github.com/dblock/ruby-gem-release/pull/80): Skip posting empty Danger report comments - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.7.0 (2026/11/20)

@@ -12,7 +12,7 @@ Ruby 3.3 or newer is supported. Install dependencies with `bundle install`, run 
 
 RuboCop includes Markdown prose checks with `rubocop-prose`, Ruby code block checks with `rubocop-md`, spelling checks with `rubocop-spellcheck`, and YAML checks with `rubocop-yaml`. Keep paragraphs on one source line, fix spelling mistakes, and add reviewed project vocabulary to `.spellcheck.txt`. Repository spelling checks cover comments and documentation, not Ruby strings; the standard license text is excluded from spelling and paragraph-length checks.
 
-Danger uses the reusable [danger-pr-comment](https://github.com/danger/danger-pr-comment) workflows. The read-only pull request job checks out full history and uses the default `danger dry_run` command, exporting a report instead of posting comments. A separate `workflow_run` job posts the report without checking out or executing contribution code. Keep full history available for fork commits and their merge base; the commenting workflow must be on `master` before it can respond to completed runs.
+Danger uses the reusable [danger-pr-comment](https://github.com/danger/danger-pr-comment) workflows. The read-only pull request job checks out full history and uses the default `danger dry_run` command, exporting a report instead of posting comments. A separate `workflow_run` job posts the report without checking out or executing contribution code. It does not create a comment for an empty report, but always updates an existing report comment. Keep full history available for fork commits and their merge base; the commenting workflow must be on `master` before it can respond to completed runs.
 
 ## Tests
 

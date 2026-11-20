@@ -145,11 +145,11 @@ RSpec.describe 'Release interface contracts' do
       expect(job).not_to have_key('secrets')
     end
 
-    it 'delegates completed-run commenting without executing contribution code' do
+    it 'delegates completed-run commenting without executing contribution code or posting empty reports' do
       expect(commenter.fetch(true)).to eq('workflow_run' => { 'workflows' => ['Danger'], 'types' => ['completed'] })
       expect(commenter.fetch('permissions')).to eq('actions' => 'read', 'issues' => 'write', 'pull-requests' => 'write')
       job = commenter.fetch('jobs').fetch('comment')
-      expect(job).to eq('uses' => 'danger/danger-pr-comment/.github/workflows/danger-comment.yml@v0.3.0')
+      expect(job).to eq('uses' => 'danger/danger-pr-comment/.github/workflows/danger-comment.yml@v0.3.0', 'with' => { 'comment-empty' => false })
     end
   end
 end
