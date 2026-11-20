@@ -70,6 +70,8 @@ gh api --method PUT repos/{owner}/{repo}/environments/release
 
 For a new gem, open the [pending trusted publishers page](https://rubygems.org/profile/oidc/pending_trusted_publishers). For an existing gem, open your existing gem's **Trusted publishers** page (e.g. `https://rubygems.org/gems/example/trusted_publishers`). Create a [trusted publisher](https://guides.rubygems.org/trusted-publishing/#using-reusable-workflows). Set the repository fields to your gem's repository, the workflow filename to `release.yml`, and the environment to `release`. Set the separate workflow repository fields to `dblock` and `ruby-gem-release`; these identify the reusable workflow RubyGems verifies in the OIDC token.
 
+To verify this setup without releasing, dispatch a [dry run](docs/actions/release.md#dry-run).
+
 Collaborators with write access can dispatch releases after this setup, without repository admin access or their own RubyGems credentials. Creating the environment alone does not restrict publication. Configure [required maintainer approval and deployment branches](RELEASING.md#maintainer-approved-publication) to control who approves publication.
 
 ### 4. Make a Release

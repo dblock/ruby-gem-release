@@ -40,7 +40,7 @@ bundle exec rake build
 
 The manual **Release** caller is [`.github/workflows/publish.yml`](.github/workflows/publish.yml). Merges and schedules do not publish. It uses Ruby 4.0, the root Rakefile, and `America/New_York` for release dates and Git timestamp offsets.
 
-Verify the existing RubyGems trusted publisher before dispatch. The caller passes the non-secret `RUBYGEMS_OWNER_ID` repository variable when set; this identifies an account, not an API key. Pending publishers need it for first publication.
+Verify the existing RubyGems trusted publisher before dispatch with a [dry run](docs/actions/release.md#dry-run), which exchanges credentials without releasing: `gh workflow run publish.yml --ref master -f dry-run=true`. The caller passes the non-secret `RUBYGEMS_OWNER_ID` repository variable when set; this identifies an account, not an API key. Pending publishers need it for first publication.
 
 Only after explicit authorization, successful validation, and confirmed setup:
 

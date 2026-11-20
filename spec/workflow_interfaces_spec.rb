@@ -21,6 +21,15 @@ RSpec.describe 'Release interface contracts' do
       end
     end
 
+    it 'checks release prerequisites after capture, before validation, edits, or publication' do
+      preflight = steps.find { |step| step['id'] == 'check_release_prerequisites' }
+      expect(preflight.fetch('run')).to eq('bundle exec rake release:workflow:preflight')
+      expect(preflight.dig('env', 'RELEASE_STEP_ID')).to eq('check_release_prerequisites')
+      expect(preflight.fetch('if', '${{ success() }}')).to eq('${{ success() }}')
+      expect(steps.index(preflight)).to be > steps.index { |step| step['id'] == 'capture_release_context' }
+      expect(steps.index(preflight)).to be < steps.index { |step| step['id'] == 'validate_release' }
+    end
+
     it 'transports enclosing step identities and observed history to configurable commands' do
       steps.select { |step| step.dig('env', 'RELEASE_COMMAND') }.each do |step|
         expect(step.dig('env', 'RELEASE_STEP_ID')).to eq(step.fetch('id'))
@@ -118,6 +127,22 @@ RSpec.describe 'Release interface contracts' do
 
     it 'passes the configured timezone to the release job' do
       expect(workflow.dig('jobs', 'release', 'env', 'TZ')).to eq('${{ inputs.timezone }}')
+    end
+
+    it 'runs only the prerequisite checks in the release environment for a dry run', :aggregate_failures do
+      expect(workflow.dig(true, 'workflow_call', 'inputs', 'dry-run')).to include('type' => 'boolean', 'default' => false)
+      expect(workflow.dig('jobs', 'release', 'if')).to eq('${{ !inputs.dry-run }}')
+      preflight = workflow.dig('jobs', 'preflight')
+      expect(preflight).to include('if' => '${{ inputs.dry-run }}', 'environment' => 'release')
+      expect(preflight.dig('env', 'RUBYGEMS_OWNER_ID')).to eq('${{ inputs.rubygems-owner }}')
+      expect(preflight.fetch('steps').map { |step| step['run'] }.compact).to eq(['bundle exec rake release:workflow:preflight'])
+      expect(preflight.fetch('steps').first.dig('with', 'persist-credentials')).to be(false)
+    end
+
+    it 'lets this repository dispatch a dry run of its own release' do
+      caller = YAML.load_file('.github/workflows/publish.yml')
+      expect(caller.dig(true, 'workflow_dispatch', 'inputs', 'dry-run')).to include('type' => 'boolean', 'default' => false)
+      expect(caller.dig('jobs', 'release', 'with', 'dry-run')).to eq('${{ inputs.dry-run }}')
     end
   end
 

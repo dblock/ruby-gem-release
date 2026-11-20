@@ -68,6 +68,8 @@ Register a RubyGems trusted publisher for the calling repository, its own workfl
 
 For maintainer-only publication, protect the caller job's `release` environment using [Maintainer-Approved Publication](../../RELEASING.md#maintainer-approved-publication). Other repository writers can dispatch, but publication waits for a designated maintainer to approve. Environments do not restrict who can dispatch, and an environment without protection rules does not restrict release access.
 
+The action checks [release prerequisites](release.md#release-prerequisites), including the trusted publisher, after context capture and before validation, edits, or publication. To check without releasing, run `bundle exec rake release:workflow:preflight` in a job of the same workflow file, in the `release` environment, with `id-token: write`. RubyGems matches the workflow file and environment, so a check from another workflow or environment does not prove the release job's configuration. The composite action has no dry-run input.
+
 For first publication, register a pending trusted publisher and supply its numeric account ID through `rubygems-owner`. Later publications can omit that input. The default `release:publish` task authenticates through the configured destination before invoking its publication callback; no separate YAML authentication step is needed. The RubyGems destination uses the [Ruby credentials helper](../workflow/ruby_gems_credentials.md) without a stored API key. It exports environment variables and does not create or modify `~/.gem/credentials`. Command overrides that bypass the task must own authentication as well as publication.
 
 ## Release and Recovery

@@ -62,4 +62,6 @@ The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, p
 
 ## Workflow Credentials
 
+`release:workflow:preflight` checks release prerequisites without editing files, pushing, or publishing. With a RubyGems destination it verifies Trusted Publishing through [`Workflow::RubyGemsCredentials#check!`](workflow/ruby_gems_credentials.md#check) with optional `RUBYGEMS_OWNER_ID`; other destinations skip that check. Both Actions interfaces run it in every release after context capture, and the reusable workflow runs only it for [dry runs](actions/release.md#dry-run).
+
 `release:workflow:credentials` directly invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with optional `RUBYGEMS_OWNER_ID`. It remains available for custom RubyGems commands, but neither Actions interface calls a separate authentication task. Normal authentication belongs to `release:publish` through the configured destination.

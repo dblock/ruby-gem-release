@@ -14,6 +14,12 @@ For first publication, find the ID on your Pending Trusted Publishers page. The 
 
 The direct task `release:workflow:credentials` remains available for custom commands and reads optional `RUBYGEMS_OWNER_ID` through its configured provider. GitHub Actions supplies `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, and `GITHUB_ENV`; the caller must grant `id-token: write`. Another provider must supply its own identity-token acquisition and export behavior; this does not add another platform's Trusted Publishing support.
 
+## Check
+
+`check!` performs the same token request and exchange as `configure!`, masks both credentials, and returns the token's `repository`, `job_workflow_ref`, and `environment` claims with the credential's `scopes`, `expires_at`, and asserted `owner` when present. It raises unless the credential grants `push_rubygem`. It exports nothing and discards the credential, which expires after 15 minutes. RubyGems does not report the publisher's gems, so a successful check does not prove that the publisher is attached to a particular gem.
+
+A rejected exchange from either method names the decoded `repository`, `job_workflow_ref`, and `environment` claims RubyGems matched against, without the token or response body. A token whose claims cannot be decoded produces the generic message.
+
 ## Custom Publication Commands
 
 Authentication is environment-only: the helper neither creates nor modifies `~/.gem/credentials`. This differs from the replaced `rubygems/configure-rubygems-credentials` action, which also wrote that file. Existing credential files are left untouched.

@@ -64,13 +64,40 @@ on:
         description: Command to run after a release job failure.
         type: string
         default: bundle exec rake release:failure
+      dry-run:
+        description: Check release prerequisites, such as RubyGems Trusted Publishing, without editing files, pushing, or publishing.
+        type: boolean
+        default: false
 
 concurrency:
   group: ruby-gem-release-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    if: ${{ inputs.dry-run }}
+    runs-on: ubuntu-latest
+    environment: release
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      RUBYGEMS_OWNER_ID: ${{ inputs.rubygems-owner }}
+    steps:
+      - uses: actions/checkout@v7
+        id: checkout
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        id: setup_ruby
+        with:
+          ruby-version: ${{ inputs.ruby-version }}
+          bundler-cache: true
+      - name: Check Release Prerequisites
+        id: check_release_prerequisites
+        env:
+          RELEASE_STEP_ID: check_release_prerequisites
+        run: bundle exec rake release:workflow:preflight
   release:
+    if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
     environment: release
     env:
@@ -105,6 +132,11 @@ jobs:
         env:
           RELEASE_STEP_ID: capture_release_context
         run: bundle exec rake release:workflow:capture
+      - name: Check Release Prerequisites
+        id: check_release_prerequisites
+        env:
+          RELEASE_STEP_ID: check_release_prerequisites
+        run: bundle exec rake release:workflow:preflight
       - name: Validate Release
         id: validate_release
         env:

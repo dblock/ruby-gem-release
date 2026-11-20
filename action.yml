@@ -96,6 +96,12 @@ runs:
       env:
         RELEASE_STEP_ID: capture_release_context
       run: bundle exec rake release:workflow:capture
+    - name: Check Release Prerequisites
+      id: check_release_prerequisites
+      shell: bash
+      env:
+        RELEASE_STEP_ID: check_release_prerequisites
+      run: bundle exec rake release:workflow:preflight
     - name: Validate Release
       id: validate_release
       shell: bash

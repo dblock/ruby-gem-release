@@ -6,6 +6,7 @@
 - [#80](https://github.com/dblock/ruby-gem-release/pull/80): Skip posting empty Danger report comments - [@dblock](https://github.com/dblock).
 - [#82](https://github.com/dblock/ruby-gem-release/pull/82): Create the default package and Git temporary directories only when release data is first used, so loading a workflow leaves none behind - [@dblock](https://github.com/dblock).
 - [#83](https://github.com/dblock/ruby-gem-release/pull/83): Name Intridea subsections with `sections:`, dropping sections without notes from a release and starting every Next section with all of them - [@dblock](https://github.com/dblock).
+- [#85](https://github.com/dblock/ruby-gem-release/pull/85): Verify RubyGems Trusted Publishing before every release with a `release:workflow:preflight` task, add a `dry-run` workflow input that runs only that check, and name the token claims in rejected exchanges - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.7.0 (2026/11/20)

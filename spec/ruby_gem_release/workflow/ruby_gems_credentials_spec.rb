@@ -96,6 +96,12 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
     expect(File).not_to exist(ENV.fetch('GITHUB_ENV'))
   end
 
+  it 'rejects a non-JSON exchange response without exporting credentials', :aggregate_failures do
+    responses[1] = Net::HTTPOK.new('1.1', '200', 'OK').tap { |result| allow(result).to receive(:body).and_return('<html>') }
+    expect { described_class.new.configure! }.to raise_error('Credential response was not valid JSON')
+    expect(File).not_to exist(ENV.fetch('GITHUB_ENV'))
+  end
+
   it 'does not export credentials when the exchange is rejected', :aggregate_failures do
     responses[1] = Net::HTTPForbidden.new('1.1', '403', 'Forbidden')
     expect { described_class.new(owner: '123').configure! }.to raise_error(/HTTP 403/)
@@ -113,5 +119,49 @@ RSpec.describe RubyGemRelease::Workflow::RubyGemsCredentials do
     expect(JSON.parse(requests.first.body)).to eq('jwt' => 'custom-oidc-token', 'owner' => '123')
     expect(values).to include('GEM_HOST_API_KEY' => 'custom-api-key')
     expect(File).not_to exist(ENV.fetch('GITHUB_ENV'))
+  end
+
+  describe '#check!' do
+    let(:claims) do
+      { 'repository' => 'owner/example', 'job_workflow_ref' => 'dblock/ruby-gem-release/.github/workflows/release.yml@refs/tags/v0.8.0',
+        'environment' => 'release', 'sub' => 'repo:owner/example:environment:release' }
+    end
+    let(:jwt) { ['header', [JSON.generate(claims)].pack('m0').tr('+/', '-_').delete('='), 'signature'].join('.') }
+    let(:responses) do
+      [success('value' => jwt), success('rubygems_api_key' => 'test-api-key', 'scopes' => ['push_rubygem'], 'expires_at' => '2026-11-20T20:15:00Z')]
+    end
+
+    it 'exchanges and masks credentials, reports the matched claims, and exports nothing', :aggregate_failures do
+      summary = nil
+      expect { summary = described_class.new.check! }.to output("::add-mask::#{jwt}\n::add-mask::test-api-key\n").to_stdout
+      expect(summary).to eq(claims.except('sub').merge('scopes' => ['push_rubygem'], 'expires_at' => '2026-11-20T20:15:00Z'))
+      expect(requests.last.path).to eq('/api/v1/oidc/trusted_publisher/exchange_token')
+      expect(File).not_to exist(ENV.fetch('GITHUB_ENV'))
+      expect(ENV).not_to include('GEM_HOST_API_KEY')
+    end
+
+    it 'reports the asserted owner for a pending trusted publisher' do
+      responses[1] = success('rubygems_api_key' => 'test-api-key', 'scopes' => ['push_rubygem'], 'owner' => 'maintainer')
+      expect(described_class.new(owner: '123').check!).to include('owner' => 'maintainer')
+      expect(JSON.parse(requests.last.body)).to include('owner' => '123')
+    end
+
+    it 'rejects a credential without push access' do
+      responses[1] = success('rubygems_api_key' => 'test-api-key', 'scopes' => ['show_dashboard'])
+      expect { described_class.new.check! }.to raise_error(/does not grant push_rubygem/)
+    end
+
+    it 'names the token claims RubyGems matched against when no trusted publisher accepts them' do
+      responses[1] = Net::HTTPNotFound.new('1.1', '404', 'Not Found')
+      expect { described_class.new.check! }.to raise_error(
+        'Credential request failed (HTTP 404); verify trusted publisher configuration and owner ID if supplied; the token presented ' \
+        'repository owner/example, job_workflow_ref dblock/ruby-gem-release/.github/workflows/release.yml@refs/tags/v0.8.0, environment release'
+      )
+    end
+
+    it 'omits claims it cannot decode from the failure' do
+      responses.replace([success('value' => 'opaque-token'), Net::HTTPNotFound.new('1.1', '404', 'Not Found')])
+      expect { described_class.new.check! }.to raise_error('Credential request failed (HTTP 404); verify trusted publisher configuration and owner ID if supplied')
+    end
   end
 end

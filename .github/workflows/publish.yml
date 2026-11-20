@@ -7,6 +7,10 @@ on:
         description: Optional release version overriding the checked-in version.
         type: string
         required: false
+      dry-run:
+        description: Check release prerequisites without editing files, pushing, or publishing.
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -20,3 +24,4 @@ jobs:
       version: ${{ inputs.version }}
       timezone: America/New_York
       rubygems-owner: ${{ vars.RUBYGEMS_OWNER_ID }}
+      dry-run: ${{ inputs.dry-run }}

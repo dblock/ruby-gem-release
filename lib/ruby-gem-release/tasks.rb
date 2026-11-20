@@ -8,6 +8,7 @@ require_relative 'version/ruby_constant'
 require_relative 'workflow/environment'
 require_relative 'workflow/failure'
 require_relative 'workflow/ruby_gems_credentials'
+require_relative 'workflow/preflight'
 require_relative 'destination/ruby_gems'
 
 module RubyGemRelease
@@ -98,11 +99,18 @@ module RubyGemRelease
       namespace :workflow do
         install_workflow_context_tasks
         task(:failure_phase) { Workflow::Failure.phase!(provider: @provider) }
+        install_preflight_task
         task(:credentials) do
           with_failure_capture('release:workflow:credentials') do
             Workflow::RubyGemsCredentials.new(owner: @provider.fetch('RUBYGEMS_OWNER_ID', ''), provider: @provider).configure!
           end
         end
+      end
+    end
+
+    def install_preflight_task
+      task(:preflight) do
+        with_failure_capture('release:workflow:preflight') { Workflow::Preflight.new(destination: @destination, provider: @provider).check! }
       end
     end
 
