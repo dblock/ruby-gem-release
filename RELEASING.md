@@ -74,7 +74,7 @@ Builds overwrite local artifacts reproducibly. Capture exports the committer tim
 
 Git reuses matching release and development trees without moving tags or rewinding remote descendants. Development bumps calculate from the supplied release version, so repetition does not increment twice. GitHub replaces differing release metadata, notes read from the changelog, and assets; unspecified platform-generated notes are retained.
 
-Actions preserves `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` before publication for 30 days. These are for manual inspection, not automatic restoration. Conflicting checksums or tags and unrelated branch advancement require investigation; do not overwrite immutable releases.
+Actions preserves `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` before publication for 30 days. These are for manual inspection, not automatic restoration. Conflicting checksums or tags and unrelated branch advancement require investigation; do not overwrite immutable releases. If the default branch advanced during publication, follow [the manual recovery](docs/actions/release.md#default-branch-advanced-during-publication).
 
 All custom commands and callbacks must be idempotent too. Notifications need receiver-side readback or a stable key such as `"release/example/1.2.3/success"`, never a run ID. They may execute again; without receiver support, exactly-once delivery and automatic detection of an unfinished notification are impossible. Release reconciliation proves package, Git, hosting, and development completion, not arbitrary external callback completion.
 

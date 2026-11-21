@@ -76,4 +76,4 @@ For first publication, register a pending trusted publisher and supply its numer
 
 With the sample, dispatch a first release using `gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID`, replacing `YOUR_ACCOUNT_ID` with your numeric account ID. For subsequent releases, omit `rubygems-owner`. Validate locally before authorizing publication.
 
-Artifacts must be preserved before publication. Reruns use the supplied checkout and inputs, not restored context or automatically discovered unfinished releases. See [Verify and Recover](../../RELEASING.md#verify-and-recover).
+Do not merge into the default branch while a release runs; see [recovery](release.md#default-branch-advanced-during-publication). Artifacts must be preserved before publication. Reruns use the supplied checkout and inputs, not restored context or automatically discovered unfinished releases. See [Verify and Recover](../../RELEASING.md#verify-and-recover).

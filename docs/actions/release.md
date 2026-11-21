@@ -164,6 +164,46 @@ GitHub also supplies standard variables such as `GITHUB_REPOSITORY` and `RUNNER_
 
 ## Recovery Artifacts
 
-The workflow requires `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` to be uploaded before publication, retained for 30 days under `release-gem-VERSION-RUN_ID-RUN_ATTEMPT`. These support manual inspection, not automatic restoration. See [RELEASING.md](../../RELEASING.md#verify-and-recover).
+The workflow requires `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` to be uploaded before publication, retained for 30 days under `release-gem-VERSION-RUN_ID-RUN_ATTEMPT`. These support manual inspection, not automatic restoration. See [RELEASING.md](../../RELEASING.md#verify-and-recover) and [recovery when the default branch advances during publication](#default-branch-advanced-during-publication).
 
 For already-reviewed commits, stable branches, existing signed tags, and explicitly supplied package collections, use the [reviewed workflow](../workflow/reviewed_ruby_gem.md). It retains publication guards but makes no release preparation commits, new tags, Git pushes, or development bumps. `prepare-artifacts` and `artifacts` support explicit retained inputs without artifact discovery; both interfaces expose the same inputs.
+
+### Default Branch Advanced During Publication
+
+Do not merge into the default branch while a release runs. The tag step fails before publication if the branch has moved since capture, but a merge after that check and before the release push leaves the gem published on RubyGems while the push fails with `Default branch advanced; start a new release`. The release tag, the release commit on the default branch, the GitHub Release, and the next development iteration are then missing. Rerunning does not recover: each run creates a new release commit, and tagging requires the branch to still be at the source commit. Recover manually from the preserved artifacts instead, replacing `1.2.3`, `example`, `RUN_ID`, and `ATTEMPT`:
+
+**Step 1.** Download the failed run's artifacts and confirm RubyGems published the preserved archive:
+
+```sh
+gh run download RUN_ID -n release-gem-1.2.3-RUN_ID-ATTEMPT -D release-artifacts
+jq -r .sha256 release-artifacts/release.json
+curl -s https://rubygems.org/api/v1/versions/example.json | jq -r '.[] | select(.number == "1.2.3") | .sha'
+```
+
+The digests must match. If they differ, or the version is missing, stop and investigate instead.
+
+**Step 2.** Import the release commit and tag from the bundle, and push the tag. It points at the release commit, whose parent is the dispatched source commit:
+
+```sh
+git fetch release-artifacts/release.bundle 'refs/tags/v1.2.3:refs/tags/v1.2.3'
+git push origin refs/tags/v1.2.3
+```
+
+**Step 3.** Merge the release commit into the default branch through a pull request, resolving conflicts with the changes merged during the release. Do not rewrite or move the tag.
+
+```sh
+git switch -c release-1.2.3 v1.2.3
+git push origin release-1.2.3
+gh pr create --head release-1.2.3 --title 'Release 1.2.3'
+```
+
+**Step 4.** Create the GitHub Release with the preserved archive under its gem file name, as normal releases attach it. Write the released changelog section to `NOTES.md`, or replace `--notes-file NOTES.md` with `--generate-notes`:
+
+```sh
+cp release-artifacts/release.gem example-1.2.3.gem
+gh release create v1.2.3 --verify-tag --title v1.2.3 --notes-file NOTES.md example-1.2.3.gem
+```
+
+**Step 5.** Start the next development iteration in a pull request that increments the version and adds the Next changelog section, as the bump would have.
+
+Do not dispatch a new release of the same version. RubyGems accepts only the identical archive, and a rebuilt release commit would not match the pushed tag.
