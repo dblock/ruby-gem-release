@@ -1,12 +1,12 @@
 # Composite Release Action
 
-Reference for [`action.yml`](../../action.yml), a step-based alternative to the [reusable workflow](release.md).
+Reference for [`action.yml`](../../action.yml), a step you add to your own job instead of calling the [reusable workflow](release.md).
 
 ## Setup
 
-Install a `ruby-gem-release` gem release compatible with your pinned action release in the calling project's development dependencies and configure its Rakefile as shown in [Usage](../../README.md#1-configure-your-gem). Upgrade them together when adopting breaking changes. The action uses that project's `Gemfile`, callbacks, and shared release tasks; it does not install a separate release configuration.
+Add a `ruby-gem-release` version that matches your pinned action version to your development dependencies, and configure the Rakefile as in [Usage](../../README.md#1-configure-your-gem). Upgrade both together. The action uses your `Gemfile`, callbacks, and release tasks.
 
-Save the following as `.github/workflows/release.yml`. Unlike a reusable workflow, an action cannot set its caller's runner, permissions, environment, or concurrency. Keep those job-level settings in the calling workflow:
+Save this as `.github/workflows/release.yml`. An action can't set the runner, permissions, environment, or concurrency, so your workflow sets them:
 
 ```yaml
 name: Release
@@ -44,36 +44,35 @@ jobs:
           rubygems-owner: ${{ inputs.rubygems-owner }}
 ```
 
-The action checks out the calling repository with full history and sets up Ruby with Bundler caching. It configures inputs, captures context, validates, prepares, resolves, tests, checkpoints and preserves artifacts, publishes, and prepares the next development iteration. Commands always run and own their idempotence. Immutable conflicts and unrelated branch advancement fail before publication. Use a GitHub-hosted Ubuntu runner, matching the reusable workflow's supported execution environment.
+The action checks out your repository with full history, sets up Ruby with Bundler caching, and runs the same steps as the [reusable workflow](release.md#execution): validate, prepare, test, checkpoint and preserve artifacts, publish, and bump. Each run uses only the current checkout and inputs, so commands must be safe to rerun. Conflicting tags and unrelated branch changes fail before publication. Use a GitHub-hosted Ubuntu runner, as the reusable workflow does.
 
 ## Inputs and Environment
 
-Inputs, command defaults, callback semantics, and exported environment variables match the [workflow reference](release.md#inputs). Set them under the action step's `with:` mapping rather than under a reusable-workflow job. All action inputs are strings. `gemfile` defaults to empty, which keeps a `BUNDLE_GEMFILE` the calling job already sets; a nonempty value is exported for all later steps before Ruby setup. Dispatching the sample workflow requests publication; configured environment protection rules must pass before the job runs.
+Inputs, defaults, callbacks, and environment variables match the [workflow reference](release.md#inputs), with these differences:
 
-For [already-reviewed source and package collections](../workflow/reviewed_ruby_gem.md), configure `Workflow::ReviewedRubyGem` in the Rakefile. Optional `prepare-artifacts` prepares explicit input archives after Ruby setup, before loading release tasks for input configuration and capture; `artifacts` adds newline-separated paths to artifact preservation. Both default to empty. Caller-provided commands retain release privileges and must use reviewed inputs.
+- Set inputs under the step's `with:`, not the job's.
+- All inputs are strings, and there is no `dry-run` input.
+- `gemfile` defaults to empty, which keeps any `BUNDLE_GEMFILE` your job already sets. A value is exported for all later steps before Ruby setup.
+- Inputs are exported through `GITHUB_ENV`, so they stay set for later steps in your job. `release:workflow:configure` rejects line breaks before exporting anything.
+- `timezone` exports `TZ`, which also affects your later steps. See [Timezone](release.md#timezone).
+- `failure` only sees failures inside the action, not in your own steps. See [Success and Failure Callbacks](release.md#success-and-failure-callbacks).
 
-Inputs are exported through `GITHUB_ENV` for subsequent steps in the job. `release:workflow:configure` rejects line breaks before exporting any values. Override commands execute with release privileges and must be trusted.
+Dispatching the sample workflow starts a real release once environment protection rules pass. Command overrides run with release credentials and must be trusted. For `validate` and `version`, see [Release Validation](release.md#release-validation) and [Release Version](release.md#release-version).
 
-`validate` checks preconditions before preparation and must exit nonzero on failure, including when there is nothing to release. Failure handling runs; downstream release operations do not. See [Release Validation](release.md#release-validation).
-
-The optional `version` input selects a release version in standard preparation. The configured version object's `set!` writes the selection; custom preparation commands and callbacks own their file updates and must honor the selection. An empty input releases the checked-in version. See [Release Version](release.md#release-version) for dispatch examples.
-
-The optional `timezone` input defaults to `UTC`; set `timezone: America/New_York` for Eastern Time, including daylight saving changes. The action validates the identifier and exports `TZ`, affecting subsequent release steps and any later steps in the caller's job. See [Timezone](release.md#timezone) for date capture and service timestamp behavior.
-
-The optional `success` and `failure` command inputs default to `bundle exec rake release:success` and `bundle exec rake release:failure`. Success runs after publication and the next development iteration succeed. Failure runs after a failed phase inside the composite action once Ruby setup has completed and receives a `RubyGemRelease::ReleaseFailure` with a captured Ruby exception when available. It cannot observe or handle failures in caller steps that run outside the action. See [Success and Failure Callbacks](release.md#success-and-failure-callbacks).
+For [already-reviewed source and package collections](../workflow/reviewed_ruby_gem.md), configure `Workflow::ReviewedRubyGem` in the Rakefile. `prepare-artifacts` runs after Ruby setup, before the release tasks load, to prepare explicit input archives. `artifacts` adds paths to preserve, one per line. Both default to empty and must use reviewed inputs.
 
 ## Trusted Publishing
 
-Register a RubyGems trusted publisher for the calling repository, its own workflow filename (`release.yml` above), and environment `release`. Leave the optional Workflow Repository fields blank: the composite action is a step in your workflow, not a reusable workflow from another repository.
+Register a RubyGems trusted publisher with your repository, your workflow filename (`release.yml` above), and environment `release`. Leave the Workflow Repository fields blank: the action is a step in your workflow, not a reusable workflow from another repository.
 
-For maintainer-only publication, protect the caller job's `release` environment using [Maintainer-Approved Publication](../../RELEASING.md#maintainer-approved-publication). Other repository writers can dispatch, but publication waits for a designated maintainer to approve. Environments do not restrict who can dispatch, and an environment without protection rules does not restrict release access.
+For first publication, pass the numeric account ID from the pending trusted publisher as `rubygems-owner`; omit it later. `release:publish` logs in with the [credentials helper](../workflow/ruby_gems_credentials.md) without a stored API key or `~/.gem/credentials`. A `publish` override that skips that task must log in itself.
 
-The action checks [release prerequisites](release.md#release-prerequisites), including the trusted publisher and the token's ability to push the release commit and tag, after context capture and before validation, edits, or publication. To check without releasing, run `bundle exec rake release:workflow:preflight` in a job of the same workflow file, in the `release` environment, with `id-token: write`. RubyGems matches the workflow file and environment, so a check from another workflow or environment does not prove the release job's configuration. The composite action has no dry-run input.
+To require approval from a maintainer, protect the `release` environment with [Maintainer-Approved Publication](../../RELEASING.md#maintainer-approved-publication). Other writers can still dispatch, but publication waits for approval. Environments can't limit who dispatches, and one without protection rules restricts nothing.
 
-For first publication, register a pending trusted publisher and supply its numeric account ID through `rubygems-owner`. Later publications can omit that input. The default `release:publish` task authenticates through the configured destination before invoking its publication callback; no separate YAML authentication step is needed. The RubyGems destination uses the [Ruby credentials helper](../workflow/ruby_gems_credentials.md) without a stored API key. It exports environment variables and does not create or modify `~/.gem/credentials`. Command overrides that bypass the task must own authentication as well as publication.
+The action runs the [release prerequisites](release.md#release-prerequisites) check before any edit or publication. To check without releasing, run `bundle exec rake release:workflow:preflight` in a job in the same workflow file and `release` environment, with `id-token: write`. RubyGems matches the workflow file and environment, so a check from elsewhere proves nothing about the release job.
 
 ## Release and Recovery
 
-With the sample, dispatch a first release using `gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID`, replacing `YOUR_ACCOUNT_ID` with your numeric account ID. For subsequent releases, omit `rubygems-owner`. Validate locally before authorizing publication.
+Dispatch the first release with `gh workflow run release.yml -f rubygems-owner=YOUR_ACCOUNT_ID`, using your numeric account ID. For later releases, omit `rubygems-owner`. Validate locally before you approve publication.
 
-Do not merge into the default branch while a release runs; see [recovery](release.md#default-branch-advanced-during-publication). Artifacts must be preserved before publication. Reruns use the supplied checkout and inputs, not restored context or automatically discovered unfinished releases. See [Verify and Recover](../../RELEASING.md#verify-and-recover).
+Do not merge into the default branch while a release runs; see [recovery](release.md#default-branch-advanced-during-publication). Reruns never restore an earlier run or pick up unfinished releases. See [Verify and Recover](../../RELEASING.md#verify-and-recover).

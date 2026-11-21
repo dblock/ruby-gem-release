@@ -1,6 +1,6 @@
 # `RubyGemRelease::Version::References`
 
-Decorates a version object to update explicitly selected files and patterns to the released version during `increment!`. Each regular expression must capture the version to replace as `version`:
+Wraps a version object so that `increment!` also updates chosen version references, such as install snippets in a README, to the released version. Each regular expression must capture the version as `version`:
 
 ```ruby
 require 'ruby-gem-release/version/ruby_constant'
@@ -17,14 +17,14 @@ version = RubyGemRelease::Version::References.new(
 
 ## Version
 
-The required `version:` argument is the wrapped object: [`RubyConstant`](ruby_constant.md), [`PlainText`](plain_text.md), or a custom object with `read`, `set!(value)`, and `increment!(from:)`. Objects missing any of them fail at construction. The decorator exposes only those three methods; `read` and `set!` delegate without updating references. Other methods of the wrapped object, such as `next_version`, are not exposed.
+`version:` is required: a [`RubyConstant`](ruby_constant.md), [`PlainText`](plain_text.md), or your own object with `read`, `set!(value)`, and `increment!(from:)`. A missing method raises at construction. The wrapper has only those three methods; `read` and `set!` pass through without touching references, and others such as `next_version` are not available.
 
 ## References
 
-The required `references:` argument maps literal file paths or Ruby `Dir.glob` patterns to arrays of patterns, expanded when `increment!` runs. Globs select files, exclude hidden names by default, and may match nothing; missing literal files raise an error. When selectors overlap, all their patterns apply in mapping order before the file is written. Each file receives only the patterns from selectors that match it. Configure only your project's references, and do not select the version value itself.
+`references:` is required. It maps file paths or `Dir.glob` patterns to arrays of regular expressions, expanded when `increment!` runs. Globs skip hidden files and may match nothing; a missing literal path raises. A file matched by several selectors gets all their patterns, in order. List only your project's references, not the version value itself.
 
 ## Increment
 
-`increment!` forwards `from:` and any additional keywords, such as `part:`, to the wrapped object. The wrapped version advances to the next development version, while matching references use `from:` (the released version), including on retries.
+`increment!` passes `from:` and other keywords, such as `part:`, to the wrapped object, which moves to the next development version. References are set to `from:`, the released version, including on retries.
 
-Reference files are read and their patterns applied before the wrapped increment, so unreadable files and invalid captures fail before the version changes, and no references are written if the wrapped increment rejects the input. Reference edits are then applied to each file's current content, so a selector that also matches the version file, such as a release comment in `version.rb`, preserves the new version. A file write failure after the increment can leave partial changes; retry using the same `from:` value.
+It reads all reference files and applies the patterns before the version changes, so unreadable files and unmatched captures raise first, and nothing is written if the wrapped `increment!` raises. Edits apply to each file's current content, so a pattern that also matches the version file keeps the new version. A write error after that can leave partial changes; retry with the same `from:`.

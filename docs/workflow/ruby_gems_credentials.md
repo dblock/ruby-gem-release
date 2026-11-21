@@ -1,35 +1,50 @@
 # `RubyGemRelease::Workflow::RubyGemsCredentials`
 
-Performs RubyGems Trusted Publishing exchanges for both existing gems and a new gem's first publication. The RubyGems destination invokes this helper as part of `release:publish` when automatic RubyGems authentication is selected. Neither YAML interface contains a registry-specific authentication step.
+`RubyGemsCredentials` uses RubyGems Trusted Publishing to trade the CI job's identity token for a short-lived API key, so you never store one. It works for existing gems and a new gem's first release. The RubyGems destination calls it during `release:publish`, so the YAML interfaces need no authentication step.
 
 ## Owner
 
-`RubyGemsCredentials.new(owner: nil, provider: ExecutionProvider.current)` accepts an optional positive numeric RubyGems account ID. An omitted, `nil`, or empty owner selects the existing-gem exchange without an owner field. A nonempty owner must be a positive numeric ID; spaces are not treated as an empty value.
+`RubyGemsCredentials.new(owner: nil, provider: ExecutionProvider.current)` takes an optional RubyGems account ID.
 
-For first publication, find the ID on your Pending Trusted Publishers page. The ID identifies the account that will own a newly created gem; it is not an API key. A matching, unexpired pending trusted publisher is still required.
+- For an existing gem, omit `owner` (or pass `nil` or an empty string).
+- For a first release, pass the numeric ID from your RubyGems Pending Trusted Publishers page. It names the account that will own the gem; it is not an API key. A matching, unexpired pending trusted publisher is still required.
+
+Any other value must be a positive number; spaces are rejected, not treated as empty.
 
 ## Configure
 
-`configure!` asks the [execution provider](../execution_provider.md) for an OIDC token with audience `rubygems.org` and posts `{jwt: token}` to RubyGems' trusted-publisher exchange endpoint, adding `owner` only when supplied. It delegates masking of the OIDC token and returned API key, then exports `RUBYGEMS_API_KEY`, `BUNDLE_GEM__PUSH_KEY`, and `GEM_HOST_API_KEY` through the provider. Only the GitHub provider reads Actions token-request variables or emits Actions logging commands.
+`configure!`:
 
-The direct task `release:workflow:credentials` remains available for custom commands and reads optional `RUBYGEMS_OWNER_ID` through its configured provider. GitHub Actions supplies `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, and `GITHUB_ENV`; the caller must grant `id-token: write`. Another provider must supply its own identity-token acquisition and export behavior; this does not add another platform's Trusted Publishing support.
+1. Asks the [execution provider](../execution_provider.md) for an OIDC token with audience `rubygems.org`.
+2. Posts `{jwt: token}`, plus `owner` if set, to the RubyGems trusted-publisher exchange endpoint.
+3. Masks the token and the returned API key in logs.
+4. Exports the key as `RUBYGEMS_API_KEY`, `BUNDLE_GEM__PUSH_KEY`, and `GEM_HOST_API_KEY`.
+
+On GitHub Actions, the caller must grant `id-token: write`; Actions supplies `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, and `GITHUB_ENV`. Other providers must fetch their own identity token and export values; this class adds no Trusted Publishing support for other platforms.
+
+The `release:workflow:credentials` task runs `configure!` for custom commands, reading optional `RUBYGEMS_OWNER_ID`.
 
 ## Check
 
-`check!` performs the same token request and exchange as `configure!`, masks both credentials, and returns the token's `repository`, `job_workflow_ref`, and `environment` claims with the credential's `scopes`, `expires_at`, and asserted `owner` when present. It raises unless the credential grants `push_rubygem`. It exports nothing and discards the credential, which expires after 15 minutes. RubyGems does not report the publisher's gems, so a successful check does not prove that the publisher is attached to a particular gem.
+`check!` tests your Trusted Publishing setup without exporting anything. It runs the same exchange as `configure!`, masks both credentials, and returns:
 
-A rejected exchange from either method names the decoded `repository`, `job_workflow_ref`, and `environment` claims RubyGems matched against, without the token or response body. A token whose claims cannot be decoded produces the generic message.
+- the token's `repository`, `job_workflow_ref`, and `environment` claims;
+- the key's `scopes`, `expires_at`, and `owner`, when present.
+
+It raises unless the key grants `push_rubygem`. The key is discarded; it expires after 15 minutes. RubyGems does not report which gems a publisher covers, so a passing check does not prove it is attached to your gem.
+
+If RubyGems rejects the exchange, the error lists the token's `repository`, `job_workflow_ref`, and `environment` claims, but not the token or response body. If the claims cannot be decoded, the error is generic.
 
 ## Custom Publication Commands
 
-Authentication is environment-only: the helper neither creates nor modifies `~/.gem/credentials`. This differs from the replaced `rubygems/configure-rubygems-credentials` action, which also wrote that file. Existing credential files are left untouched.
+This class only sets environment variables. Unlike the `rubygems/configure-rubygems-credentials` action it replaces, it never creates or changes `~/.gem/credentials`.
 
-Ruby publication callbacks invoked by `release:publish` receive the authenticated environment. Custom publication commands must inherit the exported environment and use `GEM_HOST_API_KEY`, `RUBYGEMS_API_KEY`, or `BUNDLE_GEM__PUSH_KEY` as appropriate for their tool. Do not assume a credentials file exists or rely on named keys in that file. The standard `gem push` publication uses `GEM_HOST_API_KEY`. Credentials are short-lived and must not be logged or persisted in release artifacts.
+Ruby publication callbacks run by `release:publish` see the exported variables. A custom publication command must inherit them and use `GEM_HOST_API_KEY`, `RUBYGEMS_API_KEY`, or `BUNDLE_GEM__PUSH_KEY`, whichever its tool reads; the standard `gem push` uses `GEM_HOST_API_KEY`. Do not assume a credentials file or named keys exist. Never log the key or save it in release artifacts.
 
-A `publish` command override that bypasses `release:publish` also bypasses destination authentication and must perform it explicitly. For RubyGems, it can invoke `release:workflow:credentials` before its own publication command. Prefer registering a custom Ruby publication callback and retaining the default task so the configured destination handles authentication automatically.
+A `publish` command override that skips `release:publish` also skips authentication, so run `release:workflow:credentials` first. Better, keep the default task and register a Ruby publication callback, so the destination authenticates for you.
 
-This helper supports only the RubyGems Trusted Publishing exchange, not API-token inputs, role assumption, or alternate gem servers.
+This class supports only the RubyGems Trusted Publishing exchange. It does not take API tokens, assume roles, or support other gem servers.
 
 ## Errors
 
-Requests use HTTPS and bounded connection/read timeouts, without retries. Invalid IDs, failed requests, malformed JSON, and invalid tokens fail before credentials are exported. Response bodies are not included in errors because they may contain credentials.
+Requests use HTTPS with timeouts and no retries. Invalid IDs, failed requests, malformed JSON, and invalid tokens fail before anything is exported. Errors never include response bodies, because they may contain credentials.

@@ -1,57 +1,64 @@
 # `RubyGemRelease::Workflow::RubyGem`
 
-Installs the standard Ruby gem release sequence through [`Tasks`](../tasks.md), using the existing package, source control, and hosting objects. See [Usage](../../README.md#usage) for the minimal setup or [Detailed Usage](../usage.md) for manual callbacks.
+`Workflow::RubyGem` installs the standard gem release tasks through [`Tasks`](../tasks.md). Only `version:` and `changelog:` are required. See [Usage](../../README.md#usage) for the minimal setup or [Detailed Usage](../usage.md) for manual callbacks.
 
 ## Version
 
-The required `version:` object implements `read`, `set!(value)`, and `increment!(from:)`; construction fails when any is missing. Bumps always calculate from `release.version`, so repetition writes the same next version. The initial gemspec version remains `release.gemspec_version`.
+The required `version:` object implements `read`, `set!(value)`, and `increment!(from:)`; construction fails if any is missing. The next version is always calculated from `release.version`, so a rerun writes the same value.
 
 ## Next Version
 
-The optional `next_version:` selects the part incremented for the next development iteration: `:patch` (default), `:minor`, or `:major`, as a Symbol or String. For example, `next_version: :minor` starts `1.3.0` after releasing `1.2.0` or `1.2.1`. The default calls `increment!(from:)` unchanged; other parts call `increment!(from:, part:)`, which [`RubyConstant`](../version/ruby_constant.md), [`PlainText`](../version/plain_text.md), and [`References`](../version/references.md) support. Construction rejects other values, and rejects `:minor` or `:major` when the version object's `increment!` does not accept `part:`, so an unsupported selection fails before publication.
+Optional `next_version:` picks the part to increment for the next development version: `:patch` (default), `:minor`, or `:major`, as a Symbol or String. For example, `next_version: :minor` starts `1.3.0` after releasing `1.2.0` or `1.2.1`.
+
+`:patch` calls `increment!(from:)`; the others call `increment!(from:, part:)`, which [`RubyConstant`](../version/ruby_constant.md), [`PlainText`](../version/plain_text.md), and [`References`](../version/references.md) support. Construction fails for other values, or for `:minor` and `:major` when your `increment!` does not accept `part:`.
 
 ## Changelog
 
-The required `changelog:` object implements `release!(release)` and `prepare_next!(release)`. Choose [`KeepAChangelog`](../changelog/keep_a_changelog.md) or [`Intridea`](../changelog/intridea.md) explicitly. Set `changelog: nil` to skip changelog updates without skipping version incrementing.
+The required `changelog:` object implements `release!(release)` and `prepare_next!(release)`. Choose [`KeepAChangelog`](../changelog/keep_a_changelog.md) or [`Intridea`](../changelog/intridea.md). Set `changelog: nil` to skip changelog updates; the version is still incremented.
 
-Default validation requires `released?(release.version)` or `pending?`. This permits repetition after changelog preparation; otherwise empty pending notes raise before edits. Custom changelog objects must implement both queries or supply `validate: ->(ctx) { ... }`, raising on invalid state. Returning `false` also fails. With `changelog: nil`, validation passes. Direct `release!` calls reject empty notes unless that version already has a release heading.
+Default validation passes when the changelog has pending notes (`pending?`) or already has this version's section (`released?(release.version)`), so reruns work. It always passes with `changelog: nil`. A custom changelog must implement both queries, or you pass `validate: ->(ctx) { ... }`, which must raise on invalid state; returning `false` also fails. Calling `release!` directly fails on empty notes unless the version already has a release heading.
 
 ## Package
 
-The optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md), supplying capture, prepared-version checks, and reproducible builds. Implement `version`, `build!(release)`, `artifact(release)`, and `built?(release)` for equivalent verification and publication. `gemspec` remains optional for capture.
+Optional `package:` defaults to [`Package::RubyGem`](../package/ruby_gem.md), which reads versions and builds reproducible gems. A custom package implements `version`, `build!(release)`, `artifact(release)`, and `built?(release)`; `gemspec` is optional.
 
 ## Destination
 
-The optional `destination:` defaults to [`Destination::RubyGems`](../destination/ruby_gems.md). A registry destination implements `authenticate!(provider:)`, `published?(release, package:)`, `publish!(release, package:)`, and `authentication`. Subclass [`Destination`](../destination.md) for the default credential-retaining authentication hook.
+Optional `destination:` defaults to [`Destination::RubyGems`](../destination/ruby_gems.md). A registry destination implements `authenticate!(provider:)`, `published?(release, package:)`, `publish!(release, package:)`, and `authentication`. Subclass [`Destination`](../destination.md) for a default authentication hook that keeps existing credentials.
 
-The same package and destination are supplied to prepared-version resolution and publication. Custom destinations therefore do not run the default RubyGems version checks or authentication. Destination publication must preserve exact-artifact identity and stop before the Git push on failure.
+The same package and destination are used to check the prepared version and to publish, so a custom destination replaces the RubyGems checks and authentication. It must publish the exact built archive and raise on failure, so the Git push does not happen.
 
 ## Git
 
-The optional `git:` defaults to [`SourceControl::Git`](../source_control/git.md). Custom objects implement `stage_changes!` (yielding to trusted edits), `commit!`, `tag!`, `push!`, and `commit_next!`. Defaults use the provider's directory and checkout branch. Capture separately configures and checks checkout-local Git; task installation does not alter Git configuration.
+Optional `git:` defaults to [`SourceControl::Git`](../source_control/git.md) in the provider's directory and checked-out branch. A custom object implements `stage_changes!` (yielding to the file edits), `commit!`, `tag!`, `push!`, and `commit_next!`. Capture configures and checks Git in the checkout; installing tasks changes no Git configuration.
 
 ## Execution Provider
 
-The optional `provider:` defaults to [`ExecutionProvider.current`](../execution_provider.md). It supplies inputs, environment transport, execution contexts, temporary storage, and platform-specific authentication services. The same provider is passed to the installed tasks and context checks. Execution providers do not select hosting or registry destinations; no GitLab implementation is included.
+Optional `provider:` defaults to [`ExecutionProvider.current`](../execution_provider.md). It supplies inputs, passes values between steps, builds execution contexts, and provides temporary storage and platform authentication. It does not choose hosting or the registry. No GitLab provider is included.
 
 ## Hosting
 
-The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github_release.md). Custom objects implement idempotent `publish!(release, package:)`. When the changelog implements `notes(version)`, as the built-in formats do, the hosted release receives the released section as its notes, read before any publication so a missing or empty section fails before the gem is pushed. Releases that already carry notes, such as semantic releases, keep them; changelogs without `notes` and `changelog: nil` keep platform-generated notes. Set `hosting: nil` to disable hosting without disabling registry publication or Git.
+Optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github_release.md). A custom object implements `publish!(release, package:)`, which must be safe to repeat. Set `hosting: nil` to skip hosted releases while still publishing the gem and pushing to Git.
+
+The hosted release uses the release's own notes when it has them, as semantic releases do. Otherwise it uses `changelog.notes(version)`, which both built-in formats implement. These notes are read before anything is published, so a missing or empty section fails before the gem is pushed. Without `notes`, or with `changelog: nil`, the platform generates the notes.
 
 ## Install Tasks
 
-`install_tasks` registers preparation, publication, next development iteration, success, failure, and workflow-context tasks. It does not immediately release or change project files. Use it instead of manual `Tasks.install` callback configuration, not alongside another installation.
+`install_tasks` registers the release tasks without running them or changing files. Use it instead of `Tasks.install` with manual callbacks, never both. A release runs these steps:
 
-Preparation updates the changelog with the selected version. In Actions, the checkpoint commits, builds, and tags before artifacts are preserved. Publication then authenticates as needed, repeats those three operations, publishes the package, pushes the release commit and tag, and updates hosting. The next development iteration prepares, commits, and pushes the next version.
+1. Preparation applies an explicit version, if given, and updates the changelog.
+2. In Actions, a checkpoint commits, builds, and tags, then the artifacts are saved.
+3. Publication authenticates if needed, repeats the commit, build, and tag, publishes the package, pushes the release commit and tag, and creates the hosted release.
+4. The next development version is prepared, committed, and pushed.
 
-Pass optional `success:` and `failure:` callbacks for notifications. Success receives an execution context after the next development iteration completes; failure receives a `RubyGemRelease::ReleaseFailure`. Early failures may not have a release context, and failure callbacks do not turn a failed workflow into a successful one.
+Optional `success:` and `failure:` callbacks send notifications. `success` receives an execution context after the next version is pushed. `failure` receives a `RubyGemRelease::ReleaseFailure`, which may have no release after an early failure. A failure callback never makes a failed run succeed.
 
-Contexts expose the configured `ctx.workflow`. Each process reconstructs the workflow from the Rakefile; it is not serialized across Actions steps.
+Contexts expose the workflow as `ctx.workflow`. Each process rebuilds it from the Rakefile.
 
 ## Lifecycle Hooks
 
-Use `before(stage)` and `after(stage)` hooks to add checks or project edits without replacing callbacks. Preparation hooks run inside trusted Git staging. See the [hook guide](hooks.md) for ordering, safety, and an example.
+Use `before(stage)` and `after(stage)` hooks to add checks or file edits without replacing callbacks. See the [hook guide](hooks.md).
 
 ## Errors
 
-Errors stop the sequence. Default objects preserve concurrency checks, artifact verification, recovery bundles, and package-before-tag ordering. A failure context may not have a release if capture failed; custom operations must preserve publication order and artifact identity.
+Any error stops the release. The default objects keep concurrency checks, artifact verification, recovery bundles, and build-before-tag order. If you replace an operation, keep the publication order and publish the exact built artifact.

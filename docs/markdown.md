@@ -1,6 +1,6 @@
 # Updating Markdown Sections
 
-Use `RubyGemRelease::Markdown::Section` to replace a section's body while keeping project-specific wording and version links in your hooks:
+`RubyGemRelease::Markdown::Section` edits the body of one Markdown section, so hooks can keep your own wording and version links current:
 
 ```ruby
 require 'ruby-gem-release/markdown/section'
@@ -15,16 +15,16 @@ workflow.after(:prepare_release) do |ctx|
 end
 ```
 
-`heading:` is the complete, exact heading line, with one to six leading `#` characters. There must be exactly one matching top-level Markdown heading; headings inside code, quotes, and HTML examples do not count. Missing or duplicate headings raise before writing.
+`heading:` is the exact, full heading line, with one to six `#`. Exactly one top-level heading must match; headings in code, quotes, and HTML do not count. Missing or duplicate headings raise before writing; `validate!` checks only.
 
-`replace!` replaces everything after that heading through the next equal-or-shallower heading, including nested subsections. It preserves surrounding source, normalizes the replacement's line endings to the file, and accepts repeated replacement. Mixed or unsupported line endings are rejected.
+`replace!(body)` replaces everything after the heading up to the next heading of the same or higher level, including subsections. The rest of the file is kept, `body` line endings are converted to the file's, and repeating it is safe. Mixed or unsupported line endings raise.
 
-Use `gsub!(pattern, replacement)` to replace matching text without replacing the whole body:
+`gsub!(pattern, replacement)` replaces matching text in the body only:
 
 ```ruby
 stable.gsub!(/version \d+\.\d+\.\d+/, 'version 0.2.0')
 ```
 
-Like `String#gsub!`, the pattern can be a string or regular expression, and replacement strings support capture references. All matches within the body are replaced, including matches in nested subsections and code examples; the heading and surrounding sections remain unchanged. Existing formatting and the final newline are preserved, and inserted line endings follow the file's style. With no matches, it returns `nil` without writing. Missing or duplicate section headings still raise.
+It works like `String#gsub!`: a string or regular expression, with capture references in the replacement. All matches in the body are replaced, including subsections and code; the heading and other sections are unchanged. Formatting and the final newline are kept. With no match it returns `nil` and writes nothing.
 
-The [lifecycle-hooks example](../examples/lifecycle_hooks/release_notes.rb) uses this helper for its stable and development README text. Keep assertions about that wording and the project's release behavior in the project's [custom workflow specs](testing.md).
+The [lifecycle hooks example](../examples/lifecycle_hooks/release_notes.rb) uses this for its stable and development README text. Test that wording and your release behavior in your own [custom workflow specs](testing.md).

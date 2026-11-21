@@ -1,12 +1,12 @@
 # Releasing `ruby-gem-release` Itself
 
-This project uses the standard workflow with three small customizations: its existing changelog format, a version object that also updates README and documentation pins, and a caller-selected timezone. GitHub Actions, RubyGems Trusted Publishing, package construction, Git publication, and hosted releases retain their defaults.
+This project uses the standard workflow with three changes: its own changelog format, a version object that also updates version pins in README and documentation, and a chosen timezone. Everything else uses the defaults.
 
-The working implementation lives in the root [Rakefile](../../Rakefile), [`ReleaseVersion`](../../tasks/release_version.rb), and [publish workflow](../../.github/workflows/publish.yml). This walkthrough explains those files rather than maintaining a second release configuration.
+The real configuration is in the root [Rakefile](../../Rakefile), [`ReleaseVersion`](../../tasks/release_version.rb), and the [publish workflow](../../.github/workflows/publish.yml). This walkthrough explains those files.
 
 ## 1. Choose the Project Conventions
 
-The Rakefile supplies the version object and the existing [`Intridea` changelog format](../../docs/changelog/intridea.md):
+The Rakefile sets the version object and the [`Intridea` changelog format](../../docs/changelog/intridea.md):
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'
@@ -19,21 +19,25 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-The root Rakefile also installs development tasks; those are unrelated to release customization. Standard validation fails when there are no pending notes or existing heading for the selected release.
+The root Rakefile also defines development tasks unrelated to releasing. Validation fails if the changelog has no pending notes and no heading for the release.
 
 ## 2. Decorate the Version Update
 
-The project-local `ReleaseVersion.build` wraps a `Version::RubyConstant` in `Version::References`, configured with `readme_path:` and every `docs/**/*.md` file. Its `increment!(from:)` pins this repository's action and reusable workflow to the supplied release version, increments the wrapped version from that same input, writes changed files, and returns the next version. Repetition leaves the version and pins unchanged.
+`ReleaseVersion.build` wraps a `Version::RubyConstant` in `Version::References` for `readme_path:` and every `docs/**/*.md` file. Its `increment!(from:)` does three things:
 
-For example, publishing `0.5.0` results in README and documentation references to `v0.5.0` and a development version of `0.5.1`. These are deliberately different values.
+1. Pins this repository's action and reusable workflow references to the release version.
+2. Increments the wrapped version from that same release version.
+3. Writes the changed files and returns the next version.
 
-The standard workflow wraps `increment!` and changelog preparation in the same trusted Git staging boundary. All changed files therefore belong to the **next development iteration commit**, after the release commit and tag have already been published. The `v0.5.0` tag does not receive later README or documentation edits. No custom publication callback or hard-coded staging list is necessary.
+Running it again changes nothing. For example, releasing `0.5.0` pins references to `v0.5.0` and sets the development version to `0.5.1`.
 
-Use the [actual configuration](../../tasks/release_version.rb) as the complete implementation. When adapting it to another project, change the version-file path, documentation directory, and repository-specific reference pattern.
+The workflow stages these edits together with the next changelog section. They go into the **next development commit**, after the release commit and tag are pushed, so the `v0.5.0` tag never contains them. No custom publication callback or file list is needed.
+
+To adapt [the configuration](../../tasks/release_version.rb) to another project, change the version file path, documentation directory, and reference pattern.
 
 ## 3. Configure the Caller
 
-The project's [publish workflow](../../.github/workflows/publish.yml) calls its own reusable workflow:
+The [publish workflow](../../.github/workflows/publish.yml) calls this repository's own reusable workflow:
 
 ```yaml
 jobs:
@@ -44,16 +48,15 @@ jobs:
       version: ${{ inputs.version }}
       timezone: America/New_York
       rubygems-owner: ${{ vars.RUBYGEMS_OWNER_ID }}
+      dry-run: ${{ inputs.dry-run }}
 ```
 
-The complete caller defines manual dispatch, its optional version input, and the required contents-write and identity-token permissions. The timezone controls the release date and Git timestamp offsets, not registry timestamps. The non-secret owner variable identifies the RubyGems account for first publication; it is not an API key.
+The full file also defines manual dispatch, the optional `version` and `dry-run` inputs, and the `contents: write` and `id-token: write` permissions. The timezone sets the release date and Git timestamp offsets, not registry timestamps. `RUBYGEMS_OWNER_ID` is a non-secret account ID needed only for a first release; it is not an API key.
 
-Other repositories should use a released workflow reference as shown in the [default setup](../../README.md#usage), rather than copying this project's local `uses:` reference. Trusted Publishing, environment protection, and branch permissions still need the [normal setup](../../RELEASING.md).
+Other repositories should use a released workflow reference, as in the [default setup](../../README.md#usage), not this local `uses:` path. They still need the [normal setup](../../RELEASING.md) for Trusted Publishing, environment protection, and branch permissions.
 
 ## 4. Follow the Standard Release Sequence
 
-After authorized manual dispatch, the workflow captures and validates the checkout, checks for pending notes, prepares the selected version and changelog, resolves the prepared gemspec, and runs tests. It then authenticates, commits and builds the release, tags locally, publishes the exact gem, pushes the release commit and tag, and creates the GitHub Release.
+After an authorized dispatch (see [Releasing This Project](../../RELEASING.md#releasing-this-project)), the workflow runs the [standard steps](../../docs/actions/release.md#execution). The version bump and pin updates happen only after publication succeeds.
 
-Only after publication succeeds does it increment the version, update README pins, prepare the next changelog section, and push the next development iteration commit. Standard recovery artifacts and failure handling remain in place.
-
-For more extensive changes to execution, release decisions, generated notes, and hosting, continue with the [GitLab and semantic-release example](../gitlab_semantic_release/README.md).
+For bigger changes to execution, version selection, generated notes, or hosting, see the [GitLab and semantic-release example](../gitlab_semantic_release/README.md).

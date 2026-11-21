@@ -1,6 +1,6 @@
 # `RubyGemRelease::Workflow::SemanticRubyGem`
 
-Select releases from commits instead of handwritten pending notes. Keep the same [runtime and release setup](ruby_gem.md) and manually dispatched Actions interface; this does not enable triggers or authorize publication.
+The semantic workflow picks the next version from commit messages instead of handwritten changelog notes. Setup and the manually dispatched Actions workflow match the [standard workflow](ruby_gem.md); it adds no automatic triggers.
 
 ```ruby
 require 'ruby-gem-release/workflow/semantic_ruby_gem'
@@ -10,15 +10,13 @@ RubyGemRelease::Workflow::SemanticRubyGem.new(
 ).install_tasks
 ```
 
-Install only one workflow. Execution, package, destination, Git, hosting, and result callbacks remain independently replaceable.
-
-Use the same [lifecycle hooks](hooks.md) without replacing semantic analysis or publication. After validation, hooks can inspect the selected decision and version. Development hooks run only when `bump: true`.
+Install only one workflow. The provider, package, destination, Git, hosting, and callbacks are still replaceable. [Lifecycle hooks](hooks.md) can read the release decision and version after validation; development hooks run only with `bump: true`.
 
 ## History and Versions
 
-Validation selects the highest reachable stable `vMAJOR.MINOR.PATCH` tag, not the nearest or newest. Annotated and lightweight tags work; unrelated, prerelease, metadata, and alternate-format tags are ignored. Shallow checkouts fail. Capture fetches tags and checks remote advancement; supply full history.
+The last release is the highest stable `vMAJOR.MINOR.PATCH` tag reachable from the current commit, not the nearest or newest. Annotated and lightweight tags count; prerelease, metadata, other-format, and unreachable tags do not. Shallow checkouts fail, so check out full history.
 
-Analysis covers all reachable commits initially, then commits after the selected tag. First release defaults to `1.0.0` regardless of severity; override it with:
+Commits after that tag are analyzed, or all commits if there is none. The first release is `1.0.0` whatever the commits say. To change it:
 
 ```ruby
 semantic = RubyGemRelease::SemanticRelease.new(
@@ -31,15 +29,22 @@ RubyGemRelease::Workflow::SemanticRubyGem.new(
 ).install_tasks
 ```
 
-Later versions increment the last release, resetting lower components. Development versions do not affect selection. `release.gemspec_version` remains the initial gemspec version; `ctx.analysis.last_release` is the release baseline.
+Later releases increment the last release and reset lower parts, for example `1.2.3` to `1.3.0`. Development versions are ignored; `ctx.analysis.last_release` holds the last release.
 
-Explicit `version` can force a release without releasable commits. It must exceed the last release, not necessarily the development or suggested version. Preparation writes it through the version object's `set!`; all later phases must match the persisted selection.
+An explicit `version` input forces a release, even without releasable commits. It must be higher than the last release. Preparation writes it with `set!`, and later steps must see the same version.
 
 ## Conventional Commits
 
-The default analyzer understands `type(scope)!: description` headers and multiline `BREAKING CHANGE:` or `BREAKING-CHANGE:` notes. Breaking changes select major; `feat` selects minor; `fix` and `perf` select patch. A Git revert of an older change selects patch. Original/revert pairs within the analyzed range cancel each other, including abbreviated commit references. Other commit types and unstructured messages do not select a release by default. The highest applicable release type wins.
+The default analyzer reads [Conventional Commits](https://www.conventionalcommits.org/) headers like `type(scope)!: description` and `BREAKING CHANGE:` or `BREAKING-CHANGE:` notes. The highest match wins:
 
-Custom rules use Ruby symbol keys and shell-style glob matching through `File.fnmatch?`, not JavaScript micromatch:
+- A breaking change selects a major release.
+- `feat` selects minor.
+- `fix`, `perf`, and a Git revert of an older change select patch.
+- Other types and unstructured messages select nothing.
+
+A commit and its revert in the analyzed range cancel out, even with an abbreviated hash.
+
+Custom rules use symbol keys and shell-style globs (`File.fnmatch?`), not JavaScript micromatch:
 
 ```ruby
 analyzer = RubyGemRelease::SemanticRelease::ConventionalCommits.new(
@@ -52,31 +57,37 @@ analyzer = RubyGemRelease::SemanticRelease::ConventionalCommits.new(
 semantic = RubyGemRelease::SemanticRelease.new(analyzer: analyzer)
 ```
 
-Supported selectors are `type`, `scope`, and `subject` strings, plus boolean `breaking` and `revert` selectors. A rule matches when all its selectors match. Matching custom rules replace defaults for that commit; the highest positive match wins, or `false` suppresses it if there is no positive match. Unmatched commits fall back to defaults. Use `release: :major`, `:minor`, `:patch`, or `false`.
+A rule matches `type`, `scope`, and `subject` strings and boolean `breaking` and `revert`; all its selectors must match. `release:` is `:major`, `:minor`, `:patch`, or `false`. Matching rules replace the defaults for that commit: the highest positive match wins, otherwise `false` suppresses it. Unmatched commits use the defaults.
 
-No releasable commits raises a validation error before downstream operations; the failure callback reports it. Handwritten pending notes do not affect selection. Optional `validate:` raises on invalid state; returning `false` also fails. Its context is the starting snapshot, while subsequent tasks see newly recorded analysis.
+If no commit is releasable, validation raises and the failure callback reports it; pending notes do not count. An optional `validate:` callback must raise on invalid state, and returning `false` also fails. It receives the starting context; later tasks see the recorded analysis.
 
 ## Notes and Changelog
 
-Generated notes group features, fixes, performance improvements, and other changes, include short commit identifiers, and list breaking-change descriptions separately. Canceled revert pairs are omitted. Headers are escaped for Markdown; breaking descriptions retain their Markdown. Notes are platform-neutral, without guessed host URLs. A forced release with no commits has an explicit-version note.
+Generated notes group features, fixes, performance improvements, and other changes with short commit hashes, and list breaking changes separately. Canceled reverts are left out. Headers are escaped for Markdown; breaking-change text keeps its Markdown. Notes have no host URLs. A forced release with no commits gets an explicit-version note.
 
-The default `Changelog::Generated` creates `CHANGELOG.md` if absent or inserts a dated `## VERSION (YYYY/MM/DD)` section before existing second-level sections, preserving historical source and line endings. Use it with a dedicated generated changelog, not a handwritten pending-section convention. It rejects duplicate release headings and content-free notes. It does not create an unreleased section or edit the changelog during a development bump.
+The default `Changelog::Generated` creates `CHANGELOG.md` if missing and inserts a dated `## VERSION (YYYY/MM/DD)` section above existing second-level sections, keeping the rest of the file and its line endings. Use it only for a generated changelog, not one with a handwritten pending section. It rejects duplicate headings and empty notes, never adds an unreleased section, and is not changed by a development bump.
 
-Set `changelog: nil` to disable file updates, or supply an object whose `release!(release)` consumes `release.notes`. With `bump: true`, also implement `prepare_next!(release)`. A handwritten changelog provider is not automatically converted to generated notes.
+Set `changelog: nil` to skip file updates, or pass an object whose `release!(release)` uses `release.notes`; with `bump: true` it also needs `prepare_next!(release)`. Handwritten changelog classes do not switch to generated notes.
 
-GitHub hosting passes frozen `release.notes` verbatim through a private file; manual workflows retain `--generate-notes`. Custom hosting must use supplied notes and the exact artifact, not reanalyze.
+GitHub hosting uses `release.notes` unchanged; the manual workflows use `--generate-notes`. Custom hosting must use the supplied notes and exact artifact, not analyze commits again.
 
 ## Development Iterations
 
-With default `bump: false`, the installed bump task does nothing and `release.next_version` stays `nil`. `bump: true` enables the standard increment, commit, and push, using patch unless [`next_version:`](ruby_gem.md#next-version) selects another part. Future selection still uses released tags. Manual workflows continue to bump automatically.
+With the default `bump: false`, the bump task does nothing and `release.next_version` stays `nil`. `bump: true` increments, commits, and pushes the next version, using patch unless [`next_version:`](ruby_gem.md#next-version) says otherwise. Selection still uses release tags. Manual workflows always bump.
 
 ## State and Callbacks
 
-Validation records one immutable `SemanticRelease::Decision` through `ctx.record_analysis!`. Its fields are `head`, `last_release`, `commits`, `release_type`, `version`, `notes`, and `explicit_version`. `last_release` is `nil` or a frozen hash with string keys `tag`, `version`, and `commit`. `commits` retains the full analyzed range as frozen hashes with `sha` and complete `message`, including commits canceled for release analysis. A no-release decision has `nil` release type, version, and notes.
+Validation records one immutable `SemanticRelease::Decision` with `ctx.record_analysis!`:
 
-Later contexts expose persisted analysis without rerunning providers or mutating earlier snapshots. Private invocation-local JSON contains only `analysis` and `next_version`; recording a bump preserves analysis. Corrupt state or unexpected fields fail closed. Failure reporting uses one coherent snapshot, warning and omitting unreadable state without hiding the original error.
+- `head`: the analyzed commit.
+- `last_release`: `nil`, or a frozen hash with string keys `tag`, `version`, and `commit`.
+- `commits`: every analyzed commit, including canceled ones, as frozen hashes with `sha` and full `message`.
+- `release_type`, `version`, `notes`: all `nil` when nothing is released.
+- `explicit_version`: the forced version, if any.
 
-Preserve `RELEASE_STATE_FILE` and captured inputs across processes. Changed `SOURCE_COMMIT`, explicit input, or prepared version fails before publication. In-process tasks can share memory; separate processes need private storage and export transport.
+Later contexts read this saved decision without rerunning providers. The private JSON state file holds only `analysis` and `next_version`. Corrupt state or unknown fields fail the release. Failure reports skip unreadable state with a warning and still report the original error.
+
+Keep `RELEASE_STATE_FILE` and captured inputs across processes. If `SOURCE_COMMIT`, the explicit input, or the prepared version changes, the release fails before publication. Separate processes need private storage and a way to pass exported values.
 
 ## Replacing Providers
 
@@ -89,10 +100,10 @@ Preserve `RELEASE_STATE_FILE` and captured inputs across processes. Changed `SOU
 | `selector:` | `select(last_release:, release_type:, explicit_version:)` receives the last version string or `nil` and returns a stable version string or `nil`. |
 | `notes:`    | `generate(commits:, version:, last_release:)` returns nonempty Markdown for a selected release.                                                   |
 
-`SemanticRelease` validates, copies, and freezes the result. Custom history providers must preserve default-branch ancestry checks and complete history. Custom providers must not publish, alter Git refs, or weaken selection guards. The [GitLab example](../../examples/gitlab_semantic_release/README.md) composes real semantic providers with explicitly unfinished platform adapters.
+`SemanticRelease` validates, copies, and freezes each result. A custom history provider must keep default-branch ancestry checks and return complete history. No provider may publish, change Git refs, or weaken selection checks. The [GitLab example](../../examples/gitlab_semantic_release/README.md) combines the real providers with deliberately unfinished platform adapters.
 
 ## Compatibility and Scope
 
-The Ruby implementation follows stable-release behavior from [semantic-release v25.0.9](https://github.com/semantic-release/semantic-release/tree/v25.0.9), [commit-analyzer v13.0.1](https://github.com/semantic-release/commit-analyzer/tree/v13.0.1), and [release-notes-generator v14.1.1](https://github.com/semantic-release/release-notes-generator/tree/v14.1.1), including highest reachable stable version, first release `1.0.0`, Conventional Commits severity, custom-rule fallback, and revert cancellation. It is not a port of their JavaScript plugin system, presets, or note templates and adds no Node dependency.
+This Ruby code follows the stable-release behavior of [semantic-release v25.0.9](https://github.com/semantic-release/semantic-release/tree/v25.0.9), [commit-analyzer v13.0.1](https://github.com/semantic-release/commit-analyzer/tree/v13.0.1), and [release-notes-generator v14.1.1](https://github.com/semantic-release/release-notes-generator/tree/v14.1.1). It does not port their JavaScript plugins, presets, or note templates, and needs no Node.
 
-Prereleases, maintenance branches, distribution channels, alternate tag formats, and additional CI-platform adapters are outside this first implementation. Clean-checkout, concurrency, preparation, and exact-artifact checks remain; an already-published version succeeds only on matching SHA256. Unlike upstream, this project verifies or uploads the package before atomically pushing commit and tag. Reruns use the [current checkout and inputs](../../RELEASING.md#verify-and-recover), not restored analysis.
+Not supported yet: prereleases, maintenance branches, distribution channels, other tag formats, and other CI platforms. The usual clean-checkout, concurrency, and exact-artifact checks still apply, and an already-published version passes only if its SHA256 matches. Unlike upstream, the package is verified or uploaded before the commit and tag are pushed together. Reruns use the [current checkout and inputs](../../RELEASING.md#verify-and-recover), not a saved analysis.

@@ -1,17 +1,17 @@
 # `RubyGemRelease::Destination::RubyGems`
 
-Extends [`Destination`](../destination.md) for publication to public `rubygems.org`. Package building and verification remain in [`Package::RubyGem`](../package/ruby_gem.md).
+The default [`Destination`](../destination.md): publishes to `rubygems.org`. Building and checking the archive is done by [`Package::RubyGem`](../package/ruby_gem.md).
+
+## Check Version
+
+`published?(release, package:)` looks up the built gem's name and version on RubyGems and compares the registry's `sha` with the archive's SHA256. HTTP 404 returns `false` and a match returns `true`. A missing or different checksum, a malformed response, or any other status raises. Lookups use HTTPS, a 10-second connect timeout, a 30-second read timeout, no retries, and no credentials.
 
 ## Publish
 
-`published?(release, package:)` reads the built artifact's name and version and compares RubyGems' `sha` with its SHA256 digest. HTTP 404 returns false; an exact match returns true. Missing checksums, different archives, malformed responses, and other HTTP statuses fail.
+`publish!(release, package:)` does nothing if the exact archive is already published; otherwise it runs `gem push`. If the push fails, it succeeds only when a recheck finds the exact archive. It never rebuilds or rereads an edited gemspec.
 
-Readback requests use HTTPS, a 10-second connection timeout, a 30-second read timeout, and no automatic retries. No credentials are needed for readback.
-
-`publish!(release, package:)` skips an exact existing publication or invokes `gem push` only for confirmed absence. It does not rebuild or consult a subsequently edited gemspec.
-
-Configure credentials before calling `publish!` directly. The `release:publish` task calls this destination's `authenticate!(provider:)` first; when prepared-version resolution has selected `rubygems` authentication, it invokes [`RubyGemsCredentials`](../workflow/ruby_gems_credentials.md), with an optional owner-bound exchange for a pending publisher. Without that selection, preconfigured credentials are retained. The helper exports credentials without writing a local credentials file.
+Set up credentials before calling `publish!` directly. The `release:publish` task first calls `authenticate!(provider:)`. When the workflow selected `rubygems` authentication, this uses [`RubyGemsCredentials`](../workflow/ruby_gems_credentials.md) for Trusted Publishing, optionally bound to an owner for a pending publisher. Credentials go into the environment, not a file. Otherwise, existing credentials are kept.
 
 ## Errors
 
-Changed artifacts, identity mismatches, failed lookups, and upload failures raise without automatic retries. A later workflow reconciles an ambiguously accepted upload; see [recovery instructions](../../RELEASING.md#verify-and-recover).
+Changed archives, identity mismatches, failed lookups, and failed uploads raise without retries. A later run reconciles an upload that may have been accepted; see [recovery instructions](../../RELEASING.md#verify-and-recover).

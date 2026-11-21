@@ -1,6 +1,6 @@
 # Lifecycle Hook Example
 
-The [Rakefile](Rakefile) installs the [project workflow](release_workflow.rb), which uses [release hooks](release_notes.rb) to update this README and built-in changelog options to clean contribution placeholders and restore its six-category template.
+The [Rakefile](Rakefile) installs the [project workflow](release_workflow.rb). It uses [release hooks](release_notes.rb) to update this README, and built-in changelog options to remove contribution placeholders and restore a six-category template.
 
 ## Stable Release
 
@@ -8,6 +8,6 @@ Development documentation.
 
 ## Testing
 
-The [complete spec](spec/release_spec.rb) copies the actual workflow and this README into a disposable project. `project.configure_workflow` installs that builder with local adapters without changing the production Rakefile. The spec runs the release, checks both Git commits, and verifies that the registry and hosting adapters stored the exact archive locally. Deleting a README hook or removing the stable-release paragraph causes the spec to fail.
+The [spec](spec/release_spec.rb) copies the workflow and this README into a temporary project. `project.configure_workflow` installs the workflow with local adapters, without changing the real Rakefile. The spec runs a release, checks both Git commits, and verifies that the local registry and hosting adapters received the exact gem. Removing a README hook or the Stable Release section makes it fail.
 
-From the `ruby-gem-release` checkout, run `bundle exec rspec examples/lifecycle_hooks/spec/release_spec.rb`. See [Testing Custom Workflows](../../docs/testing.md) to adapt the helper to your own project.
+From the `ruby-gem-release` checkout, run `bundle exec rspec examples/lifecycle_hooks/spec/release_spec.rb`. See [Testing Custom Workflows](../../docs/testing.md) to use the helper in your own project.

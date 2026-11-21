@@ -1,6 +1,6 @@
 # `RubyGemRelease::Changelog::Base`
 
-Shared implementation for [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_a_changelog.md). Use those concrete classes rather than constructing Base directly.
+The shared parent of [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_a_changelog.md). Use those classes, not `Base`.
 
 ## Path
 
@@ -8,26 +8,30 @@ Shared implementation for [`Intridea`](intridea.md) and [`KeepAChangelog`](keep_
 
 ## Pending Notes
 
-`pending?` reads the current unreleased section without writing files. It returns `true` when actual notes exist and `false` for an empty or structural-only section, ignoring historical notes and the configured `Intridea` placeholder. Missing or duplicate release headings, invalid line endings, malformed comparison links, and missing or duplicate placeholders raise errors rather than reporting no changes.
+`pending?` returns whether the unreleased section has real notes, without writing. Older releases and the `Intridea` placeholder do not count. A malformed file raises instead of returning `false`: missing or duplicate release headings or placeholders, bad comparison links, or invalid line endings.
 
-Default validation requires an existing selected release or pending notes; otherwise it raises.
+The standard workflow's validation raises unless the version already has a release heading or `pending?` is `true`.
 
 ## Release
 
-`released?(version)` returns whether that version has a release heading; duplicates raise. `release!(release)` reuses an existing heading unchanged, or delegates the version and date to the concrete format implementation.
+`released?(version)` returns whether that version has a release heading. Duplicates raise.
 
-New releases require nonempty notes. Only the current section counts, ending at the next heading of equal or shallower depth. Blank lines, category headings, HTML comments or blocks, reference definitions, and the configured `Intridea` contribution placeholder are not notes. Text, lists, quotes, and code with content count. Errors identify the version and changelog path.
+`release!(release)` turns the unreleased heading into a release heading with the version and date. If the version is already released, it changes nothing, so retries are safe.
+
+A new release needs real notes in the unreleased section, which ends at the next heading of the same or higher level. Text, lists, quotes, and nonempty code count. Blank lines, category headings, HTML, link definitions, and the `Intridea` placeholder do not. Errors name the version and changelog path.
 
 ## Notes
 
-`notes(version)` returns the released section for that version, read without editing the file. It uses the format's own release heading, expands reference links inline, and drops link definitions trailing the section, as [read-only notes](notes.md) do with `expand_references: true`. Unreleased, missing, duplicate, or empty sections raise. The [standard workflow](../workflow/ruby_gem.md#hosting) passes the result to hosting.
+`notes(version)` returns a released section's body without editing the file. Like [read-only notes](notes.md) with `expand_references: true`, it makes reference links inline and drops trailing link definitions. Unreleased, missing, duplicate, or empty sections raise. The [standard workflow](../workflow/ruby_gem.md#hosting) passes the result to hosting.
 
 ## Prepare Next
 
-`prepare_next!(release)` delegates the released version and the version for the next development iteration to the concrete format implementation.
+`prepare_next!(release)` adds an unreleased section for `release.next_version` above the `release.version` section.
 
 ## Source Preservation
 
-Uses `Commonmarker` to identify top-level headings and exclude code, HTML, and quoted blocks. Updates edit the original source rather than rendering the parsed document again, preserving unrelated formatting. Unix and Windows line endings are supported; mixed line endings or standalone carriage returns are rejected.
+Parsing uses `Commonmarker`. Only top-level headings count; headings in code, HTML, quotes, or other nested blocks are ignored. Edits change the original text in place, so other formatting is kept.
 
-Hash-style release headings support depths 1 through 6, and their hash count is preserved. Headings inside nested blocks remain excluded. Multiple matching release headings are rejected even when their depths differ.
+- Unix and Windows line endings work. Mixed endings or lone carriage returns raise.
+- Release headings can use one to six `#`; edits keep the level.
+- Two headings for one version raise, even at different levels.

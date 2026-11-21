@@ -1,14 +1,14 @@
 # `RubyGemRelease::ExecutionContext::GitHub`
 
-Extends the provider-neutral [`ExecutionContext`](../execution_context.md) with GitHub Actions step snapshots and run metadata. The [GitHub execution provider](../execution_provider/github.md) constructs this subclass, including for failure callbacks. The inherited release, workflow, and state interface is unchanged.
+The `ctx` on GitHub Actions. It adds step results and run details to the base [`ExecutionContext`](../execution_context.md); release, workflow, and state work the same. The [GitHub execution provider](../execution_provider/github.md) creates it, including for failure callbacks.
 
 ## Steps
 
-`ctx.step.id` identifies the enclosing Actions step, supplied explicitly through `RELEASE_STEP_ID`. A custom command invoking several Rake tasks retains that enclosing step identity. If the ID is unavailable, the logical task name is used instead. The current step has no final outcome or conclusion while it is executing.
+`ctx.step.id` is the running Actions step, from `RELEASE_STEP_ID`, or the task name if unset. Several Rake tasks in one custom command share it. The running step has no outcome yet.
 
-`ctx.steps` is a frozen hash keyed by observed Actions step IDs. GitHub step objects expose `id`, `outcome`, and `conclusion`. Outcome is the original result; conclusion reflects `continue-on-error`. Statuses are `success`, `failure`, `cancelled`, or `skipped`; missing values are `nil`. Missing entries mean unobserved, not skipped.
+`ctx.steps` is a frozen hash of steps by ID, each with `id`, `outcome` (the original result), and `conclusion` (after `continue-on-error`). Values are `success`, `failure`, `cancelled`, `skipped`, or `nil`. A missing entry means not seen, not skipped.
 
-Both Actions interfaces supply a snapshot through `RELEASE_STEPS_JSON` before each configurable command. The snapshot is not live history, does not include future results, and may include other visible caller steps. If unavailable, it defaults to an empty hash. Invalid snapshots raise rather than inventing history. Action outputs and credentials are not retained.
+Both Actions interfaces pass a snapshot in `RELEASE_STEPS_JSON` before each configurable command. It is not live, has no later results, and may include other caller steps. Without it, `ctx.steps` is empty; invalid JSON raises. Outputs and credentials are not kept.
 
 ```ruby
 tasks.prepare do |ctx|
@@ -19,6 +19,4 @@ end
 
 ## Run
 
-`ctx.run` exposes frozen copies of selected GitHub environment values: `repository`, `ref`, `sha`, `run_id`, `run_attempt`, `job_id`, `workflow_name`, and `workflow_ref`. Values remain strings; unavailable values are `nil`. `sha` identifies the triggering commit, not necessarily the checkout HEAD after release commits. No tokens or full GitHub event payloads are copied.
-
-GitHub-specific environment parsing, run fields, and status semantics live in this subclass and its step and run objects, not the shared base.
+`ctx.run` has frozen strings, or `nil` when unset, for `repository`, `ref`, `sha`, `run_id`, `run_attempt`, `job_id`, `workflow_name`, and `workflow_ref`. `sha` is the triggering commit, not necessarily `HEAD` after release commits. Tokens and event payloads are never copied.

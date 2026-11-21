@@ -1,24 +1,33 @@
 # `RubyGemRelease::Tasks`
 
-Registers optional validation, preparation, publication, next development iteration, success, and failure callbacks in the Rakefile. `Tasks.install` accepts optional `workflow:`, `package:`, `destination:`, and `provider:` objects and yields the configuration object; it registers no version tasks and requires no version strategy. The package is resolved lazily when omitted, the destination defaults to RubyGems, and the [execution provider](execution_provider.md) is selected automatically. Pass the same package and destination used by manual publication callbacks so prepared-version checks and authentication agree. See [Detailed Usage](usage.md#custom-callbacks) for manual configuration or [the standard workflow](workflow/ruby_gem.md) to install the usual sequence.
+`Tasks` registers release callbacks as Rake tasks: validation, preparation, publication, next development version, success, and failure. [The standard workflow](workflow/ruby_gem.md) sets these up for you; use `Tasks` directly only to write your own callbacks, as in [Detailed Usage](usage.md#custom-callbacks).
+
+`Tasks.install` yields a configuration object and takes these optional arguments:
+
+- `workflow:`: the configured workflow. Required for Actions; see [Install](#install).
+- `package:`: found automatically when omitted.
+- `destination:`: RubyGems by default.
+- `provider:`: the [execution provider](execution_provider.md), detected automatically.
+
+It needs no version strategy. Pass the same package and destination your publication callbacks use, so version checks and authentication agree.
 
 ## Install
 
-Call `RubyGemRelease::Tasks.install` with a block to register callbacks. Without a block, validation proceeds and the other five callback tasks do nothing. Workflow tasks include `capture`, `resolve`, `checkpoint`, and `failure_phase`. Actions configurations must pass a configured `workflow:`: its checkpoint creates the archive, digest manifest, commit, and tag before artifact preservation and publication.
+Register callbacks in the `RubyGemRelease::Tasks.install` block. Without a block, validation passes and the other five callback tasks do nothing. Workflow tasks include `capture`, `resolve`, `checkpoint`, and `failure_phase`. Actions setups must pass a configured `workflow:`, whose checkpoint creates the archive, digest manifest, commit, and tag before artifacts are saved and published.
 
-The composite action first invokes `release:workflow:configure` to validate and export its input environment for later steps. The reusable workflow supplies the same values through its job environment.
+The composite action first runs `release:workflow:configure` to check its inputs and export them for later steps. The reusable workflow sets the same values in its job environment.
 
-The provider constructs callback contexts: by default, the provider-neutral `ExecutionContext` locally or its [`GitHub`](execution_context/github.md) subclass on Actions. Explicit `provider:` injection overrides automatic detection. GitHub-specific step statuses and run fields are not part of the local context.
+The provider builds callback contexts: an `ExecutionContext` locally, or its [`GitHub`](execution_context/github.md) subclass on Actions. Passing `provider:` overrides detection. Step statuses and run details exist only on Actions.
 
-Standard workflows provide additive [lifecycle hooks](workflow/hooks.md) for checks and project edits. Manual callbacks replace task behavior and do not automatically get the standard workflow's inner hooks.
+Standard workflows also support [lifecycle hooks](workflow/hooks.md) for checks and file edits. Manual callbacks replace task behavior and do not get those hooks.
 
 ## Validate
 
-`tasks.validate` checks release preconditions after context capture and before preparation edits. It receives an [ExecutionContext](execution_context.md) containing the same initial or explicitly selected release value as `prepare`. Raise on invalid state; normal completion, including `nil`, succeeds. Returning `false` also fails rather than skipping. Without a callback, validation passes.
+`tasks.validate` checks release preconditions after capture and before any files are edited. It receives an [ExecutionContext](execution_context.md) with the same release version that `prepare` will get. Raise to fail. Returning normally, even `nil`, passes, but returning `false` fails. Without a callback, validation passes.
 
-Validation errors reach the failure callback with phase `validate_release`. Both Actions interfaces stop downstream release operations through normal failure handling; there is no decision output or successful skip. Separately invoked Rake tasks remain independent.
+A validation error reaches the failure callback with phase `validate_release` and stops the release in both Actions interfaces. There is no "skip" result. Each Rake task you run by hand is independent.
 
-Every invocation runs the configured callbacks; there are no recovery flags or restored context. Default validation accepts the selected version's existing changelog section or pending notes; custom commands must provide equivalent idempotence:
+Every run calls your callbacks again, with no recovery flags or restored context. Default validation accepts an existing changelog section for the version or pending notes, so reruns work; your callbacks must also be safe to rerun:
 
 ```ruby
 RubyGemRelease::Tasks.install do |tasks|
@@ -28,40 +37,59 @@ end
 
 ## Prepare
 
-`tasks.prepare` prepares files after release validation and before testing and publication. The callback receives an [ExecutionContext](execution_context.md); `ctx.release` is an immutable [Release](release.md). Its `version` contains the explicitly selected `INPUT_VERSION`, or the initial gemspec version when that input is empty. `gemspec_version` always retains the initial gemspec version, and `next_version` is `nil`. Custom callbacks own file updates; use your version object's `set!` method to honor a selection and attach the prepared version with `ctx.release.with_version(version.read)` before updating a changelog.
+`tasks.prepare` edits files after validation and before tests and publication. It receives an [ExecutionContext](execution_context.md) whose `ctx.release` is an immutable [Release](release.md):
 
-The default `prepare` command invokes `bundle exec rake release:prepare`. The task reads optional `INPUT_VERSION`, `GEMSPEC_VERSION`, and `RELEASE_DATE` from the environment. It validates the selected version before invoking the callback, but does not itself write a version file; the standard workflow callback does that through its configured object.
+- `version` is `INPUT_VERSION` if set, otherwise the starting gemspec version.
+- `gemspec_version` is always the starting gemspec version.
+- `next_version` is `nil`.
+
+Your callback makes the file changes. Apply a chosen version with your version object's `set!`, then pass `ctx.release.with_version(version.read)` to the changelog.
+
+The default `prepare` command runs `bundle exec rake release:prepare`, which reads optional `INPUT_VERSION`, `GEMSPEC_VERSION`, and `RELEASE_DATE`. It checks the selected version before calling your callback, but never writes a version file itself.
 
 ## Bump
 
-`tasks.bump` prepares the next development iteration after publication. In `ctx.release`, `version` contains the published version and `gemspec_version` retains the initial version. Use `next_release = ctx.release.with_next_version(version.increment!(from: ctx.release.version))` before preparing the next changelog section, so repetition writes the same version rather than incrementing twice.
+`tasks.bump` prepares the next development version after publication. `ctx.release.version` is the published version, and `gemspec_version` is the starting version. Compute the next version from the published one, so a rerun writes the same value instead of incrementing twice:
 
-The default `bump` command invokes `bundle exec rake release:bump`. The task reads `RELEASE_VERSION`, `GEMSPEC_VERSION`, and `RELEASE_DATE` from the environment. Neither callback task changes versions implicitly. Configure `git.commit_next!(next_release)` and `git.push!` after your version and changelog edits; the commit context must include the incremented `next_version`.
+```ruby
+next_release = ctx.release.with_next_version(version.increment!(from: ctx.release.version))
+```
 
-After those operations succeed, call `ctx.record_next_version!(next_release.next_version)` to make the value available to later callbacks. The standard workflow does this automatically.
+Then update the changelog and call `git.commit_next!(next_release)` and `git.push!`; the commit needs the new `next_version`. When those succeed, call `ctx.record_next_version!(next_release.next_version)` so later callbacks see it. The standard workflow does all of this.
+
+The default `bump` command runs `bundle exec rake release:bump`, which reads `RELEASE_VERSION`, `GEMSPEC_VERSION`, and `RELEASE_DATE`. Neither task changes versions on its own.
 
 ## Success and Failure
 
-`tasks.success` runs only after publication and the next development iteration have succeeded. It receives an [ExecutionContext](execution_context.md) with the published release and recorded next development version. Use it for success notifications after the release commits are pushed.
+`tasks.success` runs only after publication and the next development version succeed. It receives an [ExecutionContext](execution_context.md) with the published release and recorded next version. Use it for notifications.
 
-The Actions interfaces invoke `tasks.failure` when release processing fails after Ruby and Bundler setup. It receives a `RubyGemRelease::ReleaseFailure` object with `phase`, `error`, and `context` properties. `context` is an execution context whose `release` can be `nil` after an early failure. `error` is a reconstructed `RubyGemRelease::ReleaseFailure::CapturedError` with the original exception class name, message, and stack trace when a Ruby task captured it; failures reported only by GitHub Actions have `error: nil`. The original job remains failed if the failure callback also raises.
+The Actions interfaces call `tasks.failure` when the release fails after Ruby and Bundler are set up. It receives a `RubyGemRelease::ReleaseFailure` with:
 
-`phase` is the failed GitHub Actions step ID, such as `publish_release`, or `unknown` when unavailable. It is distinct from `failure.context.step.id`, which identifies the failure callback itself. When multiple steps fail, the step with a captured Ruby exception is preferred; otherwise, one of the failed steps is reported without assuming execution order.
+- `phase`: the ID of the failed Actions step, such as `publish_release`, or `unknown`. This differs from `failure.context.step.id`, which is the failure callback's own step. When several steps fail, the one with a Ruby exception is reported; otherwise any failed step may be reported.
+- `error`: a `RubyGemRelease::ReleaseFailure::CapturedError` with the original exception class name, message, and stack trace when a Ruby task caught it, or `nil` when only GitHub Actions reported the failure.
+- `context`: an execution context. Its `release` can be `nil` after an early failure.
 
-The reusable workflow and composite action run `bundle exec rake release:success` after a successful release and next development iteration, or `bundle exec rake release:failure` after a failed phase. Override the `success` or `failure` command input when a different command is needed. A failure before Ruby setup completes, or environment protection preventing the job from starting, cannot invoke the failure callback.
+If the failure callback raises, the job still fails.
+
+The reusable workflow and composite action run `bundle exec rake release:success` or `bundle exec rake release:failure`; override the `success` or `failure` input to change them. The failure callback cannot run if the job fails before Ruby setup completes or environment protection stops it from starting.
 
 ## Errors
 
-Each registered callback requires a block and can be registered only once. Exceptions fail the task. Custom code executes with release privileges and must be trusted. Required environment values must contain numeric versions and a date in `YYYY-MM-DD` format; missing values fail rather than guessing a version or date.
+Each callback needs a block and can be registered only once. An exception fails the task. Callbacks run with release permissions, so use only trusted code. Required environment values must hold numeric versions and a `YYYY-MM-DD` date; missing values fail rather than being guessed.
 
 ## Publish
 
-`tasks.publish` registers publication before `bump`. The default invokes `bundle exec rake release:publish` with the saved release context. It authenticates through the destination only when the workflow cannot verify an exact existing publication. Authentication exceptions are captured as publication failures; absent callbacks do not authenticate.
+`tasks.publish` registers publication, which runs before `bump`. The default command runs `bundle exec rake release:publish`. It authenticates through the destination unless the exact package is already published, and reports authentication errors as publication failures. Without a callback, nothing is authenticated or published.
 
-The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes atomically, and creates a GitHub Release. Without a callback, the task does nothing, including no package publication. To disable only GitHub Release creation, omit `github.publish!` while retaining the other operations.
+The [Detailed Usage example](usage.md#custom-callbacks) commits, builds, tags, publishes to RubyGems, pushes commit and tag together, and creates a GitHub Release. To skip only the GitHub Release, leave out `github.publish!`.
 
 ## Workflow Credentials
 
-`release:workflow:preflight` checks release prerequisites without editing files, pushing, or publishing. With a RubyGems destination it verifies Trusted Publishing through [`Workflow::RubyGemsCredentials#check!`](workflow/ruby_gems_credentials.md#check) with optional `RUBYGEMS_OWNER_ID`; other destinations skip that check. On GitHub Actions it also checks that the token can push to `DEFAULT_BRANCH` and that no repository rules it cannot bypass would reject the release commit or `vVERSION` tag, using `INPUT_VERSION` or the captured `GEMSPEC_VERSION`; elsewhere it skips that check. Both Actions interfaces run it in every release after context capture, and the reusable workflow runs only it for [dry runs](actions/release.md#dry-run).
+`release:workflow:preflight` checks prerequisites without editing, pushing, or publishing:
 
-`release:workflow:credentials` directly invokes [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with optional `RUBYGEMS_OWNER_ID`. It remains available for custom RubyGems commands, but neither Actions interface calls a separate authentication task. Normal authentication belongs to `release:publish` through the configured destination.
+- With a RubyGems destination, it checks Trusted Publishing through [`Workflow::RubyGemsCredentials#check!`](workflow/ruby_gems_credentials.md#check), using optional `RUBYGEMS_OWNER_ID`. Other destinations skip this check.
+- On GitHub Actions, it checks that the token can push to `DEFAULT_BRANCH` and that no repository rule it cannot bypass would reject the release commit or the `vVERSION` tag. The version is `INPUT_VERSION` or the captured `GEMSPEC_VERSION`. Elsewhere this check is skipped.
+
+Both Actions interfaces run preflight after capture; [dry runs](actions/release.md#dry-run) of the reusable workflow run only preflight.
+
+`release:workflow:credentials` runs [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md) with optional `RUBYGEMS_OWNER_ID`, for custom RubyGems commands. The Actions interfaces do not call it; normal authentication happens in `release:publish`.

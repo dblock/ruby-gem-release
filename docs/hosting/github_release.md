@@ -1,6 +1,6 @@
 # `RubyGemRelease::Hosting::GitHubRelease`
 
-Creates a GitHub Release using the installed `gh` command after the gem is published and its commit and tag are pushed.
+Creates a GitHub Release with the `gh` command, after the gem is published and the commit and tag are pushed.
 
 ```ruby
 require 'ruby-gem-release/hosting/github_release'
@@ -11,30 +11,30 @@ github.publish!(release, package: package)
 
 ## Repository
 
-The optional `repository:` argument identifies the target as `'OWNER/REPO'`. It defaults to `GITHUB_REPOSITORY`; outside Actions, `gh` infers the repository from the checkout.
+`repository:` is the target as `'OWNER/REPO'`. It defaults to `GITHUB_REPOSITORY`; outside Actions, `gh` uses the current checkout.
 
 ## Publish
 
-Pass `latest: true` or `latest: false` to the constructor to set the latest-release policy during creation and metadata updates. Existing releases are compared with GitHub's latest release before changing that status. The default `nil` retains GitHub's automatic selection and does not change matching existing releases. Use `latest: false` for maintenance branches to avoid temporarily promoting an older release.
+`latest:` sets whether the release is marked latest when created or updated: `true`, `false`, or `nil` (default) to let GitHub decide and leave existing releases alone. Use `latest: false` on maintenance branches so an older release is never promoted, even briefly. Existing releases are compared with GitHub's current latest first.
 
-`publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION`, using the numeric version from the [Release](../release.md) context. It verifies that the tag exists remotely and never creates a tag automatically. With `release.notes`, it supplies that nonempty body through a private temporary `--notes-file` and removes the file afterward; otherwise it retains GitHub's `--generate-notes`. The standard workflow supplies the released changelog section when the changelog can read it. It returns the release URL printed by `gh`.
+`publish!(release, package: nil, artifacts: [])` creates a release with tag and title `vVERSION` from the [Release](../release.md) version. The tag must already exist on GitHub; it is never created here. With `release.notes`, the nonempty notes are passed in a private temporary `--notes-file` that is then deleted; otherwise GitHub generates notes. The standard workflow passes the released changelog section when it can read it. It returns the release URL printed by `gh`.
 
 ## Package
 
-`publish!` verifies existing metadata and every expected asset, updates differing titles, release status, and explicit notes, and uploads missing or changed assets with `--clobber`; matching outputs are no-ops. Unspecified platform-generated notes are retained. Assets without a server digest are downloaded and hashed. Invalid responses and duplicate asset names fail rather than being guessed.
+Reruns are safe. For an existing release, `publish!` checks metadata and assets, updates a differing title, latest status, or explicit notes, and uploads missing or changed assets with `--clobber`. Matching output is left alone, and generated notes are kept when none were passed. Assets without a server digest are downloaded and hashed. Invalid responses and duplicate asset names raise.
 
-`package:` attaches the exact archive returned by [`Package::RubyGem#artifact`](../package/ruby_gem.md#artifact), with its package filename and verified digest, without rebuilding or manual copying.
+`package:` attaches the exact archives from [`Package::RubyGem#artifact`](../package/ruby_gem.md#artifact), with their filenames and checked digests, without rebuilding.
 
 ## Artifacts
 
-Without `package:`, `artifacts:` accepts existing file paths, defaulting to no attachments. Paths containing spaces are supported; line breaks and `#` are rejected because `gh` interprets `#` as an asset label.
+Without `package:`, `artifacts:` takes existing file paths and defaults to none. Spaces are fine; line breaks and `#` raise, because `gh` reads `#` as an asset label.
 
 ## Authentication and Errors
 
-Install `gh` and authenticate using `GH_TOKEN` or its existing credentials. The workflow supplies the GitHub Actions token and requires the caller's `contents: write` permission.
+Install `gh` and log in with `GH_TOKEN` or existing credentials. The workflow passes the Actions token, which needs `contents: write`.
 
-Failed commands raise without automatic retries. Reruns verify existing outputs and reconcile missing or changed hosted metadata and assets; see [Verify and Recover](../../RELEASING.md#verify-and-recover).
+Failed commands raise without retries. A rerun checks what exists and fixes missing or changed details and assets; see [Verify and Recover](../../RELEASING.md#verify-and-recover).
 
 ## Workflow Command
 
-The `publish` workflow input defaults to `bundle exec rake release:publish`. Configure that callback to invoke this class after `git.push!`. Set `hosting: nil` in [`Workflow::RubyGem`](../workflow/ruby_gem.md) or omit only `github.publish!` from manual callbacks to disable GitHub Release creation; omitting the whole callback disables package publication too.
+The `publish` workflow input defaults to `bundle exec rake release:publish`; call this class from it after `git.push!`. To skip GitHub Releases, set `hosting: nil` in [`Workflow::RubyGem`](../workflow/ruby_gem.md) or remove only `github.publish!` from manual callbacks. Removing the whole callback also stops gem publishing.

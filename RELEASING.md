@@ -1,35 +1,33 @@
 # Releasing
 
-These instructions do not authorize publication. Upgrade the gem and pinned workflow or action together; see [UPGRADING.md](UPGRADING.md) for migrations.
+These instructions do not authorize publication. Upgrade the gem and the pinned workflow or action together; see [UPGRADING.md](UPGRADING.md).
 
 ## One-Time Setup
 
-Follow [README Usage](README.md#usage) to add a caller with `contents: write` and `id-token: write`, then create a GitHub environment named `release`.
+1. Add a caller workflow, create the `release` environment, and configure a RubyGems trusted publisher, as described in [README Usage](README.md#usage).
+2. Protect the environment as described in [Maintainer-Approved Publication](#maintainer-approved-publication).
+3. Allow the Actions token to push fast-forward commits and tags.
 
-Configure [RubyGems Trusted Publishing](https://guides.rubygems.org/trusted-publishing/) for the publishing repository, executing workflow `release.yml`, and environment `release`. When calling this repository's reusable workflow from another repository, set the separate workflow repository fields to `dblock` and `ruby-gem-release`. For this project's local caller, leave those fields blank: `publish.yml` dispatches the run, but `release.yml` executes the OIDC job.
+For this project's own trusted publisher, leave the workflow repository fields blank: `publish.yml` starts the run, but the OIDC job runs in this repository's `release.yml`. Other repositories set them to `dblock` and `ruby-gem-release`. See [Permissions and Authentication](docs/actions/release.md#permissions-and-authentication) for first-release owner IDs and exported credentials.
 
-For a gem's first publication, configure a pending trusted publisher and pass its numeric account ID as `rubygems-owner`. Existing gems normally omit that input. Authentication exports short-lived credentials without writing `~/.gem/credentials`; adding the workflow configures neither registry trust nor credentials.
-
-The Actions token must be allowed to push fast-forward commits and tags. A PR requirement may block it; a separately configured release App bypass can preserve PR enforcement. This repository instead permits direct pushes by all writers while blocking force pushes and deletion; ordinary development still uses PRs. Actions-token pushes do not trigger ordinary push workflows, so release validation must run the necessary checks.
+A branch rule that requires PRs blocks the Actions token; a bypass for a separate release App keeps PR enforcement. This repository lets all writers push directly but blocks force pushes and deletion; ordinary development still uses PRs. Pushes by the Actions token do not trigger other push workflows, so the release run must run every check you need.
 
 ### Maintainer-Approved Publication
 
-Creating an environment alone does not restrict publication. Under **Settings > Environments > release**, configure [environment protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments):
+An environment alone does not restrict publication. Under **Settings > Environments > release**, configure [environment protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments):
 
 - **Required reviewers:** Select maintainers; any one can approve.
-- **Prevent self-review:** Enable for two-person approval; disable to let a maintainer dispatch and approve.
+- **Prevent self-review:** Enable to require a second person; disable to let a maintainer approve their own dispatch.
 - **Administrator bypass:** Disable if approval must always be required.
-- **Deployment branches and tags:** Select only the actual default branch (`master` here), with no tag rules.
+- **Deployment branches and tags:** Allow only the default branch (`master` here), with no tag rules.
 
-Availability depends on visibility and plan; verify these controls before relying on them. Other writers can still dispatch, but the protected job waits for approval before running steps or obtaining credentials. Environment rules protect jobs, not the dispatch entry point.
+Availability depends on visibility and plan, so confirm these controls exist. Any writer can still dispatch, but the job waits for approval before it runs or gets credentials.
 
 ## Prepare and Publish
 
-Both interfaces require the default branch and a clean checkout after dependency installation. Ignore intentional dependency output such as `.bundle/config` or `vendor/bundle`; unexpected tracked, staged, or untracked non-ignored changes fail. Preparation stages trusted edits before testing; publication rejects subsequent changes rather than staging them.
+Releases run from the default branch with a clean checkout; see [Execution](docs/actions/release.md#execution) for the checks and step order. The [manual workflow](docs/workflow/ruby_gem.md) releases the checked-in version or the `version` input, then bumps patch. The [semantic workflow](docs/workflow/semantic_ruby_gem.md) picks the version from release history and does not bump by default. Custom commands must keep the [documented ordering and guards](docs/usage.md#custom-callbacks).
 
-The default manual workflow releases the checked-in version, or honors an explicit `version` input, then increments patch afterward unless `next_version:` selects another part. Semantic workflows select from release history and default to no development bump. Custom commands own their operations and must retain the [documented ordering and guards](docs/usage.md#custom-callbacks).
-
-Validate and build before authorizing a release:
+Test and build before you authorize a release:
 
 ```sh
 bundle exec rake
@@ -38,44 +36,47 @@ bundle exec rake build
 
 ### Releasing This Project
 
-The manual **Release** caller is [`.github/workflows/publish.yml`](.github/workflows/publish.yml). Merges and schedules do not publish. It uses Ruby 4.0, the root Rakefile, and `America/New_York` for release dates and Git timestamp offsets.
+The manual **Release** workflow is [`.github/workflows/publish.yml`](.github/workflows/publish.yml); the [self-release walkthrough](examples/self_release/README.md) explains its configuration. Merges and schedules never publish.
 
-Verify the existing RubyGems trusted publisher before dispatch with a [dry run](docs/actions/release.md#dry-run), which exchanges credentials without releasing: `gh workflow run publish.yml --ref master -f dry-run=true`. The caller passes the non-secret `RUBYGEMS_OWNER_ID` repository variable when set; this identifies an account, not an API key. Pending publishers need it for first publication.
-
-Only after explicit authorization, successful validation, and confirmed setup:
+1. Check the trusted publisher with a [dry run](docs/actions/release.md#dry-run), which exchanges credentials without releasing: `gh workflow run publish.yml --ref master -f dry-run=true`.
+2. Only with explicit authorization, passing validation, and confirmed setup, dispatch the release. A required reviewer then approves the `release` environment.
 
 ```sh
 gh workflow run publish.yml --ref master
 ```
 
-Every dispatch requests publication; nothing to release is a validation error. Required environment reviewers approve before the job starts. After publication, the decorator configured by `ReleaseVersion` updates pins in README and every `docs/**/*.md` file to the released tag while incrementing the development version; these edits belong to the next-development commit, not the release tag.
+Every dispatch tries to publish; nothing to release fails validation. The `RUBYGEMS_OWNER_ID` repository variable, when set, is passed as `rubygems-owner`. It is an account ID, not an API key, and only pending publishers need it.
 
 ### Releasing a Consumer Project
 
-Use the [README setup](README.md#usage), dispatch its caller on the default branch, and approve the environment when required. For an explicit version, pass `-f version=1.2.3` to that caller's `gh workflow run` command.
+Follow [Make a Release](README.md#4-make-a-release): dispatch the caller on the default branch and approve the environment if required. For a specific version, add `-f version=1.2.3` to `gh workflow run`. See [Actions inputs](docs/actions/release.md) for options.
 
-The pipeline captures context, validates, prepares, resolves, and tests. A checkpoint commits, builds, tags locally, and creates a Git bundle for manual inspection; artifact preservation must succeed before external publication. Publication verifies or uploads the gem, pushes commit and tag atomically, then updates the hosted release. Finally, it optionally bumps. See [Actions inputs](docs/actions/release.md) and [Git preparation](docs/source_control/git.md#clean-checkout-and-preparation).
-
-Never invoke publication as a preview. Custom commands execute with release privileges and must be trusted; callers bypassing `release:publish` own authentication.
+Never run publication as a preview. Custom commands run with release privileges and must be trusted. Callers that skip `release:publish` handle authentication themselves.
 
 ## Publish the Action to Marketplace
 
-After an authorized release, confirm its tag contains root `action.yml` and matches the gem and GitHub Release. Never move an existing tag to add metadata.
+Marketplace listing is manual and separate from the release.
 
-The owner must accept the Marketplace Developer Agreement. Edit the new GitHub Release, select **Publish this Action to the GitHub Marketplace**, choose categories, and save. Follow [GitHub's requirements](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace); listing is separate from release creation and is not automated here.
+1. Confirm the new tag contains root `action.yml` and matches the gem and GitHub Release. Never move a tag to add metadata.
+2. Make sure the owner has accepted the Marketplace Developer Agreement.
+3. Edit the GitHub Release, select **Publish this Action to the GitHub Marketplace**, choose categories, and save.
+
+See [GitHub's requirements](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace).
 
 ## Verify and Recover
 
-Verify the RubyGems version, tag commit, GitHub Release and attached archive, and next development commit when enabled. Never overwrite published versions or move release tags.
+Check the RubyGems version, the tag commit, the GitHub Release and its gem, and the next development commit if enabled. Never overwrite a published version or move a release tag.
 
-Rerun with the same source commit and inputs, including the release date. Each task reconciles its own outputs; there are no recovery flags, artifact discovery, restored context, or completion journal. A newly queued workflow uses its current checkout and inputs, not an automatically selected older unfinished release.
+To recover, rerun with the same source commit and inputs, including the release date. Every release step is idempotent: it finishes only what is missing. There are no recovery flags, artifact discovery, restored state, or completion journal, and a new run never picks up an older unfinished release. On a rerun:
 
-Builds overwrite local artifacts reproducibly. Capture exports the committer timestamp of the source commit as `SOURCE_DATE_EPOCH`, unless explicitly supplied; it controls the gemspec date and archive timestamps. Generated release commits do not change it. Stable toolchains, gemspecs, generated files, and signing inputs remain the caller's responsibility. RubyGems accepts an existing version only when its SHA256 matches; a differing or unavailable checksum fails.
+- **Build** produces the same gem. `SOURCE_DATE_EPOCH` defaults to the committer time of the source commit and sets the gemspec date and archive timestamps. You keep toolchains, gemspecs, generated files, and signing inputs stable.
+- **RubyGems** accepts an existing version only if its SHA256 matches.
+- **Git** reuses matching commits, never moves tags, and never rewinds newer remote commits.
+- **Bump** calculates from the release version, so it never bumps twice.
+- **GitHub Release** replaces differing metadata, changelog notes, and assets. GitHub-generated notes, used when there are no notes, are kept.
 
-Git reuses matching release and development trees without moving tags or rewinding remote descendants. Development bumps calculate from the supplied release version, so repetition does not increment twice. GitHub replaces differing release metadata, notes read from the changelog, and assets; unspecified platform-generated notes are retained.
+Before publishing, the workflow uploads [recovery artifacts](docs/actions/release.md#recovery-artifacts) for manual inspection; nothing restores them. Investigate conflicting checksums or tags and unexpected branch changes. If the default branch moved during publication, follow [the manual recovery](docs/actions/release.md#default-branch-advanced-during-publication).
 
-Actions preserves `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` before publication for 30 days. These are for manual inspection, not automatic restoration. Conflicting checksums or tags and unrelated branch advancement require investigation; do not overwrite immutable releases. If the default branch advanced during publication, follow [the manual recovery](docs/actions/release.md#default-branch-advanced-during-publication).
+Custom commands and callbacks must be idempotent too. Notifications need a receiver-side check or a stable key such as `"release/example/1.2.3/success"`, never a run ID; otherwise they may be sent twice. Reruns verify the gem, Git, hosting, and bump, not your callbacks.
 
-All custom commands and callbacks must be idempotent too. Notifications need receiver-side readback or a stable key such as `"release/example/1.2.3/success"`, never a run ID. They may execute again; without receiver support, exactly-once delivery and automatic detection of an unfinished notification are impossible. Release reconciliation proves package, Git, hosting, and development completion, not arbitrary external callback completion.
-
-To disable hosted releases intentionally, use `hosting: nil` or omit the hosting call in manual callbacks—not the entire publication callback.
+To skip hosted releases, use `hosting: nil` or omit the hosting call in manual callbacks, not the whole publication callback.

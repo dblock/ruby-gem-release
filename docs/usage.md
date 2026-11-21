@@ -1,8 +1,8 @@
 # Detailed Usage
 
-Use the [standard workflow](workflow/ruby_gem.md), or configure callbacks for a different sequence. Both use the same release objects and [Actions interface](actions/release.md); install tasks only once.
+Use the [standard workflow](workflow/ruby_gem.md), or [custom callbacks](#custom-callbacks) for different release steps. Both use the same [Actions interface](actions/release.md). Install the tasks only once.
 
-If preparation is already reviewed and merged, use the [reviewed workflow](workflow/reviewed_ruby_gem.md) to publish an existing signed tag without new commits, tags, pushes, or development bumps, including explicit stable branches and package collections.
+To publish an existing signed tag whose changes are already reviewed and merged, use the [reviewed workflow](workflow/reviewed_ruby_gem.md). It makes no commits, tags, pushes, or version bumps, and supports stable branches and package collections.
 
 ## Project Files
 
@@ -16,11 +16,11 @@ module Example
 end
 ```
 
-Choose the matching changelog strategy: [`KeepAChangelog`](changelog/keep_a_changelog.md) for [this sample](../examples/keep_a_changelog/CHANGELOG.md), or [`Intridea`](changelog/intridea.md) for Next headings. Version files and changelog formats are never guessed.
+Pick the changelog class that matches your format: [`KeepAChangelog`](changelog/keep_a_changelog.md) for [this sample](../examples/keep_a_changelog/CHANGELOG.md), or [`Intridea`](changelog/intridea.md) for `Next` headings. Neither is guessed.
 
 ## Standard Workflow
 
-Add `ruby-gem-release` and `commonmarker ~> 2.10` to the development dependencies and configure the Rakefile. Commonmarker is only needed for Markdown changelogs; packaging, publication, and custom callbacks do not require it. On JRuby, use `changelog: nil` or a project-provided changelog implementation:
+Add `ruby-gem-release` and `commonmarker ~> 2.10` (only needed for Markdown changelogs) to your development dependencies. On JRuby, use `changelog: nil` or your own changelog class:
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'
@@ -32,23 +32,23 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-This validates and prepares the release, publishes the verified gem, pushes the release commit and tag, creates the hosted release, and prepares the next patch version, or the part selected by [`next_version:`](workflow/ruby_gem.md#next-version).
+A release validates, updates the version file and changelog, publishes the gem, pushes the release commit and tag, creates the GitHub Release, and bumps the patch version (or the part set by [`next_version:`](workflow/ruby_gem.md#next-version)).
 
-The default releases the checked-in version; optional `version` selects another through the version object's `set!`. The initial version remains in the context. Custom preparation callbacks own their file updates.
+It releases the checked-in version unless you pass the optional `version` input, which is written with the version object's `set!`. The context keeps the original version. Custom preparation callbacks must update files themselves.
 
-Configure optional `success:` and `failure:` lambdas on `Workflow::RubyGem.new` for notifications; success receives an execution context after the next development iteration succeeds, while failure receives a `RubyGemRelease::ReleaseFailure` with a phase, captured error when available, and execution context.
+**Validation.** Before any edits, `release:validate` fails unless the changelog has pending notes or already has a heading for this version, even with an explicit version. To replace it, pass a `validate:` lambda that raises (or returns `false`) on failure. Without a changelog, validation passes.
 
-Before edits, `release:validate` requires pending notes or an existing heading for the selected release. Otherwise it raises, even with an explicit version. Override with a `validate:` lambda that raises on failure; returning `false` also fails. Without a changelog, validation passes.
+**Notifications.** Pass optional `success:` and `failure:` lambdas to `Workflow::RubyGem.new`. `success` gets the execution context after the next development version is pushed. `failure` gets a `RubyGemRelease::ReleaseFailure` with the failed phase, the error when available, and the execution context.
 
-Use [lifecycle hooks](workflow/hooks.md) to add checks or project edits without replacing callbacks. Preparation hooks run inside trusted Git staging; see the [example](../examples/lifecycle_hooks/Rakefile).
+**Hooks.** Use [lifecycle hooks](workflow/hooks.md) to add checks or file edits. Edits made by preparation hooks go into the release commit; see the [example](../examples/lifecycle_hooks/Rakefile).
 
-The package uses `GEMSPEC_PATH` or the only root gemspec. Repository, branch, and artifact directory use the existing checkout and workflow defaults. Missing or ambiguous selections fail instead of guessing.
+**Defaults.** The gem is built from `GEMSPEC_PATH` or the only gemspec in the root. The repository, branch, and artifact directory come from the checkout and workflow. Missing or ambiguous choices fail.
 
-When adding project-specific release customizations, use optional `ruby-gem-release/rspec` helpers to test the real workflow in a disposable consumer repository and inspect its commits and release-managed files; see [Testing Custom Workflows](testing.md).
+**Testing.** The optional `ruby-gem-release/rspec` helpers run the real workflow in a throwaway repository, so you can check the commits and files your customizations produce. See [Testing Custom Workflows](testing.md).
 
 ### Bundler Release Tasks
 
-Projects that load `bundler/gem_tasks` or call `Bundler::GemHelper.install_tasks` keep the Bundler `rake release` task, which builds, tags, and pushes locally, then publishes with the RubyGems credentials of whoever runs it. The `release:rubygem_push` and `release:source_control_push` tasks it depends on share the `release:` prefix with these tasks and can be run directly. To make the workflow the only release path, replace all three after Bundler installs them:
+`bundler/gem_tasks` and `Bundler::GemHelper.install_tasks` add a `rake release` task that builds, tags, pushes, and publishes from your machine with your own RubyGems credentials. Its helpers `release:rubygem_push` and `release:source_control_push` can also be run directly. To make the workflow the only way to release, replace all three after Bundler installs them:
 
 ```ruby
 %w[release release:rubygem_push release:source_control_push].each do |name|
@@ -57,11 +57,11 @@ Projects that load `bundler/gem_tasks` or call `Bundler::GemHelper.install_tasks
 end
 ```
 
-`clear` also removes their prerequisites, so nothing is built or tagged before the task aborts. The Bundler `build` and `install` tasks remain available, and ruby-gem-release's `release:*` tasks are unaffected.
+`clear` also removes their prerequisites, so nothing is built or tagged before the task aborts. The Bundler `build` and `install` tasks still work, and this gem's `release:*` tasks are unaffected.
 
 ## Object Overrides
 
-Override `package:`, `destination:`, `git:`, `hosting:`, or `provider:` without changing the sequence. For example, disable hosted releases while retaining RubyGems publication:
+You can replace `package:`, `destination:`, `git:`, `hosting:`, or `provider:` and keep the same steps. For example, turn off GitHub Releases but keep publishing to RubyGems:
 
 ```ruby
 RubyGemRelease::Workflow::RubyGem.new(
@@ -71,11 +71,11 @@ RubyGemRelease::Workflow::RubyGem.new(
 ).install_tasks
 ```
 
-Set `changelog: nil` for projects without a changelog; version incrementing and publication still run. Version and changelog choices are required constructor arguments, even when the changelog is explicitly disabled.
+Without a changelog, set `changelog: nil`; version bumps and publication still run. Both `version:` and `changelog:` are required, even when the changelog is `nil`.
 
 ## Custom Callbacks
 
-For a genuinely different sequence, configure replacement callbacks explicitly. Individual project customizations should use lifecycle hooks instead. Keep this ordering to preserve artifact identity, concurrency checks, and package-before-tag publication:
+Write callbacks only when you need different release steps; for smaller changes, use lifecycle hooks. Keep this order: it ensures the published gem is the one that was built and checked, catches concurrent changes, and publishes the gem before the tag:
 
 ```ruby
 require 'ruby-gem-release/workflow/ruby_gem'
@@ -130,82 +130,84 @@ RubyGemRelease::Tasks.install(workflow: workflow, package: package, destination:
 end
 ```
 
-Callbacks receive an [`ExecutionContext`](execution_context.md) containing an immutable [`Release`](release.md); version changes return copies. [`Tasks`](tasks.md) does not edit files. Record the next development version only after its operations succeed.
-
-Wrap trusted preparation edits in `git.stage_changes!`. Resolution also stages custom `prepare` command outputs before testing. Publication never stages: later working-tree or index changes fail rather than entering the release commit.
-
-Pass the configured `workflow:` so `release:workflow:checkpoint` can build and preserve artifacts before publication. Each publishing task enforces its own postcondition; an already accepted exact archive succeeds only on matching checksum. See [reruns](../RELEASING.md#verify-and-recover).
+- Callbacks receive an [`ExecutionContext`](execution_context.md) with an immutable [`Release`](release.md); version changes return a copy.
+- [`Tasks`](tasks.md) does not edit files; your callbacks do.
+- Call `record_next_version!` only after the next-version commit is pushed.
+- Wrap preparation edits in `git.stage_changes!`. Files changed by a custom `prepare` command are staged before tests run.
+- Publication never stages files; later changes fail the release instead of entering the commit.
+- Pass `workflow:` so `release:workflow:checkpoint` can build and preserve artifacts before publication.
+- Each publishing task checks its own result. On a rerun, an existing gem counts as published only if its checksum matches. See [reruns](../RELEASING.md#verify-and-recover).
 
 ## Actions Setup
 
-Follow [Usage](../README.md#usage) to add the caller workflow, enable Trusted Publishing, and dispatch a release. Command overrides and all input defaults are documented in the [workflow reference](actions/release.md).
+Follow [Usage](../README.md#usage) to set up and dispatch a release. The [workflow reference](actions/release.md) lists every input, default, and command override.
 
-Both approaches publish when dispatched unless validation fails. All custom commands must be idempotent for the current checkout and inputs and preserve the [rerun contract](../RELEASING.md#verify-and-recover); never overwrite an immutable registry version or move a release tag.
+Dispatching publishes unless validation fails. Custom commands must be safe to rerun with the same checkout and inputs ([reruns](../RELEASING.md#verify-and-recover)). Never overwrite a published version or move a release tag.
 
 ## Configuration
 
 ### GitHub Actions Workflow
 
-Use `with:` inputs for the gemspec, version, runtime, commands, and commit identity. Pin a reviewed release or commit, not `master`.
+Set the gemspec, version, Ruby version, commands, and commit author under `with:`. Pin a release or commit, not `master`.
 
 - [Release Workflow](actions/release.md): All inputs, defaults, permissions, commands, and recovery artifacts.
-- [`Workflow::Environment`](workflow/environment.md): Ruby environment capture and prepared-version checks used by the action workflow.
-- [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md): RubyGems OIDC authentication, with an optional owner assertion for first publication with a pending trusted publisher.
+- [`Workflow::Environment`](workflow/environment.md): Records release settings at the start and checks the prepared version.
+- [`Workflow::RubyGemsCredentials`](workflow/ruby_gems_credentials.md): RubyGems Trusted Publishing login, with an optional owner ID for a gem's first release.
 
 ### Standard Workflows
 
-Standard workflows wire the usual release sequence using your explicitly chosen version and changelog objects. Override package, Git, or hosting objects when needed; use custom callbacks for a different sequence.
+Standard workflows run the usual steps with your version and changelog objects. You can swap the package, Git, or hosting objects.
 
-- [`Workflow::RubyGem`](workflow/ruby_gem.md): Gem release preparation, publication, and next development iteration callbacks with conservative defaults.
-- [`Workflow::SemanticRubyGem`](workflow/semantic_ruby_gem.md): Commit-driven decisions, release-history-based versions, and generated notes.
+- [`Workflow::RubyGem`](workflow/ruby_gem.md): Prepares, publishes, and bumps the version, with safe defaults.
+- [`Workflow::SemanticRubyGem`](workflow/semantic_ruby_gem.md): Picks versions and writes notes from Conventional Commits and past releases.
 
 ### Version Objects
 
-Version objects read, set, and increment the version stored in project files. Construct them locally in your callbacks; use your own objects implementing `read`, `set!(value)`, and `increment!(from:)` for other file formats.
+Version objects read, set, and bump the version in your project files. For other formats, write your own object with `read`, `set!(value)`, and `increment!(from:)`.
 
-- [`Version::RubyConstant`](version/ruby_constant.md): Numeric Ruby constant versions, updated without evaluating the file.
-- [`Version::PlainText`](version/plain_text.md): Numeric versions in a plain text file, such as `VERSION`.
-- [`Version::References`](version/references.md): Decorates a version object to update selected release references during the next development bump.
+- [`Version::RubyConstant`](version/ruby_constant.md): A numeric version in a Ruby constant, updated without running the file.
+- [`Version::PlainText`](version/plain_text.md): A numeric version in a plain text file, such as `VERSION`.
+- [`Version::References`](version/references.md): Wraps another version object and also updates version references in other files, such as README pins, to the released version during the next development bump.
 
 ### Release Callbacks
 
-Callbacks define project-specific preparation, publication, and next development iteration work. The standard workflow installs them for you; [Detailed Usage](#custom-callbacks) shows manual configuration. Unregistered callbacks do nothing; exceptions fail the task. Custom callback code executes with release privileges and must be trusted.
+Callbacks do the release work. The standard workflow installs them; [Custom Callbacks](#custom-callbacks) shows how to set them up by hand. An unregistered callback does nothing, and an exception fails the task. Callback code runs with release credentials, so it must be trusted.
 
-- [`Tasks`](tasks.md): Registers preparation, publication, next-development-iteration, success, and failure callbacks and their Rake tasks.
-- [`ExecutionContext`](execution_context.md): Release data, current step, observed steps, configured workflow, and run metadata.
-- [`ExecutionProvider`](execution_provider.md): Execution-platform services, with a GitHub Actions implementation and a provider-neutral base.
-- [`Release`](release.md): Immutable version and date value used by release operations.
+- [`Tasks`](tasks.md): Registers callbacks and their Rake tasks.
+- [`ExecutionContext`](execution_context.md): Release data, current and previous steps, the workflow, and run details.
+- [`ExecutionProvider`](execution_provider.md): Access to the CI platform, with a GitHub Actions implementation and a generic base.
+- [`Release`](release.md): The immutable version and date of a release.
 
 ### Changelog Objects
 
-Changelog objects prepare release headings and open the next development section while preserving unrelated Markdown. Choose the strategy matching your changelog format or use custom callbacks for other formats.
+Changelog objects add the release heading and open a section for the next version, leaving the rest of the file unchanged.
 
 - [`Changelog::KeepAChangelog`](changelog/keep_a_changelog.md): Unreleased sections and version comparison references.
 - [`Changelog::Intridea`](changelog/intridea.md): Next sections and a configured contribution placeholder.
-- [`Changelog::Base`](changelog/base.md): Shared source-preserving implementation for concrete strategies.
-- [`Changelog::Generated`](workflow/semantic_ruby_gem.md#notes-and-changelog): Dated sections from persisted semantic notes.
+- [`Changelog::Base`](changelog/base.md): Shared base class for the formats above.
+- [`Changelog::Generated`](workflow/semantic_ruby_gem.md#notes-and-changelog): Dated sections from notes generated by semantic releases.
 
 ### Package Objects
 
-Package objects build and verify artifacts; destinations publish them.
+Package objects build and verify the gem; destinations publish it.
 
-- [`Package::RubyGem`](package/ruby_gem.md): Gem metadata, construction, and artifact verification.
+- [`Package::RubyGem`](package/ruby_gem.md): Reads gem metadata, builds the gem, and verifies it.
 
 ### Registry Destinations
 
-Registry destinations publish built packages independently of package construction and hosted releases. The default destination is RubyGems; custom destinations supply their own registry checks, uploads, and preconfigured credentials.
+Destinations publish the built gem to a registry. The default is RubyGems. A custom destination brings its own version checks, uploads, and credentials.
 
-- [`Destination`](destination.md): Shared registry publication contract and authentication selection.
-- [`Destination::RubyGems`](destination/ruby_gems.md): Public RubyGems version checks and exact-artifact publication.
+- [`Destination`](destination.md): The base class for registries, including how they log in.
+- [`Destination::RubyGems`](destination/ruby_gems.md): Checks whether a version exists on RubyGems and publishes the exact built gem.
 
 ### Source Control Objects
 
-Source control objects manage release history independently of the repository's hosting provider.
+Source control objects create release commits and tags, whatever service hosts the repository.
 
-- [`SourceControl::Git`](source_control/git.md): Release and next development iteration commits, tags, recovery bundles, branch checks, and atomic release pushes.
+- [`SourceControl::Git`](source_control/git.md): Release and next-version commits, tags, recovery bundles, branch checks, and all-or-nothing pushes.
 
 ### Hosting Objects
 
-Hosting objects publish release notes and attach package artifacts after the release tag is pushed. Set `hosting: nil` in the standard workflow, or omit the hosting publication call in custom callbacks, to disable hosted releases without disabling package publication.
+Hosting objects create a release page with notes and the gem after the tag is pushed. To turn this off, set `hosting: nil`, or leave out the hosting call in custom callbacks.
 
-- [`Hosting::GitHubRelease`](hosting/github_release.md): GitHub Releases with changelog or generated notes and the exact gem attached.
+- [`Hosting::GitHubRelease`](hosting/github_release.md): A GitHub Release with changelog or generated notes and the exact gem attached.

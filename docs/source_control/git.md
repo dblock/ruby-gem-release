@@ -1,47 +1,47 @@
 # `RubyGemRelease::SourceControl::Git`
 
-Owns local release commits and tags, branch checks, Git bundles, and remote pushes.
+Handles the Git side of a release: clean and current checks, staging, the release commit and tag, a Git bundle (a one-file copy of the release for inspection), and pushes.
 
 ## Branch and Remote
 
-`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default-branch reference. The optional directory selects the Git bundle and preparation index snapshot location; it defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory, created when first used. Separate Ruby processes must share this directory, as both Actions interfaces do through their execution provider.
+`Git.new(branch: nil, remote: 'origin', directory: nil)` uses `DEFAULT_BRANCH` or the remote's default branch. `directory:` holds the bundle and the staged-tree snapshot; it defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory, created on first use. Separate Ruby processes must share it, as both Actions interfaces do through their execution provider.
 
 ## Configure
 
-`configure!(name:, email:)` sets checkout-local identity. Direct-call defaults are `ruby-gem-release` and `ruby-gem-release@localhost`; blank values or line breaks fail. Context capture supplies the execution provider's identity, retaining the existing GitHub bot defaults on Actions.
+`configure!(name:, email:)` sets the commit identity for this checkout only. Direct calls default to `ruby-gem-release` and `ruby-gem-release@localhost`; blank values or line breaks raise. The workflow passes the execution provider's identity, the GitHub bot on Actions.
 
 ## Head
 
-`head` returns the current commit. `timestamp(commit)` reads the committer timestamp of a selected commit as Unix seconds; capture uses it for reproducible package timestamps.
+`head` returns the current commit. `timestamp(commit)` returns its committer time in Unix seconds, used for reproducible package timestamps.
 
 ## Check Current
 
-`check_current!(expected: head, allow_ancestor: false)` fetches the remote branch and tags and rejects an advanced branch before new publication or pushing. Capture permits an ancestor checkout so reruns can use the original source commit after its release has advanced the branch.
+`check_current!(expected: head, allow_ancestor: false)` fetches the remote branch and tags and raises if the branch moved. Capture allows an ancestor, so a rerun can use the original source commit after its release advanced the branch.
 
 ## Commit
 
-`commit!(release)` commits previously staged preparation changes if needed; it never stages files. It rejects unexpected unstaged, untracked non-ignored, or index changes by comparing the index with the saved preparation tree. It retains the source checkout commit for subsequent concurrency checks; the workflow supplies `SOURCE_COMMIT`.
+`commit!(release)` commits staged preparation changes, if any; it never stages. Unstaged changes, untracked files that are not ignored, or an index that differs from the saved preparation raise. It keeps the source commit (`SOURCE_COMMIT` in the workflow) for later checks. An existing release tag is reused only when its whole tree matches.
 
 ## Clean Checkout and Preparation
 
-`check_clean!` rejects any tracked changes, including staged changes, and any untracked non-ignored files. Diagnostics list escaped status paths, limit large listings, and suggest removing generated files, restoring unexpected changes, or intentionally ignoring dependency artifacts. Both Actions interfaces call it after dependency installation and before loading the gemspec or preparing release files. Existing ignore rules are honored, but tracked artifacts are never exempt.
+`check_clean!` raises on any tracked change, staged or not, and any untracked file that is not ignored. Ignore rules apply, but tracked files are never exempt. The error lists the paths and suggests deleting generated files, restoring changes, or ignoring dependency output. Both Actions interfaces call it after installing dependencies and before loading the gemspec or editing files.
 
-`stage_changes! { ... }` requires a clean checkout, runs trusted preparation code, and stages the resulting paths with literal, argument-based Git invocation. This supports custom version, changelog, README, added, renamed, and deleted files without guessing conventions. Without a block, it stages current preparation outputs; the workflow uses this at the end of the configurable `prepare` command, before testing. It saves the exact index tree in `prepared-tree`, so even unrelated files staged later cannot silently enter publication. A failing block does not stage or commit its edits. Do not call this method from publication to accept unexpected test output.
+`stage_changes! { ... }` requires a clean checkout, runs your trusted preparation block, and stages every changed path, including added, renamed, and deleted files, with literal Git arguments. Without a block, it stages current changes; the workflow does this after the `prepare` command, before tests. It saves the staged tree as `prepared-tree`, so files staged later cannot slip into the release. If the block raises, nothing is staged. Do not call it during publication to accept unexpected test output.
 
 ## Tag
 
-`tag!(release)` rejects build mutations and concurrent advancement, reuses only a tag pointing at the exact release commit, and writes `release.bundle`. Conflicting tags fail.
+`tag!(release)` raises if the build changed the checkout or the branch moved, reuses a tag only when it points at the release commit, and writes `release.bundle`. A tag on another commit raises.
 
 ## Commit Next
 
-`commit_next!(release)` commits staged edits with a nonempty `next_version`; for `0.5.1`, the message is `Prepare next development iteration, 0.5.1`. Repetition reuses an existing direct child of the release only when its version and full prepared tree match. Otherwise, missing changes or conflicting state fail.
+`commit_next!(release)` commits staged edits for a nonempty `next_version`, as `Prepare next development iteration, 0.5.1` for `0.5.1`. There must be changes. A rerun reuses a commit right after the release only when its version and full tree match; anything else raises.
 
 ## Push
 
-`push!(release)` checks the remote branch again, then atomically pushes the release commit and tag. After `commit_next!`, `push!` uses the retained release context and pushes only the next development iteration commit. Pushes never force or move existing tags.
+`push!(release)` rechecks the remote branch, then pushes the release commit and tag in one atomic push. After `commit_next!`, it pushes only the next-version commit. It never force-pushes or moves tags.
 
-Matching remote refs are no-ops; a remote branch already containing the release is never rewound. `commit!` can reuse an existing release tag only when its entire tree matches the intended preparation. `commit_next!` likewise compares the full development tree. Readback uses `tag_commit(version)` and `next_iteration(release)`; no workflow state or artifact is restored. Unrelated advancement still fails before publication.
+Reruns are safe: matching remote refs are skipped and a branch that already contains the release is never rewound. `tag_commit(version)` and `next_iteration(release)` read back existing commits; no state or artifact is restored. Unrelated new commits still raise before publication.
 
 ## Errors
 
-Failed commands raise without retries. Publish the gem before the atomic push, as in [Usage](../../README.md#usage); this preserves the package-before-tag ordering but leaves a recovery window if pushing fails.
+Failed commands raise without retries. Publish the gem before the atomic push, as in [Usage](../../README.md#usage): the gem then always exists before its tag, but a failed push needs recovery.

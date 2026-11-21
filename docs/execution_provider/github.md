@@ -1,11 +1,11 @@
 # `RubyGemRelease::ExecutionProvider::GitHub`
 
-Implements [`ExecutionProvider`](../execution_provider.md) for GitHub Actions. It reads `GITHUB_REF` and `RUNNER_TEMP`, retains the GitHub bot identity defaults, and supplies [`ExecutionContext::GitHub`](../execution_context/github.md) snapshots and original failed-step outcomes.
+The [`ExecutionProvider`](../execution_provider.md) for GitHub Actions. It reads `GITHUB_REF` and `RUNNER_TEMP`, defaults the Git identity to the GitHub bot, and creates [`ExecutionContext::GitHub`](../execution_context/github.md) contexts with step results and failed-step outcomes.
 
-Environment exports append to `GITHUB_ENV` and update the current process environment. Names and values are validated before writing files. Capture exports the runner directory as the provider-neutral `RELEASE_DATA_DIR` used by Git and package operations.
+`export(values)` validates names and values, appends them to `GITHUB_ENV` for later steps, and sets them in the current process. Capture exports the runner directory as `RELEASE_DATA_DIR` for Git and package operations.
 
-`oidc_token(audience:)` requests an identity token through the public Actions OIDC endpoint, replacing any previous audience without discarding other query parameters. It requires HTTPS, bounds request timeouts, disables retries, and rejects malformed responses without including their bodies in errors. The caller must grant `id-token: write`.
+`oidc_token(audience:)` requests an OpenID Connect identity token from the Actions token endpoint, replacing any audience in the URL but keeping other parameters. It requires HTTPS, bounds timeouts, does not retry, and raises on malformed responses without including the body. The workflow must grant `id-token: write`.
 
-`mask(value)` emits the Actions secret-masking command with escaped control characters. [`Workflow::RubyGemsCredentials`](../workflow/ruby_gems_credentials.md) requests the `rubygems.org` audience and performs the separate registry exchange, optionally bound to an owner for first publication.
+`mask(value)` hides a secret in Actions logs, escaping control characters. [`Workflow::RubyGemsCredentials`](../workflow/ruby_gems_credentials.md) uses both to get a `rubygems.org` token and exchange it for credentials, optionally bound to an owner for a first release.
 
-The reusable workflow and composite action remain Actions-specific orchestration. This adapter does not replace checkout, Ruby setup, environment protection, concurrency, summaries, or artifact-upload steps.
+The reusable workflow and composite action still handle checkout, Ruby setup, environment protection, concurrency, summaries, and artifact uploads.

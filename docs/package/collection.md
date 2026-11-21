@@ -1,6 +1,6 @@
 # Package Collections and Prebuilt Archives
 
-`Package::Collection` implements the normal build, version, and verification interface for an explicit, nonempty array of packages. All packages must have the same release version, with unique gem identities and attachment filenames. Give each built package its own artifact directory.
+`Package::Collection` releases several gems together, such as ruby and Java builds of one version. It has the usual package methods, so use it anywhere a package goes. `Package::Prebuilt` wraps an archive that was already built.
 
 ```ruby
 require 'ruby-gem-release/package/collection'
@@ -16,11 +16,13 @@ packages = RubyGemRelease::Package::Collection.new(
 )
 ```
 
-Prebuilt packages verify the supplied checksum, expected name/version/platform, filename, and optional `audit:` every time. `build!` verifies rather than rebuilding or replacing them. Supply the reviewed digest explicitly from the original build; the API does not discover artifacts, restore state, or trust a digest calculated from an unknown input during publication.
+`packages:` must be a nonempty array. Members must share one version and have unique gem identities and filenames. Give each built package its own directory.
+
+A prebuilt package checks its SHA256, name, version, platform, filename, and optional `audit:` every time it is used. `build!` only checks; it never rebuilds. Pass the reviewed digest from the original build. The library never searches for archives, restores state, or trusts a digest computed from an unknown file.
 
 ## Build Manifests
 
-Load an original `Package::RubyGem` manifest with an explicit expected identity:
+Load a manifest (`release.json`) from an original `Package::RubyGem` build, stating the expected identity:
 
 ```ruby
 package = RubyGemRelease::Package::Prebuilt.from_manifest(
@@ -32,10 +34,10 @@ package = RubyGemRelease::Package::Prebuilt.from_manifest(
 )
 ```
 
-The loader requires matching manifest metadata, reads its original SHA256, and resolves the canonical archive filename beside the manifest. `platform:` defaults to `ruby`; `audit:` is optional. Missing archives fail without discovery or rebuilding. Subsequent verification uses the captured digest, not later manifest edits. Use only a trusted original manifest; never regenerate expected digests from downloaded archives.
+The manifest must match the given identity. The digest comes from the manifest, read once, and the archive must sit beside it under its standard filename; a missing archive raises. `platform:` defaults to `ruby`; `audit:` is optional. Use only a trusted original manifest, never digests from downloaded archives.
 
 ## Publication
 
-Use the collection as the standard workflow's `package:`, or pass it to `Destination::RubyGems#publish!` and `Hosting::GitHubRelease#publish!`. Hosting attaches all verified archives. RubyGems verifies every local artifact and checks every registry identity before the first upload, rejecting conflicting published bytes even for later members. Uploads remain sequential and cannot be atomic; on repetition, exact existing publications are accepted and only missing members are uploaded.
+Use the collection as the workflow's `package:`, or pass it to `Destination::RubyGems#publish!` and `Hosting::GitHubRelease#publish!`. Hosting attaches every archive. RubyGems checks every local archive and registry entry before the first upload, and raises if any published gem has different bytes. Uploads are sequential, not atomic; a retry accepts exact existing gems and uploads only missing ones.
 
-Custom destinations receiving a collection must implement equivalent all-member verification and publication. `artifacts(release)` exposes the verified paths; `packages` exposes the frozen member list. A collection deliberately has no singular `artifact` or `gemspec`.
+A custom destination must check and publish every member the same way. `artifacts(release)` returns the checked paths; `packages` returns the frozen member list. A collection has no single `artifact` or `gemspec`.

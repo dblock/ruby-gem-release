@@ -1,27 +1,27 @@
 # `RubyGemRelease::Destination`
 
-The base for package registry destinations. A destination owns registry authentication, version checks, and publication, not package construction, Git pushes, or hosted releases. [`Destination::RubyGems`](destination/ruby_gems.md) is the default and only built-in implementation.
+The base class for package registries. A destination logs in, checks for an existing version, and uploads. It does not build packages, push to Git, or create hosted releases. [`Destination::RubyGems`](destination/ruby_gems.md) is the default and only built-in one.
 
 ## Contract
 
-Implement read-only `published?(release, package:)`: return true only when the registry proves that the exact archive is present, false only for confirmed absence, and raise on mismatches or unverifiable responses. The base raises rather than assuming success.
+`published?(release, package:)` must not change anything. Return `true` only when the registry proves the exact archive is there, `false` only when it confirms absence, and raise on mismatches or unverifiable responses. The base raises.
 
-Implement `publish!(release, package:)` to verify existing publication first, skip an exact match, and upload only a confirmed missing artifact through `package.artifact(release)`. Never rebuild, overwrite, or blindly retry an ambiguous upload.
+`publish!(release, package:)` must check first, skip an exact match, and upload `package.artifact(release)` only when it is confirmed missing. Never rebuild, overwrite, or blindly retry an upload with an unknown result.
 
-The standard workflow commits, builds reproducibly, tags locally, verifies or publishes to the registry, pushes commit and tag atomically, and updates the optional hosted release. A destination failure stops before the Git push and hosted release; artifacts remain available for manual inspection.
+The standard workflow commits, builds, and tags locally; checks or publishes to the registry; pushes the commit and tag together; then updates the optional hosted release. A destination error stops before the push, and the archives stay available for inspection.
 
 ## Authentication
 
-`release:publish` calls the configured destination's `authenticate!(provider:)` before invoking its publication callback. The base hook does nothing, retaining preconfigured credentials. Override it to authenticate another registry through the supplied execution provider; no YAML authentication step or registry condition is needed.
+`release:publish` calls `authenticate!(provider:)` before the publish callback. The base does nothing, keeping existing credentials. Override it to log in to another registry using the given execution provider; no YAML step is needed.
 
-`authentication` remains the built-in authentication identifier exported as `RELEASE_AUTH_MODE` during prepared-version resolution. It defaults to `nil`; the RubyGems implementation returns `rubygems` and its hook performs Trusted Publishing when that identifier is selected. Other built-in identifiers are rejected until implemented. Custom destinations can keep `nil` and supply their own hook without RubyGems requests.
+`authentication` names a built-in login method, exported as `RELEASE_AUTH_MODE` when the prepared version is resolved. The base returns `nil`; `RubyGems` returns `'rubygems'` and then uses Trusted Publishing. Other values raise. A custom destination can return `nil` and log in its own way.
 
-Authentication failures stop the publication callback and are captured as publication failures. A missing publication callback invokes no authentication.
+An authentication error stops the publish callback and counts as a publication failure. Without a publish callback, no authentication runs.
 
 ## Configuration
 
-Pass `destination:` to [`Workflow::RubyGem`](workflow/ruby_gem.md). It is available through `ctx.workflow.destination` alongside the configured package and other components.
+Pass `destination:` to [`Workflow::RubyGem`](workflow/ruby_gem.md); callbacks read it as `ctx.workflow.destination`.
 
-For manual callbacks, pass the same `package:` and `destination:` objects to `Tasks.install` and use them in your publication callback, as shown in [Detailed Usage](usage.md#custom-callbacks). This also routes prepared-version checks and authentication selection through that destination.
+For manual callbacks, pass the same `package:` and `destination:` to `Tasks.install` and use them in your publish callback, as in [Detailed Usage](usage.md#custom-callbacks). Version checks and authentication then use that destination.
 
-Only one registry destination is selected per workflow. [`Hosting::GitHubRelease`](hosting/github_release.md) remains separate because it creates a hosted release after the tag exists remotely.
+A workflow has one registry destination. [`Hosting::GitHubRelease`](hosting/github_release.md) is separate because it runs after the tag is pushed.

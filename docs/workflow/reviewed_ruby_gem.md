@@ -1,6 +1,6 @@
 # Reviewed Ruby Gem Workflow
 
-Use `Workflow::ReviewedRubyGem` when release preparation is already merged and a trusted signed tag already exists remotely. It runs the normal validation, testing, artifact preservation, publication, and notification tasks without editing release files, making commits, creating tags, pushing Git refs, or preparing a development version.
+Use `Workflow::ReviewedRubyGem` when the release changes are already merged and a trusted signed tag already exists on the remote. It validates, tests, saves artifacts, publishes, and notifies, but never edits files, commits, tags, pushes, or bumps the version.
 
 ```ruby
 require 'ruby-gem-release/workflow/reviewed_ruby_gem'
@@ -19,19 +19,38 @@ RubyGemRelease::Workflow::ReviewedRubyGem.new(
 
 ## Source Guards
 
-`branches:` is a required, nonempty list of exact Git branch names, not patterns. The provider ref must name an allowed branch, the checkout must be clean and at its current remote tip, and the package version must match the selected release version. The default manual and semantic workflows retain their default-branch policy.
+Required `branches:` lists exact branch names, not patterns. The release fails unless:
 
-Before building and publishing, the workflow requires `vVERSION` at the captured checkout commit, the exact same tag object on the remote, and successful `git verify-tag`. Configure trusted GPG or SSH signers on the runner before invoking release tasks. Lightweight, unsigned, missing, conflicting, or untrusted tags fail rather than being created or replaced. Checkout and branch advancement fail even when the old source remains an ancestor. The default `SourceControl::ReviewedGit` wraps a `SourceControl::Git` checkout and exposes no operations that stage, commit, tag, or push.
+- the current ref is one of those branches;
+- the checkout is clean and exactly at the remote branch tip;
+- the package version matches the release version.
 
-The workflow does not infer review approval from a signature. Keep project-specific merged-PR, maintainer, codename, backport, and release-note policies in `validate:` or lifecycle hooks. Protect the release environment and allowed deployment branches. No option bypasses signature verification.
+Before building and publishing, it also requires that:
 
-`release:prepare` only verifies source; `release:bump` is a no-op. The workflow is independent of `Workflow::RubyGem` and accepts no `version:` or `changelog:`; it shares only lifecycle hooks and task installation. Build hooks must not edit tracked files or leave untracked files. A verified Git bundle is retained for inspection. `notes:` optionally accepts a [read-only notes reader](../changelog/notes.md); invalid notes fail validation before registry publication. Custom notifications continue to receive normal execution contexts.
+1. Tag `vVERSION` points at the checkout commit.
+2. The remote has the exact same tag object.
+3. `git verify-tag` succeeds.
+
+Configure trusted GPG or SSH signers on the runner first. Lightweight, unsigned, missing, conflicting, or untrusted tags fail; they are never created or replaced, and no option skips signature verification. The default `SourceControl::ReviewedGit` has no methods that stage, commit, tag, or push.
+
+A valid signature does not prove review. Put merged-PR, maintainer, backport, or release-note policies in `validate:` or lifecycle hooks. Protect the release environment and limit its deployment branches.
+
+## Differences from the Standard Workflow
+
+`release:prepare` only verifies the source, and `release:bump` does nothing. The workflow accepts no `version:` or `changelog:` and shares only hooks and task installation with `Workflow::RubyGem`. Build hooks must leave the checkout clean. A verified Git bundle is kept for inspection.
+
+`notes:` optionally takes a [read-only notes reader](../changelog/notes.md). Invalid or empty notes fail validation, before anything is published.
 
 ## Package Sets and Retained Inputs
 
-Pass a [package collection](../package/collection.md) as `package:` to publish ruby and Java archives together. Built packages need separate directories. Prebuilt packages need explicit paths, reviewed SHA256 digests, and expected identities; they verify instead of rebuilding. Use [content auditing](../package/ruby_gem.md#content-audit) to bind archive members to Git source, with explicit exceptions for generated outputs.
+To publish Ruby and Java archives together, pass a [package collection](../package/collection.md) as `package:`. Packages built during the release need separate directories. Prebuilt packages need explicit paths, reviewed SHA256 digests, and expected identities; they are verified, not rebuilt. [Content auditing](../package/ruby_gem.md#content-audit) checks archive contents against Git source, with listed exceptions for generated files.
 
-Both Actions interfaces accept `prepare-artifacts`, an optional trusted command after dependency setup and before context capture, and `artifacts`, additional newline-separated paths to preserve before publication. Their defaults are empty and leave the existing workflow unchanged. For example, with an explicitly approved build run:
+Both Actions interfaces accept two optional inputs, both empty by default:
+
+- `prepare-artifacts`: a trusted command that runs after dependency setup and before capture.
+- `artifacts`: extra newline-separated paths to save before publication.
+
+For example, to use the output of an approved build run:
 
 ```yaml
 with:
@@ -42,6 +61,6 @@ with:
     ${{ runner.temp }}/reviewed/*.json
 ```
 
-Replace the sample run ID and artifact name with reviewed inputs; do not discover the most recent successful build during publication. Downloading Actions artifacts requires the caller's `actions: read` permission. Prepare inputs outside the checkout so capture stays clean. A Rakefile using prebuilt packages is loaded after this preparation command; its configured digests and audit policy remain authoritative.
+Use a run ID and artifact name you reviewed; do not pick the latest successful build during publication. Downloading artifacts needs `actions: read` permission in the caller. Download outside the checkout so it stays clean. The Rakefile loads after this command, and its digests and audit policy still decide what is accepted.
 
-The default `release.gem`, `release.json`, and `release.bundle` paths remain included in artifact preservation alongside additional paths. A collection may only produce member archives and the bundle, so explicitly list every member and its reviewed manifest. Uploads are a workflow transport boundary, not a substitute for Ruby-side verification; local consumer tests do not validate live Actions artifact transfer or OIDC.
+`release.gem`, `release.json`, and `release.bundle` are always saved too. A collection may produce only member archives and the bundle, so list every member archive and its reviewed manifest in `artifacts`. Uploads do not replace Ruby-side verification. Local tests do not cover live Actions artifact transfer or OIDC.

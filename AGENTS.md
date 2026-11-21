@@ -1,25 +1,26 @@
 # Working on `ruby-gem-release`
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [DESIGN.md](DESIGN.md). This project provides GitHub Actions interfaces and Ruby release tasks, not a general-purpose release service.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, commands, tests, and PR rules, and [DESIGN.md](DESIGN.md) for the design. This project provides GitHub Actions interfaces and Ruby release tasks, not a general-purpose release service.
 
-Every release action and callback must be idempotent for the same checkout and inputs. Reconcile its own outputs: rebuild reproducibly, accept published gems only on matching checksums, preserve immutable Git tags, and replace mutable hosted notes/assets. Test accepted-but-response-lost outcomes. Preserve artifacts before publication for manual inspection; do not introduce recovery flags, artifact discovery, state restoration, or a completion journal.
+## Rules to Keep
 
-The reusable workflow belongs in `.github/workflows/`, the gem API and Rake tasks belong in `lib/` and `tasks/`, and focused RSpec examples belong in `spec/`. Support Ruby 3.3 and newer; use public RubyGems, Rake, GitHub Actions, and RubyGems Trusted Publishing interfaces.
+Do not break these:
 
-Keep release orchestration reusable while leaving project-specific preparation and version bump commands configurable by the calling repository. Test task behavior with focused unit tests and execute both interfaces' callback commands in real consumers with local Git remotes and isolated package and hosting publication. Consumer tests do not validate live Actions authentication or artifact uploads; never dispatch a publishing workflow from PR CI.
+- The reusable workflow lives in `.github/workflows/`, the gem API and Rake tasks in `lib/` and `tasks/`, and specs in `spec/`. The root `action.yml` exposes the same tasks as a composite action.
+- Support Ruby 3.3 and newer. Use only public RubyGems, Rake, GitHub Actions, and Trusted Publishing interfaces.
+- Keep orchestration reusable; calling repositories configure their own preparation and version bump commands.
+- Every release action and callback follows the [rerun rules](RELEASING.md#verify-and-recover). Do not add recovery flags, artifact discovery, state restoration, or a completion journal.
+- Keep semantic releases opt-in. Versions come from reachable release tags, not development versions. Record one immutable decision, keep it when recording the next version, and never reanalyze during preparation or publication.
+- Keep the manual workflow defaults and publication guards unchanged.
+- Keep the reusable workflow and composite action consistent. Pin every external action and reusable workflow to a full commit SHA with a trailing version comment, never a tag or branch.
+- Keep authentication selection and artifact upload on failure working.
+- Do not stub environment exports or installed-gem loading in the portable consumer specs.
+- Profile the test harness before and after changing it; do not assume a speedup.
+- Keep the logo, its provenance, and its README placement as described in [DESIGN.md](DESIGN.md#self-release-and-artwork).
 
-Keep orchestration permutations and YAML assertions in focused source specs (`bundle exec rake spec:unit`). Keep real-process smoke coverage in `spec/integration/`, including the portable consumers; do not stub their transport or installed-gem loading. CI runs source tests and installed-gem integration separately, without repeating the full integration suite against source. Profile before and after changes to the harness instead of assuming a speedup.
+## Safety
 
-Keep semantic releases opt-in. Calculate from reachable released tags, not development versions; persist one immutable decision across processes, preserve it when recording the next version, and never reanalyze during preparation or publication. Preserve manual workflow defaults and publication guards. Semantic consumer fixtures must verify success, publication failure, and empty-release rejection against the installed artifact without real publication.
-
-The root `action.yml` exposes the same Ruby tasks as a composite action. Keep both interfaces consistent without making version-pinned workflows depend on moving action references: pin every external action and reusable workflow to a full commit SHA with its version as a trailing comment, never a tag or branch. Action callers own job permissions, runner, environment, and concurrency. Preserve authentication selection and failure-aware artifact preservation; run installed-artifact consumer CI and `actionlint .github/workflows/*.yml examples/.github/workflows/*.yml` when changing YAML interfaces.
-
-Run `bundle exec rake` locally for specs and RuboCop before every push, and `bundle exec rake build` for package construction when applicable. Danger checks the changelog in PR CI, not as a routine local command. Document user-visible changes in `CHANGELOG.md`, listing entries within each release chronologically and keeping `- Your contribution here.` as the last entry in the next-release section; keep Markdown paragraphs on one source line.
-
-The normal RuboCop command checks prose, Markdown Ruby examples, spelling, and YAML through `rubocop-prose`, `rubocop-md`, `rubocop-spellcheck`, and `rubocop-yaml`. Fix typos rather than suppressing checks; keep reviewed project vocabulary in `.spellcheck.txt` alongside the bundled English dictionary.
-
-Preserve the logo asset and its provenance, README placement, and rendering checks described in [DESIGN.md](DESIGN.md).
-
-Preserve unrelated worktree changes. Use a separate worktree for each PR with a `dblock/<topic>` branch from `master`, keeping the primary checkout on `master` when clean. Keep one coherent commit per PR; amend it when making updates and use `git push --force-with-lease` for the topic branch when needed. Use squash or rebase merges, not merge commits. Ordinary development changes require PRs; explicitly authorized release automation may push release preparation and next development iteration commits directly without PRs. Never force-push to `master`. Do not merge, publish, or create release tags without authorization.
-
-After a PR merges, clean up its local worktree and branch when no longer needed: verify the merged PR, inspect for uncommitted changes and dependent work, remove only clean worktrees, and delete the branch only when no work would be lost. Never discard changes to perform cleanup.
+- Never dispatch a publishing workflow from PR CI.
+- Do not merge, publish, or create release tags without authorization.
+- Never force-push `master`.
+- Preserve unrelated worktree changes, and never discard changes to clean up.

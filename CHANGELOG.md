@@ -6,6 +6,7 @@
 - [#91](https://github.com/dblock/ruby-gem-release/pull/91): Accept an Intridea Next section with release notes but no contribution placeholder, rejecting a placeholder marked differently from the configured one - [@dblock](https://github.com/dblock).
 - [#92](https://github.com/dblock/ruby-gem-release/pull/92): Document manual recovery from the preserved bundle when the default branch advances during publication - [@dblock](https://github.com/dblock).
 - [#93](https://github.com/dblock/ruby-gem-release/pull/93): Document disabling the local Bundler `release` tasks so the workflow is the only release path - [@dblock](https://github.com/dblock).
+- [#95](https://github.com/dblock/ruby-gem-release/pull/95): Rewrite the documentation in plain language, consolidating repeated rules so each lives in one place - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.9.0 (2026/11/20)

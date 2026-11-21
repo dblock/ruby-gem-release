@@ -1,81 +1,63 @@
 # Design
 
-`ruby-gem-release` provides a reusable GitHub Actions workflow, a composite action, and Ruby lifecycle tasks. Projects choose version and changelog conventions; replaceable components retain one publication sequence.
+`ruby-gem-release` provides a reusable GitHub Actions workflow, a composite action, and Ruby release tasks. Projects choose their version and changelog formats. Components are replaceable, but every release publishes in the same order.
 
 ## Component Boundaries
 
-| Component                   | Responsibility                                                                      |
-| ---                         | ---                                                                                 |
-| `Workflow::RubyGem`         | Install the manual release callbacks.                                               |
-| `Workflow::ReviewedRubyGem` | Publish an existing signed source without preparing or pushing Git changes.         |
-| `Workflow::SemanticRubyGem` | Select and persist a commit-driven release, then use the same publication sequence. |
-| `Tasks`                     | Register callbacks, construct contexts, and capture failures.                       |
-| `ExecutionProvider`         | Transport inputs, exports, execution metadata, and authentication services.         |
-| `Workflow::Environment`     | Check the checkout and capture initial or prepared package metadata.                |
-| `Workflow::State`           | Persist supported callback data in private JSON.                                    |
-| `Package::RubyGem`          | Read metadata, build reproducibly, and verify the exact archive.                    |
-| `Destination::RubyGems`     | Authenticate, check availability, and upload the verified artifact.                 |
-| `SourceControl::Git`        | Stage trusted edits, check concurrency, commit, tag, and push.                      |
-| `Hosting::GitHubRelease`    | Create the hosted release after the remote tag exists.                              |
+| Component                   | Responsibility                                                                 |
+| ---                         | ---                                                                            |
+| `Workflow::RubyGem`         | Install the manual release tasks.                                              |
+| `Workflow::ReviewedRubyGem` | Publish an existing signed tag without editing or pushing Git changes.         |
+| `Workflow::SemanticRubyGem` | Pick the version from commits, then publish in the same order.                 |
+| `Tasks`                     | Register callbacks, build contexts, and report failures.                       |
+| `ExecutionProvider`         | Pass inputs and exports between steps; supply run metadata and authentication. |
+| `Workflow::Environment`     | Check the checkout and read package metadata before and after preparation.     |
+| `Workflow::State`           | Store callback data in a private JSON file.                                    |
+| `Package::RubyGem`          | Read metadata, build reproducibly, and verify the exact gem file.              |
+| `Destination::RubyGems`     | Authenticate, check whether the version exists, and upload the verified gem.   |
+| `SourceControl::Git`        | Stage edits, detect concurrent changes, commit, tag, and push.                 |
+| `Hosting::GitHubRelease`    | Create the GitHub Release after the remote tag exists.                         |
 
-Execution platform, registry, and hosting are independent choices. Built-in external support covers GitHub Actions, RubyGems, and GitHub Releases. Hosting providers need idempotent `publish!(release, package:)`, not a shared base class. Class, reference, and spec paths mirror namespaces.
+Execution platform, registry, and hosting are independent choices. Built-in support covers GitHub Actions, RubyGems, and GitHub Releases. A hosting provider needs only an idempotent `publish!(release, package:)`; there is no base class. Class, documentation, and spec paths mirror namespaces.
 
 ## Lifecycle and Publication
 
-Both interfaces install dependencies, capture context, validate, prepare files, resolve the version, test, checkpoint and preserve artifacts, publish, prepare the next development iteration, and notify success. Validation raises on invalid state, including nothing to release; normal completion succeeds, while returning `false` also fails. Errors stop downstream operations and reach the failure callback after successful Ruby setup.
+Both interfaces run one fixed [step order](docs/actions/release.md#execution). Components and hooks can be replaced or added, but they cannot reorder the publication guards.
 
-The checkpoint task commits prepared edits, builds reproducibly, tags locally, and creates a recovery bundle. After artifacts are preserved, publication repeats commit, build, and tag preparation before verifying or uploading the gem, atomically pushing its commit and tag, and creating or updating the hosted release. Git checks for concurrent branch changes before publication and again before pushing.
+Registry upload and Git push cannot be atomic together. So a checkpoint saves the built gem and a Git bundle before anything is published, and publication uploads the gem before it pushes the commit and tag together. If the upload fails, nothing is pushed and no GitHub Release is created.
 
-Every release action must be idempotent for the same checkout and inputs, without recovery flags, artifact discovery, restored context, or a completion journal. Tasks reconcile their own outputs; a fresh workflow uses its current checkout and inputs rather than discovering an older unfinished release. Registry publication and Git pushes cannot be atomic together, so both interfaces preserve artifacts before publication for manual inspection. See [rerunning releases](RELEASING.md#verify-and-recover).
+Release steps are idempotent instead of resuming from saved progress. Each rerun checks its own outputs, so there is no recovery state to store, restore, or trust. The rules are in [Verify and Recover](RELEASING.md#verify-and-recover).
 
-Keep both YAML interfaces thin and consistent. The reusable workflow does not depend on a moving composite-action reference: a pinned release must remain independent of later action versions. Both interfaces, and this repository's own workflows, pin every external action and reusable workflow to a commit SHA with its version as a comment, so a caller that pins a release by SHA also fixes every action that runs with release credentials. Dependabot proposes updates to those pins. Composite callers own permissions, runner, environment protection, and concurrency. Commands run with release privileges and must be trusted.
+Keep both YAML interfaces thin and consistent. The reusable workflow does not reference the composite action by a moving ref, so a pinned release never changes later. Both interfaces and this repository's workflows pin every external action and reusable workflow to a commit SHA with a version comment. Pinning a release by SHA therefore fixes every action that runs with release credentials. Dependabot proposes pin updates. Composite action callers own permissions, runner, environment protection, and concurrency. Commands run with release privileges and must be trusted.
 
 ## Preparation and Artifact Guards
 
-Standard capture rejects non-default branches and dirty checkouts after dependency installation. The opt-in reviewed workflow permits an explicit branch list, requires the current remote tip and exact existing signed remote tag, and never prepares commits, tags, pushes, or a development version. Capture and resolution use the configured package; built-in selection requires one root gemspec or an explicit path. Dates and the initial version are captured once, with UTC as the timezone default.
+What is tested is what is released. Only trusted preparation edits are staged, and publication fails on any later change to the working tree or index instead of staging it. See [Git preparation](docs/source_control/git.md#clean-checkout-and-preparation).
 
-`Git#stage_changes!` requires a clean checkout or the exact previously prepared index before trusted edits, stages literal changed paths, and records the index tree. Resolution also stages custom preparation-command outputs before testing. Publication rejects later working-tree or index changes and never stages them. Development iteration edits use the same boundary, including custom version-object side effects.
+Lifecycle hooks add checks and project edits without replacing the release order; only preparation hooks may edit files. See the [hook guide](docs/workflow/hooks.md). Already-reviewed signed tags use the separate [reviewed workflow](docs/workflow/reviewed_ruby_gem.md), which shares the hook lifecycle but never commits, tags, pushes, or bumps.
 
-Resolution validates the prepared version; publishing tasks enforce their own postconditions. RubyGems accepts an existing version only when its checksum matches. Git reuses matching release and development trees without moving tags or rewinding remote descendants. Hosting replaces differing metadata and assets. Development increments are anchored to the supplied release version, not a recorded completion marker.
-
-Lifecycle hooks add checks and project edits without replacing the release sequence. The editing workflows and the reviewed workflow compose a shared lifecycle for hooks and task installation; the reviewed workflow does not inherit version, changelog, commit, tag, or bump behavior. Preparation hooks run inside trusted staging; other hooks validate or observe. See the [hook guide](docs/workflow/hooks.md).
-
-Version objects update exactly one constant assignment without evaluating the file, or a plain text numeric version file. An opt-in decorator wraps a version object and updates configured reference patterns to the released version during the next development bump. Changelog objects load optional `Commonmarker` when parsing sections, then edit original source to preserve formatting. Core installation and loading require no native dependencies. Handwritten formats reject empty notes before writing; malformed content fails rather than skipping. See [version](docs/version/ruby_constant.md), [references](docs/version/references.md), [changelog](docs/changelog/base.md), and [Git](docs/source_control/git.md) contracts.
+Version and changelog objects edit source text without evaluating it, so formatting is preserved. Changelog parsing loads the optional `Commonmarker` gem, so the core gem needs no native dependencies. Malformed content fails instead of being skipped. See the [version](docs/version/ruby_constant.md), [references](docs/version/references.md), and [changelog](docs/changelog/base.md) contracts.
 
 ## Contexts and State
 
-Callbacks receive frozen execution snapshots containing an immutable `Release`, current step, observed history, configured workflow, run metadata, and optional semantic analysis. Domain operations receive only `Release`. Contexts are data, not platform clients; workflow objects are reconstructed from the Rakefile in each process.
+Each Actions step runs in a separate process, so every process rebuilds the workflow from the Rakefile. Callbacks receive a frozen context that is plain data, not a platform client, and domain operations receive only the immutable `Release`. See [execution contexts](docs/execution_context.md) and [tasks](docs/tasks.md).
 
-The provider-neutral base uses logical task IDs and process-local environment exports. Automatic selection chooses GitHub when `GITHUB_ACTIONS=true`; explicit `provider:` overrides detection. GitHub owns Actions transport, refs, temporary storage, bot identity, masking, and OIDC. It supplies enclosing step IDs and prior observed results, keeping outcome and conclusion distinct. Absent steps are unknown, not skipped; run metadata excludes credentials and the event payload.
-
-Capture creates a unique private state file outside the checkout when provider storage is available. Atomic updates retain only semantic analysis and the completed next development version, with no format version or migrations. Regular and failure callback contexts read one validated snapshot, without caching across invocations. Without a file, tasks share process-local state. Corrupt state fails closed; failure callbacks omit unreadable metadata without hiding the original exception.
-
-Failure callbacks receive the failed phase, captured Ruby exception when available, and context whose release may be absent. Shell-only failures may lack exception details. See [execution contexts](docs/execution_context.md) and [tasks](docs/tasks.md).
+Persisted state is deliberately minimal: a private file outside the checkout holds only the semantic decision and the next development version, with no format version or migrations. Corrupt state fails rather than being guessed at.
 
 ## Manual and Semantic Workflows
 
-The manual workflow requires explicit version and changelog choices. Preparation honors an optional version selection; publication retains the initial version separately. After publication, the default bump increments patch, or the part selected by `next_version:`, prepares the next changelog section, commits, pushes, and records the next version. `changelog: nil` and `hosting: nil` disable only those components.
-
-Semantic releases are opt-in. Validation analyzes commits after the highest reachable stable release tag, records one immutable decision, and binds it to the captured head and explicit input. Later phases consume it without reanalysis. Versions do not derive from development versions; first release defaults to `1.0.0`, and explicit versions must exceed the last release. Generated notes reach the changelog and hosting unchanged.
-
-Semantic development bumps default off. Prereleases, maintenance branches, channels, alternate tag formats, and additional platform adapters remain outside scope. Provider contracts and upstream behavior references live in the [semantic guide](docs/workflow/semantic_ruby_gem.md).
+The [manual workflow](docs/workflow/ruby_gem.md) requires explicit version and changelog objects, so nothing about a project's conventions is guessed. [Semantic releases](docs/workflow/semantic_ruby_gem.md) are opt-in. Validation records one immutable decision from the commits since the last stable release tag, and later processes reuse it instead of reanalyzing, so every step publishes the same version and notes. Prereleases, maintenance branches, channels, other tag formats, and other platform adapters are out of scope.
 
 ## Authentication
 
-Authentication belongs to `release:publish`, through the destination's `authenticate!(provider:)` hook, not a registry-specific YAML step. RubyGems uses `Workflow::RubyGemsCredentials` when resolution selected automatic authentication; other destinations can retain preconfigured credentials.
-
-The helper obtains an audience-bound token through its execution provider, exchanges it with optional owner binding, masks tokens, and exports key variables. It makes no retries or credential-file writes. Custom callbacks inherit that environment; commands bypassing the publication task own authentication. See the [credential contract](docs/workflow/ruby_gems_credentials.md).
+Authentication happens inside `release:publish`, through the destination's `authenticate!(provider:)` hook, not in a YAML step. This keeps both YAML interfaces registry-neutral and lets custom destinations change authentication without YAML changes. The RubyGems helper does not retry or write credential files. See the [credential contract](docs/workflow/ruby_gems_credentials.md).
 
 ## Testing
 
-Source CI runs `rake spec:unit`; installed-gem CI runs `rake spec:integration`. The default local task runs both plus lint. Focused specs cover orchestration permutations, documented configurations, and YAML shell contracts without repeated Bundler startup.
-
-Real-process consumers retain success, failure/recovery, empty-release rejection, custom registry, and credential propagation. Portable consumers also verify environment transport, state, and installed-library loading without Actions variables. Git pushes use local bare repositories; publication boundaries are isolated and unexpected network requests fail. These tests do not validate live Actions authentication or artifact uploading. Profile harness changes rather than enforcing timing thresholds.
-
-Optional `ruby-gem-release/rspec` support exposes disposable Git fixtures, isolated Rake processes, a provider for cross-process exports, and local registry and hosting adapters without adding an RSpec runtime dependency. Projects exercise their real workflow configuration with explicit test adapters; the helper does not rewrite production tasks or sandbox arbitrary callbacks. The lifecycle-hook example shares its workflow builder between its Rakefile and complete consumer spec.
+The optional `ruby-gem-release/rspec` helper lets projects test their real workflow configuration with local Git, registry, and hosting adapters, without an RSpec runtime dependency. It does not rewrite production tasks or sandbox callbacks. See [Testing Custom Workflows](docs/testing.md); this repository's own suites are described in [CONTRIBUTING.md](CONTRIBUTING.md#tests).
 
 ## Self-Release and Artwork
 
-The manual `publish.yml` caller uses the root Rakefile and Ruby 4.0; merges and schedules do not publish. Every dispatch requires release authorization. Its project-local `ReleaseVersion` configures the decorator to update README and documentation pins during the next development iteration, after the release tag exists. See the [self-release walkthrough](examples/self_release/README.md).
+This project releases itself with the manual `publish.yml` caller; see the [self-release walkthrough](examples/self_release/README.md).
 
-`assets/logo.png` is an AI-generated faceted ruby with an upward release arrow, approved by the maintainer. It replaces the original AI-generated ruby rocket from [#5](https://github.com/dblock/ruby-gem-release/pull/5); neither image has an editable source. The arrow-above-gem composition follows the sibling [JavaScript package release](https://github.com/dblock/npm-package-release) and [Rust crate release](https://github.com/dblock/rust-crate-release) logos. Preserve this provenance and the 160-pixel README placement. Replacements should be centered, text-free red faceted rubies with an upward release motif and transparent background. Generation is not deterministic; inspect the full-size image and README rendering for clipping and legibility.
+`assets/logo.png` is an AI-generated faceted ruby with an upward release arrow, approved by the maintainer. It replaces the original AI-generated ruby rocket from [#5](https://github.com/dblock/ruby-gem-release/pull/5). Neither image has an editable source. The arrow-above-gem layout matches the sibling [JavaScript package release](https://github.com/dblock/npm-package-release) and [Rust crate release](https://github.com/dblock/rust-crate-release) logos. Keep this provenance and the 160-pixel README placement. A replacement should be a centered, text-free, red faceted ruby with an upward release motif on a transparent background. Generation is not deterministic, so inspect the full-size image and README rendering for clipping and legibility.

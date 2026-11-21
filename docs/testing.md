@@ -1,10 +1,10 @@
 # Testing Custom Workflows
 
-Tests for a project's `ruby-gem-release` configuration should exercise the installed gem and the project's own release tasks. A focused test can verify a custom version object or callback, while a disposable consumer test can catch integration regressions across the workflow.
+Test your release setup by running your real release tasks against the installed gem. A focused spec can check one custom object or callback; a throwaway project catches problems across the whole release.
 
 ## Isolate the Release
 
-Load the optional `ruby-gem-release/rspec` helper and include `RubyGemRelease::RSpec` in an example group. It does not add an RSpec runtime dependency or change production release tasks.
+Require the optional `ruby-gem-release/rspec` helper and include `RubyGemRelease::RSpec`. It adds no runtime dependency and does not change your release tasks.
 
 ```ruby
 require 'ruby-gem-release/rspec'
@@ -26,17 +26,21 @@ RSpec.describe 'My release configuration' do
 end
 ```
 
-See the [complete spec](../examples/lifecycle_hooks/spec/release_spec.rb) for all fixture files. It exercises the [same workflow builder](../examples/lifecycle_hooks/release_workflow.rb) as the example's production Rakefile, so deleting a hook breaks the spec instead of leaving a separate test configuration working.
+The [complete spec](../examples/lifecycle_hooks/spec/release_spec.rb) uses the [same workflow builder](../examples/lifecycle_hooks/release_workflow.rb) as the example's real Rakefile, so removing a hook breaks it.
 
-`with_release_project` creates a temporary checkout, local bare `origin`, and private artifact directory, then cleans them up even if the spec fails. `project.write(path, content)` creates files; `commit!` commits and pushes fixture edits to that local remote. No files or commits are changed in your working checkout.
+`with_release_project` creates a temporary checkout, a local bare `origin`, and a private artifact directory, and deletes them afterwards even if the spec fails. Your own checkout is never touched.
 
-`release!` runs capture, validation, preparation, resolution, checkpoint, publication, development bump, and success in separate Rake processes. Pass `test_task: 'verify_release'` to run a fixture-specific check after resolution; the default skips the project's test suite to avoid recursively running this spec. Use `run_task('release:prepare')` for individual tasks and `git(...)` or `remote_file(ref, path)` to inspect results.
+- `project.write(path, content)` creates a file.
+- `project.commit!` commits fixture changes and pushes them to the local `origin`.
+- `project.release!` runs every release step, from capture to success, each in its own Rake process. It skips your test suite so the spec does not run itself; pass `test_task: 'verify_release'` to run a fixture check after resolution.
+- `project.run_task('release:prepare')` runs one task.
+- `project.git(...)` and `project.remote_file(ref, path)` inspect the result.
 
-The child processes retain Ruby/Bundler paths but do not inherit Actions variables, credentials, Git overrides, or outer release state. `project.environment` lets you add explicit fixture inputs. The helper uses the currently loaded release gem and parent bundle.
+Child processes keep Ruby and Bundler paths but not Actions variables, credentials, Git overrides, or outer release state. Add inputs with `project.environment`. The helper uses the currently loaded release gem and bundle.
 
 ## Copy Fixture Files
 
-Copy real project files instead of duplicating their contents in the spec. `path:` is the source directory; `files:` accepts a single relative path or glob, or an array mixing both:
+Copy real project files instead of repeating them in the spec. `path:` is the source directory; `files:` takes a relative path, a glob, or an array of both:
 
 ```ruby
 source_root = File.expand_path('..', __dir__)
@@ -49,17 +53,27 @@ project.copy_files(path: source_root, files: '**/*.{js,md}')
 project.copy_files(path: source_root, files: ['README.md', 'lib/**/*.rb', 'bin/*'])
 ```
 
-Omitting `files:` or passing `nil` copies all files recursively. An empty array copies nothing. Existing exact paths take precedence over glob syntax, so a file named `[notes].md` is copied literally. Overlapping selectors copy each relative file only once.
+- Omitting `files:` or passing `nil` copies everything; an empty array copies nothing.
+- An existing exact path wins over glob syntax, so `[notes].md` is copied literally.
+- Each file is copied once, even if several selectors match.
+- `.git` is always skipped; paths or patterns that name it are rejected.
+- Git ignore rules do not apply, so select only what you need to avoid copying dependencies and build outputs.
+- Empty directories are not copied.
 
-Globs are matched relative to `path:`, not the current directory. Supported patterns include `*`, `?`, character classes such as `[ab]` or `[a-z]`, brace alternatives such as `*.{rb,md}`, and recursive `**/`. A leading `./` is accepted. `*` does not cross directory separators; use `**/*` for all nested files. Hidden files and hidden directories participate in matching, including with `**/*`. Git ignore rules are not applied, so select only the files needed by your fixture to avoid copying dependency directories and build outputs.
+Globs match relative to `path:` and support `*`, `?`, `[ab]` or `[a-z]`, `*.{rb,md}`, recursive `**/`, and a leading `./`. `*` stays within one directory; use `**/*` for nested files. Hidden files match too. Globs select files, not directories, and never follow symbolic-link directories. A matched symbolic link must point to a regular file inside the source root; its contents are copied.
 
-Whole-project copying and glob expansion skip `.git` files and directories at every level to preserve the fixture's isolated repository. Explicit paths or patterns containing a `.git` component are rejected. Glob expansion selects files rather than ordinary directories and never traverses symbolic-link directories. A matched symbolic link must resolve to a regular file inside the source root; its contents are copied, not the link itself.
+Copying keeps relative paths, content, and file modes, and overwrites existing destination files. These fail:
 
-Copying preserves relative paths, binary content, and file modes, and replaces selected destination files. Missing literal files, patterns matching no files, explicit directory entries, absolute paths, Git metadata, and paths or symbolic links that escape either root are rejected. Every selector must match at least one file. All selected sources and destinations are checked before any copying, so a bad selector or escaping destination link cannot leave a partially copied fixture. Empty directories are not copied.
+- missing files, or patterns that match nothing (every selector must match at least one file);
+- directories named explicitly;
+- absolute paths;
+- paths or symbolic links that leave either root.
+
+Everything is checked before copying starts, so a failure never leaves a half-copied fixture.
 
 ## Local Publication
 
-Keep the project's real version object, changelog, and hooks. For a project exposing `GrapeRelease.workflow` in `tasks/release.rb`, configure the fixture after copying that file and its dependencies:
+Keep your real version object, changelog, and hooks. For a project that builds its workflow with `GrapeRelease.workflow` in `tasks/release.rb`, copy that file and its dependencies, then:
 
 ```ruby
 project.configure_workflow(
@@ -68,11 +82,11 @@ project.configure_workflow(
 )
 ```
 
-`configure_workflow` writes only the fixture's Rakefile. It requires `ruby-gem-release/rspec`, loads the copied Ruby file, calls the builder with the existing local `Provider`, `Destination`, and `Hosting` adapters, and invokes `install_tasks`. Production configuration is unchanged; `release!` and `run_task` still execute the same release tasks in separate processes.
+`configure_workflow` writes only the fixture's Rakefile. It loads your file, calls your builder with the helper's local `Provider`, `Destination`, and `Hosting` adapters, and calls `install_tasks`. `release!` and `run_task` still run the real tasks.
 
-`require:` is a path inside the checkout, with or without `.rb`. Absolute paths, Git metadata, and paths or symbolic links escaping the checkout are rejected. The path is encoded as a Ruby string literal. `builder:` must be a constant path and method, such as `MyProject::Release.workflow`, not an arbitrary Ruby expression. Invalid arguments are rejected before replacing the Rakefile.
+`require:` is a path inside the checkout, with or without `.rb`; absolute paths, Git metadata, and paths that leave the checkout are rejected. `builder:` must be a constant and method, such as `MyProject::Release.workflow`, not arbitrary Ruby. Invalid arguments fail before the Rakefile changes.
 
-For custom setup or adapter options, keep using `project.write('Rakefile', ...)`. For example:
+For custom setup or adapter options, write the Rakefile yourself:
 
 ```ruby
 project.write('Rakefile', <<~RUBY)
@@ -87,14 +101,18 @@ project.write('Rakefile', <<~RUBY)
 RUBY
 ```
 
-The provider transports exported values and failed-task information between fixture processes. The destination and hosting adapters copy the exact built archive to `registry/VERSION.gem` and `hosting/VERSION.gem` under `RELEASE_DATA_DIR`, without authentication or network publication. Repetition accepts identical archives and rejects checksum conflicts. Set `failure: 'Publication rejected'` on either adapter to exercise a failure.
+- `Provider` passes exported values and failed-task details between fixture processes.
+- `Destination` and `Hosting` copy the exact built gem to `registry/VERSION.gem` and `hosting/VERSION.gem` under `RELEASE_DATA_DIR`, without authentication or network calls. A repeat accepts an identical gem and rejects a different checksum.
+- Pass `failure: 'Publication rejected'` to either adapter to simulate a failure.
 
-These are explicit replacements, not a sandbox: custom callbacks can still make external calls. Keep all Git remotes local, replace every external publication boundary, and never dispatch a publishing Actions workflow from these specs.
+These adapters are not a sandbox; custom callbacks can still reach the network. Keep all Git remotes local, replace every external publication step, and never trigger a publishing Actions workflow from these specs.
 
 ## Check Project-Specific Behavior
 
-Test the behavior your project added, not only that release tasks are registered. Assert the exact README content in both the release tag and the next development commit. This catches a later change that removes the README update even though the gem's standard release still succeeds.
+Test what your project adds, not just that the tasks exist. For example, check the exact README text in both the release tag and the next development commit, which catches a change that silently drops the README update. Where relevant, also test that:
 
-Also cover failures and reruns where they matter to the customization: assert that rejected publication leaves the remote release ref unchanged, expected recovery artifacts remain available, and repeating a successful operation does not move immutable release tags or change already-prepared files.
+- a rejected publication leaves the remote release ref unchanged;
+- recovery artifacts remain available;
+- repeating a successful step does not move tags or change prepared files.
 
-The [self-release example](../examples/self_release/README.md) also has a [focused version spec](../spec/release_version_spec.rb) covering README and documentation pins. The [portable integration specs](../spec/integration/consumer/portable_release_spec.rb) reuse the helper for more extensive cross-process and failure coverage.
+See also the [self-release example](../examples/self_release/README.md) and its [version spec](../spec/release_version_spec.rb), and the [portable integration specs](../spec/integration/consumer/portable_release_spec.rb) for broader cross-process and failure coverage.

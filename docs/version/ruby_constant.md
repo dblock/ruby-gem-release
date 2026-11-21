@@ -1,6 +1,6 @@
 # `RubyGemRelease::Version::RubyConstant`
 
-Reads and updates numeric `MAJOR.MINOR.PATCH` versions without evaluating the version file. Version objects are local to your configuration; [Tasks](../tasks.md) requires no version strategy.
+Reads and updates a numeric `MAJOR.MINOR.PATCH` version assigned to a Ruby constant, without running the file. You only need a version object for your own configuration; [Tasks](../tasks.md) does not require one.
 
 ```ruby
 require 'ruby-gem-release/version/ruby_constant'
@@ -10,26 +10,26 @@ version = RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.r
 
 ## Path
 
-The required `path:` argument identifies the version file.
+`path:` is required: the version file.
 
 ## Constant
 
-The required `constant:` argument names the Ruby constant, such as `'VERSION'`. The file must contain exactly one quoted assignment to that constant.
+`constant:` is required, such as `'VERSION'`. The file must have exactly one quoted assignment to it.
 
 ## Read
 
-`version.read` returns the current version string.
+`version.read` returns the version string.
 
 ## Set
 
-`version.set!('1.2.3')` writes and returns the supplied version, preserving surrounding file content. Invalid versions or ambiguous assignments fail without writing the file.
+`version.set!('1.2.3')` writes and returns the version, leaving the rest of the file unchanged. An invalid version or ambiguous assignment raises without writing.
 
 ## Increment
 
-`version.increment!` writes and returns the next patch version. Use `part: :minor` or `part: :major` to increment those components and reset lower ones.
+`version.increment!` writes and returns the next patch version. `part: :minor` or `part: :major` bumps those and resets lower parts.
 
-Pass `from: release.version` to `increment!` to write the same development version on every attempt instead of incrementing the current file twice. `next_version(part: :patch, from: read)` computes that value without editing files.
+Pass `from: release.version` so retries write the same version instead of bumping twice. `next_version(part: :patch, from: read)` computes it without writing.
 
 ## Release References
 
-Wrap the version in [`References`](references.md) to update selected release references during the next development bump.
+Wrap it in [`References`](references.md) to update version references in other files during the next development bump.

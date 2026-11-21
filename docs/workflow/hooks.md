@@ -1,6 +1,6 @@
 # Lifecycle Hooks
 
-The [standard](ruby_gem.md), [semantic](semantic_ruby_gem.md), and [reviewed](reviewed_ruby_gem.md) workflows support ordered `before` and `after` hooks for the stages they run. Register them before `install_tasks`:
+Hooks run your code before or after a release stage in the [standard](ruby_gem.md), [semantic](semantic_ruby_gem.md), and [reviewed](reviewed_ruby_gem.md) workflows. Register them before `install_tasks`:
 
 ```ruby
 workflow.before(:validate) { |ctx| validate_project_notes(ctx) }
@@ -10,40 +10,50 @@ workflow.after(:prepare_next) { |ctx| update_development_readme(ctx) }
 workflow.install_tasks
 ```
 
-For each stage, before hooks run in registration order, then the built-in operation, then after hooks in registration order if it succeeded. Hooks add behavior; they do not replace versioning, changelog, publication, Git, hosting, or validation.
+Each stage runs its before hooks, the built-in step, then its after hooks, each in registration order. After hooks run only if the step succeeded. Hooks add behavior; they never replace versioning, changelog, publication, Git, hosting, or validation.
 
-Use the built-in [changelog contribution template options](../changelog/keep_a_changelog.md#contribution-templates) for placeholder removal and category restoration rather than implementing those operations as hooks.
-
-For README updates, use the [Markdown section helper](../markdown.md) to validate and replace one heading's body while keeping project-specific wording in the hook.
+To remove changelog placeholders or restore categories, use the [changelog contribution template options](../changelog/keep_a_changelog.md#contribution-templates) instead of a hook. To update a README section, use the [Markdown section helper](../markdown.md) in your hook.
 
 ## Context
 
-Hooks receive an immutable execution context with the configured `ctx.workflow` and current `ctx.release`. `ctx.stage`, `ctx.hook`, and `ctx.hook_index` identify the stage, timing, and one-based position. Before capture, `ctx.release` is `nil`; semantic hooks see `ctx.analysis` and the selected version after validation. Next-version hooks see `ctx.release.next_version` after development preparation.
+Hooks receive a read-only context:
+
+- `ctx.workflow` is the configured workflow.
+- `ctx.release` is the current release. It is `nil` before `capture`.
+- `ctx.stage`, `ctx.hook` (`:before` or `:after`), and `ctx.hook_index` (from 1) identify the hook.
+- In semantic workflows, `ctx.analysis` and the selected version are available after `validate`.
+- `ctx.release.next_version` is set after `prepare_next`.
 
 ## Order
 
-All stages below support both hook timings. This is the Actions sequence; a direct Rake task runs only its own stages.
+Every stage below supports both timings. This is the Actions order; a Rake task run directly runs only its own stages.
 
-- Setup: `capture` → `validate` → `prepare_release` → `resolve_version`. The prepared-release `test` command follows; it is not a hook stage.
-- Checkpoint: `checkpoint` wraps `commit_release` → `build_package` → `tag_release`.
-- Publication: Actions preserve artifacts, then run `authenticate` → `commit_release` → `build_package` → `tag_release` → `publish_registry` → `push_release` → `publish_hosted_release` (if hosting is enabled).
-- Next development: `prepare_next` → `commit_next` → `push_next` → `success`.
-- Failure: `failure` runs through the existing failure-reporting task.
+1. Setup: `capture`, `validate`, `prepare_release`, `resolve_version`. The `test` command runs next; it is not a hook stage.
+2. Checkpoint: `checkpoint`, which wraps `commit_release`, `build_package`, and `tag_release`.
+3. Publication: Actions saves artifacts, then runs `authenticate`, `commit_release`, `build_package`, `tag_release`, `publish_registry`, `push_release`, and `publish_hosted_release` (when hosting is enabled).
+4. Next development version: `prepare_next`, `commit_next`, `push_next`, `success`.
+5. On failure: `failure`, inside the failure-reporting task.
 
-Actions run the checkpoint before publication, so `commit_release`, `build_package`, and `tag_release` hooks run twice. Standalone `release:publish` authenticates and runs those three stages once. `push_release` pushes the release commit and tag; `push_next` pushes only the development commit. Artifact preservation and authentication are not part of the checkpoint.
+In Actions, `commit_release`, `build_package`, and `tag_release` hooks run twice: in the checkpoint and again in publication. `release:publish` run on its own authenticates and runs them once. `push_release` pushes the release commit and tag; `push_next` pushes only the development commit.
 
 ## Safe Edits and Retries
 
-Only `prepare_release` and `prepare_next` are file-editing stages. Both hook timings run inside `git.stage_changes!`, before the release or next-development commit. If a hook raises, later hooks and that stage's after hooks do not run; the release stops, but partial working files are not rolled back.
+Edit files only in `prepare_release` and `prepare_next` hooks. These hooks run inside `git.stage_changes!`, so their edits go into the release or next-development commit. If a hook raises, later hooks and the stage's after hooks are skipped and the release stops. Changed files are not rolled back.
 
-Use other hooks to validate or observe. Publication rebuilds the package after the Actions checkpoint, so edits to generated artifacts may be replaced. Preserve existing publication ordering and concurrency checks when replacing workflow operations.
+Use other hooks only to check or observe. Publication rebuilds the package, so edits to built files may be lost. If you replace a workflow operation, keep its publication order and concurrency checks.
 
-Hooks may run again when a task or Actions job is retried; make them idempotent. Authentication hooks are skipped when the destination confirms publication, hosting hooks are skipped when hosting is disabled, and semantic development hooks are skipped when `bump: false`. Each Actions process reloads the Rakefile and registers hooks again; callbacks are not serialized.
+Retried tasks and jobs run hooks again, so make them safe to repeat. Some hooks are skipped:
+
+- `authenticate` hooks, when the destination shows the version is already published;
+- hosting hooks, when hosting is disabled;
+- semantic development hooks, when `bump: false`.
+
+Each Actions step reloads the Rakefile and registers hooks again; nothing is saved between steps.
 
 ## Callbacks and Failures
 
-Existing `success:` and `failure:` callbacks run inside their stages, between before and after hooks. Use `before(:validate)` or `after(:validate)` to add checks; the existing `validate:` option still replaces validation.
+`success:` and `failure:` callbacks run inside their stages, between before and after hooks. To add checks, use `before(:validate)` or `after(:validate)`; the `validate:` option replaces validation entirely.
 
-Hook exceptions keep their original class and message and are recorded as `failure.error.stage`, `.hook`, and `.hook_index`. Built-in failures have no hook timing or index. `failure.phase` remains the enclosing task or Actions step.
+A hook exception keeps its class and message, and the failure records `failure.error.stage`, `.hook`, and `.hook_index`. Built-in failures have no hook or index. `failure.phase` is the task or Actions step that failed.
 
-See the [consumer example](../../examples/lifecycle_hooks/Rakefile) for project-local edits using the standard workflow, its [complete release spec](../../examples/lifecycle_hooks/spec/release_spec.rb), and [testing helpers](../testing.md).
+For a full example, see the [consumer Rakefile](../../examples/lifecycle_hooks/Rakefile), its [release spec](../../examples/lifecycle_hooks/spec/release_spec.rb), and the [testing helpers](../testing.md).

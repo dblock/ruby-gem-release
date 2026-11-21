@@ -1,38 +1,34 @@
 # `RubyGemRelease::Package::RubyGem`
 
-Owns gem metadata, building, and artifact verification independently of the publication destination. Commands use argument arrays rather than shell interpolation. Registry operations belong to [`Destination`](../destination.md).
+Builds and checks a `.gem` archive from your gemspec. Publishing is done by a [`Destination`](../destination.md). Commands use argument arrays, not a shell.
 
 ## Gemspec
 
-`RubyGem.new(gemspec: 'example.gemspec')` selects an explicit specification; otherwise it uses `GEMSPEC_PATH` or the only root gemspec. Missing or ambiguous selections fail. The standard workflow uses this package during capture and resolution, exporting its absolute `gemspec` path.
+`RubyGem.new(gemspec: 'example.gemspec')` uses that gemspec. Otherwise it uses `GEMSPEC_PATH` or the only gemspec in the root; none or several raise. `gemspec` returns the absolute path, which the standard workflow exports.
 
 ## Directory
 
-The optional `directory:` defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory, created when first used. The standard workflow supplies the execution provider's directory explicitly; Actions capture also exports it for manual callbacks and subsequent processes. `directory` returns this location. Keep it outside the working tree so build artifacts do not enter release commits.
+`directory:` is where build output goes. It defaults to a nonempty `RELEASE_DATA_DIR` or a new temporary directory, created on first use, and `directory` returns it. The standard workflow passes the execution provider's directory, which Actions also exports for later steps. Keep it outside the working tree so build output stays out of release commits.
 
 ## Version
 
-`version` reads the gemspec version in a fresh Ruby process so callback edits are visible even if the specification was previously loaded.
+`version` reads the gemspec version in a new Ruby process, so it sees callback edits.
 
 ## Build
 
-`build!(release)` overwrites `release.gem`, checks its version, and records its name, version, and checksum in `release.json`. It returns the package filename. Call it after the release commit and before tagging; `Git#tag!` rejects build mutations in the checkout.
+`build!(release)` overwrites `release.gem`, checks its version, writes its name, version, platform, and checksum to `release.json`, and returns the [artifact](#artifact) path. Call it after the release commit and before tagging; `Git#tag!` raises if the build changed the checkout. `built?(release)` checks existing output without building.
 
-Builds use `SOURCE_DATE_EPOCH` for the gemspec date and archive timestamps. Workflow capture supplies the committer timestamp of the original source commit, not the generated release commit; an explicit value takes precedence. Direct builds without capture or an override retain RubyGems' fixed default `1980-01-02T00:00:00Z`.
+Builds are reproducible. `SOURCE_DATE_EPOCH` sets the gemspec date and archive timestamps. Workflow capture sets it to the committer time of the original source commit, not the release commit; an explicit value wins. Without either, RubyGems uses `1980-01-02T00:00:00Z`.
 
-Reproduce a release from the same source commit: equivalent files in another commit can have a different timestamp. Toolchains, generated files, gemspecs, and signing inputs must also remain stable. No previous archive is needed; partial output is overwritten. `built?(release)` verifies an existing archive and manifest without building.
-
-The standard Actions workflow builds at checkpoint and again during publication. Each build writes the same reproducible archive and digest manifest; direct builds overwrite prior output.
+To rebuild a release, use the same source commit (the same files in another commit get another timestamp) and keep toolchains, generated files, gemspecs, and signing inputs the same. The old archive is not needed. The Actions workflow builds at the checkpoint and again at publication, producing the same archive both times.
 
 ## Artifact
 
-`artifact(release)` verifies the built name, version, platform, and digest and returns a copy named `NAME-VERSION.gem` for the ruby platform or `NAME-VERSION-PLATFORM.gem` otherwise. Registry destinations and hosted releases use those exact bytes. Digest manifests record the platform; older manifests without one are accepted only for ruby-platform archives.
-
-Verification checks the retained archive against the manifest and validates its gem metadata before publication. `artifact(release)` copies the verified canonical archive to its name-and-version path.
+`artifact(release)` checks the archive against the manifest (name, version, platform, digest, and gem metadata), copies it to `NAME-VERSION.gem` (or `NAME-VERSION-PLATFORM.gem` for non-ruby platforms), and returns that path. Registries and hosted releases publish these exact bytes. Older manifests without a platform work only for ruby-platform gems.
 
 ## Content Audit
 
-An optional `audit:` verifies archive contents during every build and artifact read, including reopened archives. Use project-owned expectations independent of file selection in the gemspec:
+`audit:` checks the files in the archive on every build and artifact read, including reopened archives. List expected files yourself, not from the gemspec:
 
 ```ruby
 require 'ruby-gem-release/package/content_audit'
@@ -46,10 +42,13 @@ audit = RubyGemRelease::Package::ContentAudit.new(
 package = RubyGemRelease::Package::RubyGem.new(audit: audit)
 ```
 
-The expected list must exactly match the archive: both omitted runtime files and accidentally included developer files fail. Relative paths must be safe and unique; archive entries must be regular files. Each file not listed as generated must match its Git blob byte for byte. `source:` resolves to a commit on each verification; supply an explicit commit hash when auditing retained artifacts from an earlier checkout. `root:` selects the Git checkout and defaults to the current directory.
+- `expected_files:` must match the archive exactly, so missing runtime files and stray developer files both raise. Paths must be safe and unique, and entries must be regular files.
+- Every file not in `generated:` must match its Git version byte for byte.
+- `source:` (default `'HEAD'`) resolves to a commit on each check; pass a commit SHA to audit a kept archive from an earlier checkout.
+- `root:` is the Git checkout and defaults to the current directory.
 
-Generated files must appear in both `expected_files:` and `generated:`; only their source-byte comparison is waived. They remain subject to package checksums and exact file-list validation. Generated bytes require project-specific compilation and consumer checks. Never derive expectations from the archive itself or reuse an unchecked gemspec file list.
+Generated files must be in both `expected_files:` and `generated:`. Only the Git comparison is skipped; checksums and the file list still apply. Test generated bytes with your own build and consumer checks. Never derive expectations from the archive or an unchecked gemspec file list.
 
 ## Errors
 
-Build failures, version mismatches, and changed artifacts raise. The package does not contact a registry or upload files; see [`Destination::RubyGems`](../destination/ruby_gems.md) for publication and duplicate-version safeguards.
+Build failures, version mismatches, and changed archives raise. The package never contacts a registry; see [`Destination::RubyGems`](../destination/ruby_gems.md) for publishing and duplicate-version checks.
