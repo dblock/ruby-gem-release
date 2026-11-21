@@ -46,6 +46,19 @@ The package uses `GEMSPEC_PATH` or the only root gemspec. Repository, branch, an
 
 When adding project-specific release customizations, use optional `ruby-gem-release/rspec` helpers to test the real workflow in a disposable consumer repository and inspect its commits and release-managed files; see [Testing Custom Workflows](testing.md).
 
+### Bundler Release Tasks
+
+Projects that load `bundler/gem_tasks` or call `Bundler::GemHelper.install_tasks` keep the Bundler `rake release` task, which builds, tags, and pushes locally, then publishes with the RubyGems credentials of whoever runs it. The `release:rubygem_push` and `release:source_control_push` tasks it depends on share the `release:` prefix with these tasks and can be run directly. To make the workflow the only release path, replace all three after Bundler installs them:
+
+```ruby
+%w[release release:rubygem_push release:source_control_push].each do |name|
+  Rake::Task[name].clear
+  task(name) { abort "#{name} is disabled; releases run through GitHub Actions" }
+end
+```
+
+`clear` also removes their prerequisites, so nothing is built or tagged before the task aborts. The Bundler `build` and `install` tasks remain available, and ruby-gem-release's `release:*` tasks are unaffected.
+
 ## Object Overrides
 
 Override `package:`, `destination:`, `git:`, `hosting:`, or `provider:` without changing the sequence. For example, disable hosted releases while retaining RubyGems publication:

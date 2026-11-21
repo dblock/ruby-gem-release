@@ -28,6 +28,8 @@ RubyGemRelease::Workflow::RubyGem.new(
 
 These defaults select the gemspec and repository, reject empty pending notes, prepare the changelog, publish to RubyGems and GitHub Releases, and increment the patch version for the next development iteration; pass `next_version: :minor` or `:major` to [increment another part](docs/workflow/ruby_gem.md#next-version). Dates use UTC.
 
+If the Rakefile also installs the Bundler gem tasks, disable their local `release` tasks so maintainers cannot publish around the workflow; see [Bundler Release Tasks](docs/usage.md#bundler-release-tasks).
+
 ### 2. Add the Release Workflow
 
 Add `.github/workflows/release.yml` using the [sample workflow](examples/.github/workflows/release.yml), replacing the Ruby version with your project's value:
