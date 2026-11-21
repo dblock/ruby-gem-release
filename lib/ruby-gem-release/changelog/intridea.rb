@@ -102,13 +102,23 @@ module RubyGemRelease
         check_notes(section, version)
       end
 
+      # The placeholder is optional, but a differently marked copy would otherwise count as a release note.
       def remove_placeholder(section, separator)
         positions = []
-        editable_lines(section) { |line, offset| positions << offset if line.chomp == @placeholder }
-        raise ArgumentError, "expected at least one placeholder in #{@path}" if positions.empty?
-
+        editable_lines(section) do |line, offset|
+          positions << offset if line.chomp == @placeholder
+          raise ArgumentError, "placeholder #{line.strip.inspect} in #{@path} does not match the configured #{@placeholder.inspect}" if mismatched_placeholder?(line.chomp)
+        end
         positions.reverse_each { |position| section.slice!(position, placeholder_length(section, position, separator)) }
         section
+      end
+
+      def mismatched_placeholder?(line)
+        line != @placeholder && placeholder_text(line) == placeholder_text(@placeholder)
+      end
+
+      def placeholder_text(line)
+        line.strip.sub(/\A(?:[-*+]|\d+[.)])[ \t]+/, '')
       end
 
       def subsection_headings(content, position, level)

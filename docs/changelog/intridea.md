@@ -16,7 +16,7 @@ changelog = RubyGemRelease::Changelog::Intridea.new(path: 'CHANGELOG.md')
 
 ## Placeholder
 
-`placeholder:` defaults to `'- Your contribution here.'`. Set `placeholder: '* Your contribution here.'` for the alternative bullet. It must be a single nonempty line, configured identically for both phases.
+`placeholder:` defaults to `'- Your contribution here.'`. Set `placeholder: '* Your contribution here.'` for the alternative bullet. It must be a single nonempty line, configured identically for both phases. The placeholder is optional in a Next section that has release notes; contributors may replace it. A line with the placeholder's text under a different list marker, such as `* Your contribution here.` when `- Your contribution here.` is configured, fails rather than being published as a note.
 
 ## Date
 
@@ -30,9 +30,9 @@ Pass `sections:`, such as `sections: %w[Features Fixes]`, to name the subsection
 
 ## Release
 
-During `release:validate`, placeholder-only or structural-only notes fail unless the selected release already has a heading. Invalid headings and missing placeholders also fail; multiple matching placeholders are allowed.
+During `release:validate`, placeholder-only or structural-only notes fail unless the selected release already has a heading. Invalid headings and placeholders marked differently from the configured one also fail; multiple matching placeholders are allowed.
 
-`changelog.release!(release)` replaces the Next heading with the [Release](../release.md) version and date, removing every matching placeholder from that section. Missing or duplicate headings, a missing placeholder, or an existing release heading fail without writing the file.
+`changelog.release!(release)` replaces the Next heading with the [Release](../release.md) version and date, removing every matching placeholder from that section. Missing or duplicate headings, a mismatched placeholder, or an existing release heading fail without writing the file.
 
 Placeholder-only sections and sections containing only headings, comments, or reference definitions also fail without writing. Add actual release notes to the Next section before retrying; older releases do not count. There is no empty-release opt-out. See [Release Notes](base.md#release) for what counts as content.
 

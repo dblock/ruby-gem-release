@@ -32,10 +32,17 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(File.read(path)).to eq(content)
   end
 
-  it 'rejects a missing placeholder during pending-note validation' do
-    content = "## 1.0.0 (Next)\n\n- Change.\n"
+  it 'accepts notes without a placeholder during pending-note validation' do
+    File.write(path, "## 1.0.0 (Next)\n\n- Change.\n\n## 0.9.0 (2026/01/01)\n\n- Older.\n")
+    expect(described_class.new(path: path).pending?).to be(true)
+  end
+
+  it 'rejects a placeholder marked differently from the configured one without writing', :aggregate_failures do
+    content = "## 1.0.0 (Next)\n\n* Your contribution here.\n"
     File.write(path, content)
-    expect { described_class.new(path: path).pending? }.to raise_error(ArgumentError, /placeholder/)
+    expect { described_class.new(path: path).pending? }
+      .to raise_error(ArgumentError, /placeholder "\* Your contribution here\." in .*CHANGELOG.md does not match the configured "- Your contribution here\."/)
+    expect { described_class.new(path: path).release!(release) }.to raise_error(ArgumentError, /does not match the configured/)
     expect(File.read(path)).to eq(content)
   end
 
@@ -150,12 +157,13 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     expect(File.binread(path)).to eq(content)
   end
 
-  it 'rejects a missing placeholder without modifying the file' do
-    content = "## 1.0.0 (Next)\n\n- Change.\n"
-    File.write(path, content)
-    expect { described_class.new(path: path).release!(release) }
-      .to raise_error(ArgumentError, /placeholder/)
-    expect(File.read(path)).to eq(content)
+  it 'releases notes without a placeholder and restores it in the next section', :aggregate_failures do
+    File.write(path, "# Changelog\n\n## 1.0.0 (Next)\n\n- Change.\n")
+    changelog = described_class.new(path: path)
+    changelog.release!(release)
+    expect(File.read(path)).to include("## 1.0.0 (#{release.date.strftime('%Y/%m/%d')})\n\n- Change.\n")
+    changelog.prepare_next!(release.with_next_version('1.0.1'))
+    expect(File.read(path)).to start_with("# Changelog\n\n## 1.0.1 (Next)\n\n- Your contribution here.\n")
   end
 
   it 'writes release dates with a configured strftime format' do
