@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.1 (Next)
+## 0.10.0 (Next)
 
 - [#90](https://github.com/dblock/ruby-gem-release/pull/90): Publish the released changelog section as GitHub Release notes in the standard workflow instead of generated notes, read before any publication - [@dblock](https://github.com/dblock).
 - [#91](https://github.com/dblock/ruby-gem-release/pull/91): Accept an Intridea Next section with release notes but no contribution placeholder, rejecting a placeholder marked differently from the configured one - [@dblock](https://github.com/dblock).
