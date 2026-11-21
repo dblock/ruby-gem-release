@@ -42,4 +42,11 @@ RSpec.describe RubyGemRelease::Changelog::Notes do
     File.write(path, "## 1.2.3 (2026/11/07)\n\n### Changes\n\n<!-- comment -->\n")
     expect { reader.read('1.2.3') }.to raise_error(ArgumentError, /empty release notes/)
   end
+
+  it 'drops link definitions trailing an expanded section but keeps them otherwise' do
+    content = "## 1.0.0 (2026/11/07)\n\n- [Fix][1].\n\n[1]: https://example.com/1\n[Unreleased]: https://example.com/compare\n"
+    File.write(path, content)
+    expect(described_class.new(path: path, expand_references: true).read('1.0.0')).to eq('- [Fix](<https://example.com/1>).')
+    expect(described_class.new(path: path).read('1.0.0')).to eq("- [Fix][1].\n\n[1]: https://example.com/1\n[Unreleased]: https://example.com/compare")
+  end
 end

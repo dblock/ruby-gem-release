@@ -14,4 +14,4 @@ notes = RubyGemRelease::Changelog::Notes.new(
 
 Parsing requires the optional Commonmarker dependency. Exactly one real Markdown heading must match; fenced examples do not count. Extraction stops at the next heading of the same or higher level and rejects empty notes. Original line endings and subsection formatting are retained; surrounding whitespace is stripped.
 
-With `expand_references: true`, resolved reference links and images become inline links, including definitions elsewhere in the source. Code, unresolved references, and existing inline links remain unchanged. The source file is never written. Pass the resulting string as the release's `notes:` for hosted publication.
+With `expand_references: true`, resolved reference links and images become inline links, including definitions elsewhere in the source. Code, unresolved references, and existing inline links remain unchanged. Link reference definitions trailing the section, such as Keep a Changelog comparison links at the end of the file, are dropped. The source file is never written. Pass the resulting string as the release's `notes:` for hosted publication.

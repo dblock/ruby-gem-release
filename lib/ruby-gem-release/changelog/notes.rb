@@ -7,6 +7,8 @@ module RubyGemRelease
     class Notes
       include Markdown::Source
 
+      DEFINITION = /\A {0,3}\[[^\]\r\n]+\]:[ \t]*\S[^\r\n]*\z/
+
       def initialize(path: 'CHANGELOG.md', heading: nil, expand_references: false)
         @path = path
         @heading = heading || ->(version) { /\A\#{1,6} #{Regexp.escape(version)} \((?!Next\))[^\r\n]*\d[^\r\n]*\)\z/ }
@@ -21,10 +23,17 @@ module RubyGemRelease
         section = content[first...last]
         raise ArgumentError, "empty release notes in #{@path}" unless notes?(document(section))
 
-        @expand_references ? expanded_section(content, first, last).strip : section.strip
+        @expand_references ? without_definitions(expanded_section(content, first, last)) : section.strip
       end
 
       private
+
+      # Expanded notes no longer need link reference definitions; drops those trailing the section, as at the end of a file.
+      def without_definitions(section)
+        lines = section.strip.lines
+        lines.pop while lines.any? && (lines.last.strip.empty? || DEFINITION.match?(lines.last.chomp))
+        lines.join.strip
+      end
 
       def expanded_section(content, first, last)
         edits = section_edits(content, first, last)

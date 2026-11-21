@@ -26,6 +26,10 @@ module RubyGemRelease
       self.class.new(version: @version, gemspec_version: @gemspec_version, date: @date, next_version: version, notes: @notes)
     end
 
+    def with_notes(notes)
+      self.class.new(version: @version, gemspec_version: @gemspec_version, date: @date, next_version: @next_version, notes: notes)
+    end
+
     private
 
     def validate_metadata(date, notes)

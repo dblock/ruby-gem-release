@@ -72,7 +72,7 @@ Rerun with the same source commit and inputs, including the release date. Each t
 
 Builds overwrite local artifacts reproducibly. Capture exports the committer timestamp of the source commit as `SOURCE_DATE_EPOCH`, unless explicitly supplied; it controls the gemspec date and archive timestamps. Generated release commits do not change it. Stable toolchains, gemspecs, generated files, and signing inputs remain the caller's responsibility. RubyGems accepts an existing version only when its SHA256 matches; a differing or unavailable checksum fails.
 
-Git reuses matching release and development trees without moving tags or rewinding remote descendants. Development bumps calculate from the supplied release version, so repetition does not increment twice. GitHub replaces differing release metadata and assets; unspecified platform-generated notes are retained.
+Git reuses matching release and development trees without moving tags or rewinding remote descendants. Development bumps calculate from the supplied release version, so repetition does not increment twice. GitHub replaces differing release metadata, notes read from the changelog, and assets; unspecified platform-generated notes are retained.
 
 Actions preserves `release.gem`, its name/version/digest manifest `release.json`, and `release.bundle` before publication for 30 days. These are for manual inspection, not automatic restoration. Conflicting checksums or tags and unrelated branch advancement require investigation; do not overwrite immutable releases.
 

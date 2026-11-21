@@ -195,4 +195,4 @@ Source control objects manage release history independently of the repository's 
 
 Hosting objects publish release notes and attach package artifacts after the release tag is pushed. Set `hosting: nil` in the standard workflow, or omit the hosting publication call in custom callbacks, to disable hosted releases without disabling package publication.
 
-- [`Hosting::GitHubRelease`](hosting/github_release.md): GitHub Releases with generated notes and the exact gem attached.
+- [`Hosting::GitHubRelease`](hosting/github_release.md): GitHub Releases with changelog or generated notes and the exact gem attached.

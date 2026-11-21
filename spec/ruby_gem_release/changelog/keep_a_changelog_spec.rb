@@ -227,4 +227,12 @@ RSpec.describe RubyGemRelease::Changelog::KeepAChangelog do
     expect { described_class.new(path: path).release!(release) }.to raise_error(ArgumentError, /duplicate/)
     expect(File.read(path)).to eq(content)
   end
+
+  describe '#notes' do
+    it 'reads the newest released section without the file-level comparison links' do
+      File.write(path, "# Changelog\n\n## [Unreleased]\n\n## [1.2.3] - 2026-11-07\n\n### Fixed\n\n- Fix.\n\n" \
+                       "[Unreleased]: https://example.com/compare/v1.2.3...HEAD\n[1.2.3]: https://example.com/compare/v1.2.2...v1.2.3\n")
+      expect(described_class.new(path: path).notes('1.2.3')).to eq("### Fixed\n\n- Fix.")
+    end
+  end
 end

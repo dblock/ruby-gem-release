@@ -36,7 +36,7 @@ The optional `provider:` defaults to [`ExecutionProvider.current`](../execution_
 
 ## Hosting
 
-The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github_release.md). Custom objects implement idempotent `publish!(release, package:)`. Set `hosting: nil` to disable hosting without disabling registry publication or Git.
+The optional `hosting:` defaults to [`Hosting::GitHubRelease`](../hosting/github_release.md). Custom objects implement idempotent `publish!(release, package:)`. When the changelog implements `notes(version)`, as the built-in formats do, the hosted release receives the released section as its notes, read before any publication so a missing or empty section fails before the gem is pushed. Releases that already carry notes, such as semantic releases, keep them; changelogs without `notes` and `changelog: nil` keep platform-generated notes. Set `hosting: nil` to disable hosting without disabling registry publication or Git.
 
 ## Install Tasks
 

@@ -69,6 +69,37 @@ RSpec.describe RubyGemRelease::Workflow::RubyGem do
     %w[validate prepare publish bump].each { |phase| Rake::Task["release:#{phase}"].invoke }
   end
 
+  it 'publishes the released changelog section as hosted release notes, read before any publication', :aggregate_failures do
+    allow(objects.fetch(:changelog)).to receive(:notes).with('2.0.0') do
+      events << %i[changelog notes]
+      '- Released notes.'
+    end
+    install
+    Rake::Task['release:publish'].invoke
+    expect(events.index(%i[changelog notes])).to be < events.index(%i[destination publish!])
+    expect(objects.fetch(:destination)).to have_received(:publish!).with(have_attributes(notes: nil), package: objects.fetch(:package))
+    expect(objects.fetch(:hosting)).to have_received(:publish!).with(have_attributes(version: '2.0.0', notes: '- Released notes.'), package: objects.fetch(:package))
+  end
+
+  it 'fails before publishing anything when the released changelog section cannot be read' do
+    allow(objects.fetch(:changelog)).to receive(:notes).and_raise(ArgumentError, 'empty release notes in CHANGELOG.md')
+    install
+    expect { Rake::Task['release:publish'].invoke }.to raise_error(ArgumentError, /empty release notes/)
+    expect(objects.fetch(:destination)).not_to have_received(:publish!)
+    expect(objects.fetch(:git)).not_to have_received(:commit!)
+  end
+
+  it 'keeps platform-generated notes for changelogs without readable notes and skips reading without hosting', :aggregate_failures do
+    install
+    Rake::Task['release:publish'].invoke
+    expect(objects.fetch(:hosting)).to have_received(:publish!).with(have_attributes(notes: nil), package: objects.fetch(:package))
+    Rake.application = Rake::Application.new
+    allow(objects.fetch(:changelog)).to receive(:notes)
+    install(hosting: nil)
+    Rake::Task['release:publish'].invoke
+    expect(objects.fetch(:changelog)).not_to have_received(:notes)
+  end
+
   it 'rejects empty pending notes without invoking release operations' do
     allow(objects.fetch(:changelog)).to receive(:pending?).and_return(false)
     install

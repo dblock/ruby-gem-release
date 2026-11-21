@@ -2,6 +2,7 @@
 
 require 'date'
 require_relative '../markdown/source'
+require_relative 'notes'
 
 module RubyGemRelease
   module Changelog
@@ -27,6 +28,12 @@ module RubyGemRelease
         raise ArgumentError, "duplicate release headings in #{@path}" if matches.size > 1
 
         matches.one?
+      end
+
+      # Released section body with reference links expanded, for hosted release notes.
+      def notes(version)
+        validate_version(version)
+        Notes.new(path: @path, heading: method(:release_pattern), expand_references: true).read(version)
       end
 
       def prepare_next!(release)

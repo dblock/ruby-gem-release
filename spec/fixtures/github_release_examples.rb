@@ -319,11 +319,13 @@ RSpec.shared_context 'with a GitHub release consumer' do
       expect(run_git('-C', checkout, 'status', '--porcelain')).to eq('')
       artifact = File.join(directory, 'example-0.1.0.gem')
       publications = File.readlines(File.join(directory, 'publication.jsonl')).map { |line| JSON.parse(line) }
-      expect(publications).to eq([
-                                   [Gem.ruby, '-S', 'gem', 'push', artifact],
-                                   ['gh', 'release', 'create', 'v0.1.0', '--repo', 'owner/example', '--verify-tag',
-                                    '--title', 'v0.1.0', '--generate-notes', artifact]
-                                 ])
+      expect(publications).to match([
+                                      [Gem.ruby, '-S', 'gem', 'push', artifact],
+                                      ['gh', 'release', 'create', 'v0.1.0', '--repo', 'owner/example', '--verify-tag',
+                                       '--title', 'v0.1.0', '--notes-file', a_string_ending_with('.md'), artifact]
+                                    ])
+      hosted = JSON.parse(File.read(File.join(environment.fetch('RELEASE_TEST_SERVICE_DIRECTORY'), 'hosting.json')))
+      expect(hosted.fetch('body')).to eq("### Added\n\n- Initial functionality.")
     end
   end
 

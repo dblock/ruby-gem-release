@@ -18,6 +18,10 @@ Default validation requires an existing selected release or pending notes; other
 
 New releases require nonempty notes. Only the current section counts, ending at the next heading of equal or shallower depth. Blank lines, category headings, HTML comments or blocks, reference definitions, and the configured `Intridea` contribution placeholder are not notes. Text, lists, quotes, and code with content count. Errors identify the version and changelog path.
 
+## Notes
+
+`notes(version)` returns the released section for that version, read without editing the file. It uses the format's own release heading, expands reference links inline, and drops link definitions trailing the section, as [read-only notes](notes.md) do with `expand_references: true`. Unreleased, missing, duplicate, or empty sections raise. The [standard workflow](../workflow/ruby_gem.md#hosting) passes the result to hosting.
+
 ## Prepare Next
 
 `prepare_next!(release)` delegates the released version and the version for the next development iteration to the concrete format implementation.

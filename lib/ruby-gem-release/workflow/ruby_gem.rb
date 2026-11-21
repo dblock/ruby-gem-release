@@ -91,10 +91,18 @@ module RubyGemRelease
       end
 
       def publish(ctx)
+        hosted = hosted_release(ctx.release) if @hosting
         prepare_publication(ctx)
         run_stage(:publish_registry, ctx) { @destination.publish!(ctx.release, package: @package) }
         run_stage(:push_release, ctx) { @git.push!(ctx.release) }
-        run_stage(:publish_hosted_release, ctx) { @hosting.publish!(ctx.release, package: @package) } if @hosting
+        run_stage(:publish_hosted_release, ctx) { @hosting.publish!(hosted, package: @package) } if @hosting
+      end
+
+      # Reads changelog notes before any publication, so a missing section fails before the gem is pushed.
+      def hosted_release(release)
+        return release if release.notes || !@changelog.respond_to?(:notes)
+
+        release.with_notes(@changelog.notes(release.version))
       end
 
       def prepare_next(ctx)

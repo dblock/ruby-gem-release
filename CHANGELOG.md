@@ -2,6 +2,7 @@
 
 ## 0.9.1 (Next)
 
+- [#90](https://github.com/dblock/ruby-gem-release/pull/90): Publish the released changelog section as GitHub Release notes in the standard workflow instead of generated notes, read before any publication - [@dblock](https://github.com/dblock).
 - Your contribution here.
 
 ## 0.9.0 (2026/11/20)

@@ -220,4 +220,14 @@ RSpec.describe RubyGemRelease::Changelog::Intridea do
     File.write(path, "### 1.0.0 (2026/11/07)\n\n- Change.\n\n### 1.0.0 (2026-11-07)\n\n- Change.\n")
     expect { described_class.new(path: path).released?('1.0.0') }.to raise_error(ArgumentError, /duplicate release headings/)
   end
+
+  describe '#notes' do
+    it 'reads a released section with reference links expanded and rejects unreleased or invalid versions', :aggregate_failures do
+      File.write(path, "# Changelog\n\n## 1.3.0 (Next)\n\n- Your contribution here.\n\n## 1.2.3 (2026/11/07)\n\n- [#1][pr]: Fix.\n\n## 1.2.2 (2026/11/06)\n\n- Older.\n\n[pr]: https://example.com/pull/1\n")
+      changelog = described_class.new(path: path)
+      expect(changelog.notes('1.2.3')).to eq('- [#1](<https://example.com/pull/1>): Fix.')
+      expect { changelog.notes('1.3.0') }.to raise_error(ArgumentError)
+      expect { changelog.notes('1.2') }.to raise_error(ArgumentError, /invalid version/)
+    end
+  end
 end
