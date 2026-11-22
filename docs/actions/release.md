@@ -92,7 +92,21 @@ gem 'commonmarker', '~> 2.10', require: false
 gem 'ruby-gem-release', '0.9.0', require: false
 ```
 
-The workflow sets `BUNDLE_GEMFILE` for the whole job, so every step and default command, including the full `test` suite, uses this bundle. Commit or ignore the lockfile Bundler writes next to it; an untracked lockfile fails the clean-checkout check. In your Rakefile, wrap the release task setup in `rescue LoadError` so the main bundle works without the gem.
+The workflow sets `BUNDLE_GEMFILE` for the whole job, so every step and default command, including the full `test` suite, uses this bundle. Commit or ignore the lockfile Bundler writes next to it; an untracked lockfile fails the clean-checkout check. In your Rakefile, install the release tasks only when the gem is in the active bundle, so the main bundle works without it:
+
+```ruby
+if Gem.loaded_specs.key?('ruby-gem-release')
+  require 'ruby-gem-release/workflow/ruby_gem'
+  require 'ruby-gem-release/changelog'
+
+  RubyGemRelease::Workflow::RubyGem.new(
+    version: RubyGemRelease::Version::RubyConstant.new(path: 'lib/example/version.rb', constant: 'VERSION'),
+    changelog: RubyGemRelease::Changelog::KeepAChangelog.new
+  ).install_tasks
+end
+```
+
+Prefer this to `rescue LoadError`, which also hides a real load failure in the gem or its dependencies and silently drops the release tasks.
 
 ### Timezone
 
