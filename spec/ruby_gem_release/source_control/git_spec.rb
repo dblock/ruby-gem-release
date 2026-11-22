@@ -226,6 +226,30 @@ RSpec.describe RubyGemRelease::SourceControl::Git do
     expect(git.head).to eq(initial)
   end
 
+  it 'names the gitignore lines for unignored Ruby setup output and folds its directories', :aggregate_failures do
+    FileUtils.mkdir_p(['.bundle', 'vendor/bundle/ruby/4.0.0/gems/rake-13.3.0', 'gemfiles'])
+    File.write('.bundle/config', "BUNDLE_PATH: vendor/bundle\n")
+    30.times { |index| File.write("vendor/bundle/ruby/4.0.0/gems/rake-13.3.0/file#{index}.rb", '') }
+    File.write('Gemfile.lock', 'lock')
+    File.write('gemfiles/release.gemfile.lock', 'lock')
+    expect { git.check_clean! }.to raise_error(RuntimeError) { |error|
+      expect(error.message).to include('(4 paths):', '  ?? ".bundle/"', '  ?? "vendor/bundle/"', '  ?? "Gemfile.lock"')
+      expect(error.message).not_to include('rake-13.3.0')
+      expect(error.message).to end_with(
+        "Ruby setup wrote these into the checkout; add them to .gitignore (or commit the lockfile):\n  /vendor/bundle/\n  /.bundle/\n  /Gemfile.lock\n  /gemfiles/release.gemfile.lock"
+      )
+    }
+  end
+
+  it 'omits the lockfile advice without an untracked lockfile and the hint for other files', :aggregate_failures do
+    FileUtils.mkdir_p('vendor/bundle')
+    File.write('vendor/bundle/generated.rb', 'dependency')
+    expect { git.check_clean! }.to raise_error(%r{add them to \.gitignore:\n  /vendor/bundle/\z})
+    FileUtils.rm_rf('vendor')
+    File.write('notes.txt', 'unexpected')
+    expect { git.check_clean! }.to raise_error(RuntimeError) { |error| expect(error.message).not_to include('Ruby setup') }
+  end
+
   it 'permits ignored dependency output without staging it in release preparation' do
     File.write('.gitignore', ".bundle/\nvendor/bundle/\n")
     command('add', '.gitignore')

@@ -45,6 +45,16 @@ With these defaults, a release:
 
 If your Rakefile also installs the Bundler gem tasks, disable the local Bundler `release` tasks so nobody can publish around the workflow. See [Bundler Release Tasks](docs/usage.md#bundler-release-tasks).
 
+Every release starts by checking that the checkout is clean, and Ruby setup installs gems inside it. Add what it writes to `.gitignore`, leaving out the lockfile if you commit it:
+
+```gitignore
+/vendor/bundle/
+/.bundle/
+/Gemfile.lock
+```
+
+With a [release Gemfile](docs/actions/release.md#release-gemfile), ignore its lockfile instead, such as `/gemfiles/release.gemfile.lock`. A [dry run](docs/actions/release.md#dry-run) fails and lists any lines that are missing.
+
 ### 2. Add the Release Workflow
 
 Copy the [sample workflow](examples/.github/workflows/release.yml) to `.github/workflows/release.yml` and set your Ruby version:

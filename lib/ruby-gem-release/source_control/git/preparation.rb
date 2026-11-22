@@ -6,6 +6,11 @@ module RubyGemRelease
   module SourceControl
     class Git
       class Preparation
+        # Directories ruby/setup-ruby's bundler-cache writes into the checkout.
+        SETUP_DIRECTORIES = %w[vendor/bundle/ .bundle/].freeze
+        # The lockfile Bundler writes next to a Gemfile when none is committed.
+        SETUP_LOCKFILE = %r{(?:\A|/)(?:Gemfile\.lock|gems\.locked|[^/]+\.gemfile\.lock)\z}
+
         def initialize(directory:, &command)
           @path = File.join(directory, 'prepared-tree')
           @command = command
@@ -15,7 +20,11 @@ module RubyGemRelease
           entries = changes
           return if entries.empty?
 
-          raise unexpected_changes('Release requires a clean checkout after dependency installation', entries)
+          message = unexpected_changes('Release requires a clean checkout after dependency installation', entries)
+          ignores = setup_ignores(entries)
+          raise message if ignores.empty?
+
+          raise "#{message}\n#{setup_hint(ignores)}"
         end
 
         def stage_changes!
@@ -66,7 +75,40 @@ module RubyGemRelease
           entries
         end
 
+        # Ignore lines for untracked Ruby setup output, in a stable order.
+        def setup_ignores(entries)
+          untracked = entries.filter_map { |status, path| path if status == '??' }
+          directories = SETUP_DIRECTORIES.select { |directory| untracked.any? { |path| setup_directory(path) == directory } }
+          lockfiles = untracked.select { |path| setup_lockfile?(path) }
+          (directories + lockfiles).map { |path| "/#{path}" }
+        end
+
+        def setup_lockfile?(path)
+          !setup_directory(path) && SETUP_LOCKFILE.match?(path)
+        end
+
+        def setup_directory(path)
+          SETUP_DIRECTORIES.find { |directory| path.start_with?(directory) }
+        end
+
+        def setup_hint(ignores)
+          lockfile = ' (or commit the lockfile)' if ignores.any? { |line| SETUP_LOCKFILE.match?(line) }
+          "Ruby setup wrote these into the checkout; add them to .gitignore#{lockfile}:\n#{ignores.map { |line| "  #{line}" }.join("\n")}"
+        end
+
+        # Folds untracked files under setup directories into one line per directory.
+        def folded(entries)
+          entries.each_with_object([]) do |entry, result|
+            status, path = entry
+            directory = setup_directory(path) if status == '??'
+            next result << entry unless directory
+
+            result << ['??', directory] unless result.include?(['??', directory])
+          end
+        end
+
         def unexpected_changes(message, entries)
+          entries = folded(entries)
           details = entries.first(20).map { |status, path, source| "  #{status} #{path.inspect}#{" (from #{source.inspect})" if source}" }
           details << "  ... #{entries.size - 20} more paths" if entries.size > 20
           "#{message} (#{entries.size} paths):\n#{details.join("\n")}\n" \
